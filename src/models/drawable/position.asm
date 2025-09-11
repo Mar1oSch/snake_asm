@@ -1,3 +1,4 @@
+global POSITION_X_OFFSET, POSITION_Y_OFFSET
 global position_new, position_destroy
 
 section .rodata
