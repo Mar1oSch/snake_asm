@@ -39,7 +39,7 @@ interface_table_destroy:
     mov rbp, rsp
     sub rsp, 40
 
-    ; Expect pointer to interface_table object in RCX.
+    ; Expect pointer to INTERFACE_TABLE object in RCX.
     call free
 
     mov rsp, rbp

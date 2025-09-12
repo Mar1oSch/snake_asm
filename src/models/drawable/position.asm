@@ -4,7 +4,7 @@ global position_new, position_destroy
 section .rodata
 position:
     POSITION_X_OFFSET equ 0
-    POSITION_Y_OFFSET equ 8
+    POSITION_Y_OFFSET equ 2
 position_end:
     POSITION_SIZE equ position_end - position
 
@@ -17,18 +17,18 @@ position_new:
     mov rbp, rsp
     sub rsp, 40
 
-    ; Expect X-Position in RCX
-    ; Expect Y-Position in RDX
-    mov qword [rbp - 8], rcx
-    mov qword [rbp - 16], rdx
+    ; Expect X-Position in CX
+    ; Expect Y-Position in DX
+    mov word [rbp - 2], cx
+    mov word [rbp - 4], dx
 
     mov rcx, POSITION_SIZE
     call malloc
 
-    mov rcx, qword [rbp - 8]
-    mov [rax + POSITION_X_OFFSET], rcx
-    mov rdx, qword [rbp - 16]
-    mov [rax + POSITION_Y_OFFSET], rdx
+    mov cx, word [rbp - 2]
+    mov [rax + POSITION_X_OFFSET], cx
+    mov dx, word [rbp - 4]
+    mov [rax + POSITION_Y_OFFSET], dx
 
     mov rsp, rbp
     pop rbp

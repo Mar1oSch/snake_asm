@@ -17,7 +17,7 @@ player_new:
     sub rsp, 40
 
     cmp qword [rel PLAYER_PTR], 0
-    je .complete
+    jne .complete
 
     mov rcx, PLAYER_SIZE
     call malloc
@@ -30,5 +30,30 @@ player_new:
     pop rbp 
     ret
 
+get_player:
+    mov rax, [rel PLAYER_PTR]
+    ret
+
 player_get_points:
-    
+    mov rax, [rel PLAYER_PTR]
+    mov rax, [rax + PLAYER_POINTS_OFFSET]
+    ret
+
+player_add_points:
+    ; Expect points to add in RCX
+    mov rax, [rel PLAYER_PTR]
+    mov rax, [rax + PLAYER_POINTS_OFFSET]
+    add [rax], rcx
+    ret
+
+player_destroy:
+    ; Expect pointer to player object in RCX
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    call free
+
+    mov rsp, rbp
+    pop rbp
+    ret
