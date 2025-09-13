@@ -8,14 +8,17 @@ position:
 position_end:
     POSITION_SIZE equ position_end - position
 
+    constructor_name db "position_new", 0
+
 section .text
     extern malloc
     extern free
+    extern malloc_failed
 
 position_new:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 44
 
     ; Expect X-Position in CX
     ; Expect Y-Position in DX
@@ -24,11 +27,22 @@ position_new:
 
     mov rcx, POSITION_SIZE
     call malloc
+    test rax, rax
+    jz .failed
 
     mov cx, word [rbp - 2]
     mov [rax + POSITION_X_OFFSET], cx
     mov dx, word [rbp - 4]
     mov [rax + POSITION_Y_OFFSET], dx
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+.failed:
+    lea rcx, [rel constructor_name]
+    mov rdx, rax
+    call malloc_failed
 
     mov rsp, rbp
     pop rbp

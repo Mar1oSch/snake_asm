@@ -8,14 +8,17 @@ interface_table:
 interface_table_end:
     INTERFACE_TABLE_SIZE equ interface_table_end - interface_table
 
+    constructor_name db "interface_table_new", 0
+
 section .text
     extern malloc
     extern free
+    extern malloc_failed
 
 interface_table_new:
     push rbp
     mov rbp, rsp
-
+    sub rsp, 56
     ; Expect pointer to vtable_drawable in RCX.
     ; Expect pointer to vtable_food in RDX.
     ; 0 if there is none.
@@ -24,11 +27,22 @@ interface_table_new:
 
     mov rcx, INTERFACE_TABLE_SIZE
     call malloc
+    test rax, rax
+    jz .failed
 
     mov rcx, [rbp - 8]
     mov rdx, [rbp - 16]
     mov qword [rax + INTERFACE_VTABLE_DRAWABLE_OFFSET], rcx
     mov qword [rax + INTERFACE_VTABLE_FOOD_OFFSET], rdx
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+.failed:
+    lea rcx, [rel constructor_name]
+    mov rdx, rax
+    call malloc_failed
 
     mov rsp, rbp
     pop rbp

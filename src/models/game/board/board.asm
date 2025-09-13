@@ -8,6 +8,8 @@ board:
     BOARD_FOOD_PTR_OFFSET equ 12
 board_end:
 
+    constructor_name db "board_new", 0
+
 section .bss
     BOARD_PTR resq 1
 
@@ -16,13 +18,14 @@ section .text
     extern free
     extern snake_new, snake_draw
     extern GetStdHandle, SetConsoleScreenBufferSize, SetConsoleWindowInfo
+    extern malloc_failed
 
 board_new:
     ; Expect width in CX
     ; Expect height in DX
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 72
 
     cmp qword [rel BOARD_PTR], 0
     jne .complete
@@ -36,13 +39,15 @@ board_new:
     mul rdx
     mov rcx, rax
     call malloc
+    test rax, rax
+    jz .failed
+
     mov [rel BOARD_PTR], rax
 
     mov cx, word [rbp - 8]
     mov [rax + BOARD_WIDTH_OFFSET], cx
     mov dx, word [rbp - 16]
     mov [rax + BOARD_HEIGHT_OFFSET], dx
-
 
     mov cx, word [rbp - 8]
     mov dx, word [rbp - 16]
@@ -56,13 +61,22 @@ board_new:
     call GetStdHandle
     mov [rbp - 24], rax
 
-    mov rax, [rel BOARD_PTR]
     mov rcx, rax
+    mov rax, [rel BOARD_PTR]
     mov rdx, [rax + BOARD_WIDTH_OFFSET]
     call SetConsoleScreenBufferSize
 
 .complete:
     mov rax, qword [rel BOARD_PTR]
+    mov rsp, rbp
+    pop rbp
+    ret
+
+.failed:
+    lea rcx, [rel constructor_name]
+    mov rdx, rax
+    call malloc_failed
+
     mov rsp, rbp
     pop rbp
     ret

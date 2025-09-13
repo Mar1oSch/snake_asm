@@ -10,6 +10,8 @@ segment_struct:
 segment_struct_end:
     SEGMENT_SIZE equ segment_struct_end - segment_struct
 
+    constructor_name db "segment_new", 0
+
 section .text
     extern malloc
     extern free
@@ -17,11 +19,12 @@ section .text
     extern interface_table_new
     extern drawable_vtable_segment
     extern GetStdHandle, SetConsoleCursorPosition, WriteConsoleA
+    extern malloc_failed
 
 segment_new:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 72
 
     ; Expect X-Coordinates in CX
     ; Expect Y-Coordinates in DX
@@ -40,6 +43,8 @@ segment_new:
 
     mov rcx, SEGMENT_SIZE
     call malloc
+    test rax, rax
+    jz .failed
     mov qword [rbp - 32], rax
 
     mov rcx, [rbp - 16]
@@ -49,6 +54,15 @@ segment_new:
     mov rcx, [rbp - 8]
     mov qword [rax + SEGMENT_DIRECTION_OFFSET], rcx
     mov qword [rax + SEGMENT_NEXT_SEGMENT_PTR_OFFSET], 0
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+.failed:
+    lea rcx, [rel constructor_name]
+    mov rdx, rax
+    call malloc_failed
 
     mov rsp, rbp
     pop rbp

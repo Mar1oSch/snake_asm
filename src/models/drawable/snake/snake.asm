@@ -10,6 +10,9 @@ snake_end:
     SNAKE_SIZE equ snake_end - snake
     HEAD_CHAR equ "@"
     SEGMENT_CHAR equ "o"
+
+    constructor_name db "snake_new", 0
+
 section .bss
     SNAKE_PTR resq 1
 
@@ -19,6 +22,7 @@ section .text
     extern segment_new
     extern SEGMENT_CHAR_OFFSET, SEGMENT_INTERFACE_TABLE_PTR_OFFSET, SEGMENT_NEXT_SEGMENT_PTR_OFFSET
     extern INTERFACE_VTABLE_DRAWABLE_OFFSET, DRAWABLE_VTABLE_DRAW_OFFSET
+    extern malloc_failed
 
 snake_new:
     push rbp
@@ -36,6 +40,8 @@ snake_new:
 
     mov rcx, SNAKE_SIZE
     call malloc
+    test rax, rax
+    jz .failed
 
     mov qword [rel SNAKE_PTR], rax
     
@@ -46,6 +52,15 @@ snake_new:
 
 .complete:
     mov rax, SNAKE_PTR
+    mov rsp, rbp
+    pop rbp
+    ret
+
+.failed:
+    lea rcx, [rel constructor_name]
+    mov rdx, rax
+    call malloc_failed
+
     mov rsp, rbp
     pop rbp
     ret
@@ -101,7 +116,7 @@ snake_add_segment:
 
     mov [r10 + SEGMENT_NEXT_SEGMENT_PTR_OFFSET], rax
     mov [r10], rax
-
+    inc qword [r9 + SNAKE_LENGTH_OFFSET]
     mov rsp, rbp
     pop rbp
     ret

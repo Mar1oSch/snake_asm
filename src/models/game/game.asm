@@ -7,6 +7,8 @@ game:
 game_end:
     GAME_SIZE equ game_end - game
 
+    constructor_name db "game_new", 0
+
 section .bss
     GAME_PTR resq 1
 
@@ -14,6 +16,7 @@ section .text
     extern malloc
     extern free
     extern board_new, board_draw
+    extern malloc_failed
 game_new:
     push rbp
     mov rbp, rsp
@@ -26,12 +29,23 @@ game_new:
 
     mov rcx, GAME_SIZE
     call malloc
+    test rax, rax
+    jz .failed
 
     mov rcx, [rbp - 8]
     mov [rax + GAME_BOARD_PTR_OFFSET], rcx
 
     call board_draw
     
+    mov rsp, rbp
+    pop rbp
+    ret
+
+.failed:
+    lea rcx, [rel constructor_name]
+    mov rdx, rax
+    call malloc_failed
+
     mov rsp, rbp
     pop rbp
     ret
