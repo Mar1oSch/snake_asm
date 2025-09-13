@@ -7,6 +7,7 @@ board:
     BOARD_SNAKE_PTR_OFFSET equ 4
     BOARD_FOOD_PTR_OFFSET equ 12
 board_end:
+    BOARD_SIZE equ board_end - board
 
     constructor_name db "board_new", 0
 
@@ -38,6 +39,7 @@ board_new:
     mov rax, rcx
     mul rdx
     mov rcx, rax
+    add rcx, BOARD_SIZE
     call malloc
     test rax, rax
     jz .failed
@@ -61,10 +63,7 @@ board_new:
     call GetStdHandle
     mov [rbp - 24], rax
 
-    mov rcx, rax
-    mov rax, [rel BOARD_PTR]
-    mov rdx, [rax + BOARD_WIDTH_OFFSET]
-    call SetConsoleScreenBufferSize
+
 
 .complete:
     mov rax, qword [rel BOARD_PTR]

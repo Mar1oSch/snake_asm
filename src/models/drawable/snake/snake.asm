@@ -29,8 +29,8 @@ snake_new:
     mov rbp, rsp
     sub rsp, 40
 
-    cmp qword [rel SNAKE_PTR], 0
-    jne .complete
+    ; cmp qword [rel SNAKE_PTR], 0
+    ; jne .complete
 
     ; Needs X-Coordinate of position in CX
     ; Needs Y-Coordinate of position in DX
@@ -44,10 +44,11 @@ snake_new:
     jz .failed
 
     mov qword [rel SNAKE_PTR], rax
-    
-    mov rax, [rbp - 8]
-    mov qword [rax + SNAKE_HEAD_PTR_OFFSET], rax
-    mov qword [rax + SNAKE_TAIL_PTR_OFFSET], rax
+
+    mov rcx, [rbp - 8]
+    mov qword [rax + SNAKE_VTABLE_OFFSET], 0
+    mov qword [rax + SNAKE_HEAD_PTR_OFFSET], rcx
+    mov qword [rax + SNAKE_TAIL_PTR_OFFSET], rcx
     mov qword [rax + SNAKE_LENGTH_OFFSET], 1
 
 .complete:
@@ -79,6 +80,7 @@ snake_draw:
     mov qword [rbp - 24], r13
     mov qword [rbp - 32], r12
 
+    xor r15, r15
     mov r15, [rel SNAKE_PTR]
     mov r14, [r15 + SNAKE_HEAD_PTR_OFFSET]
     mov [r14 + SEGMENT_CHAR_OFFSET], byte HEAD_CHAR
