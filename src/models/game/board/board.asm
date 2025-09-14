@@ -1,13 +1,13 @@
 global board_new, board_destroy, board_draw
 
 section .rodata
-board:
+board_struct:
     BOARD_WIDTH_OFFSET equ 0
     BOARD_HEIGHT_OFFSET equ 2
     BOARD_SNAKE_PTR_OFFSET equ 4
     BOARD_FOOD_PTR_OFFSET equ 12
-board_end:
-    BOARD_SIZE equ board_end - board
+board_end_struct:
+    BOARD_SIZE equ board_end_struct - board_struct
 
     constructor_name db "board_new", 0
 
@@ -31,15 +31,15 @@ board_new:
     cmp qword [rel BOARD_PTR], 0
     jne .complete
 
-    add rcx, 2
-    add rdx, 2
+    add cx, 2
+    add dx, 2
     mov word [rbp - 8], cx
     mov word [rbp - 16], dx
 
-    mov rax, rcx
-    mul rdx
-    mov rcx, rax
-    add rcx, BOARD_SIZE
+    mov ax, cx
+    mul dx
+    mov cx, ax
+    add cx, BOARD_SIZE
     call malloc
     test rax, rax
     jz .failed
@@ -59,11 +59,9 @@ board_new:
     mov rcx, [rel BOARD_PTR]
     mov [rcx + BOARD_SNAKE_PTR_OFFSET], rax
 
-    mov rcx, -11
-    call GetStdHandle
-    mov [rbp - 24], rax
-
-
+    ; mov rcx, -11
+    ; call GetStdHandle
+    ; mov [rbp - 24], rax
 
 .complete:
     mov rax, qword [rel BOARD_PTR]

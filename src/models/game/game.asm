@@ -1,11 +1,11 @@
 global game_new, game_destroy
 
 section .rodata
-game:
+game_struct:
     GAME_PLAYER_PTR_OFFSET equ 0
     GAME_BOARD_PTR_OFFSET equ 8
-game_end:
-    GAME_SIZE equ game_end - game
+game_end_struct:
+    GAME_SIZE equ game_end_struct - game_struct
 
     constructor_name db "game_new", 0
 
@@ -17,13 +17,14 @@ section .text
     extern free
     extern board_new, board_draw
     extern malloc_failed
+
 game_new:
+    ; Expect width in CX
+    ; Expect height in DX
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
-    mov rcx, 40
-    mov rdx, 50
     call board_new
     mov [rbp - 8], rax
 
@@ -35,7 +36,7 @@ game_new:
     mov rcx, [rbp - 8]
     mov [rax + GAME_BOARD_PTR_OFFSET], rcx
 
-    call board_draw
+    ; call board_draw
     
     mov rsp, rbp
     pop rbp

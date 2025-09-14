@@ -1,13 +1,13 @@
 global super_food_new, super_food_destroy, super_food_get_points, super_food_get_char, super_food_get_x_position, super_food_get_y_position, super_food_draw
 
 section .rodata
-super_food:
+super_food_struct:
     SUPER_FOOD_INTERFACE_TABLE_PTR_OFFSET equ 0
     SUPER_FOOD_CHAR_OFFSET equ 8
     SUPER_FOOD_POINTS_OFFSET equ 9
     SUPER_FOOD_POSITION_PTR_OFFSET equ 17
-super_food_end:
-    SUPER_FOOD_SIZE equ super_food_end - super_food
+super_food_end_struct:
+    SUPER_FOOD_SIZE equ super_food_end_struct - super_food_struct
     SUPER_FOOD_POINTS equ 250
     SUPER_FOOD_CHAR equ "§"
 

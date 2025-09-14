@@ -31,14 +31,15 @@ segment_new:
     ; Expect direction in R8
     mov qword [rbp - 8], r8
 
+    ; Save position pointer into the stack.
+    call position_new
+    mov qword [rbp - 16], rax
+
     lea rcx, [rel drawable_vtable_segment]
     mov rdx, 0
     call interface_table_new
-    mov qword [rbp - 16], rax
-
-    ; Save position pointer into the stack.
-    call position_new
     mov qword [rbp - 24], rax
+
 
 
     mov rcx, SEGMENT_SIZE
@@ -47,9 +48,9 @@ segment_new:
     jz .failed
     mov qword [rbp - 32], rax
 
-    mov rcx, [rbp - 16]
-    mov qword [rax + SEGMENT_INTERFACE_TABLE_PTR_OFFSET], rcx
     mov rcx, [rbp - 24]
+    mov qword [rax + SEGMENT_INTERFACE_TABLE_PTR_OFFSET], rcx
+    mov rcx, [rbp - 16]
     mov qword [rax + SEGMENT_POSITION_PTR_OFFSET], rcx
     mov rcx, [rbp - 8]
     mov qword [rax + SEGMENT_DIRECTION_OFFSET], rcx

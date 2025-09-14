@@ -2,11 +2,11 @@ global POSITION_X_OFFSET, POSITION_Y_OFFSET
 global position_new, position_destroy
 
 section .rodata
-position:
+position_struct:
     POSITION_X_OFFSET equ 0
     POSITION_Y_OFFSET equ 2
-position_end:
-    POSITION_SIZE equ position_end - position
+position_end_struct:
+    POSITION_SIZE equ position_end_struct - position_struct
 
     constructor_name db "position_new", 0
 

@@ -1,13 +1,13 @@
 global food_new, food_destroy, food_get_char, food_get_points, food_get_x_position, food_get_y_position, food_draw
 
 section .rodata
-food:
+food_struct:
     FOOD_INTERFACE_TABLE_PTR_OFFSET equ 0
     FOOD_CHAR_OFFSET equ 8
     FOOD_POINTS_OFFSET equ 9
     FOOD_POSITION_PTR_OFFSET equ 17
-food_end:
-    FOOD_SIZE equ food_end - food
+food_end_struct:
+    FOOD_SIZE equ food_end_struct - food_struct
     FOOD_POINTS equ 100
     FOOD_CHAR equ "~"
 

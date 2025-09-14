@@ -1,13 +1,14 @@
 global snake_new, snake_destroy, get_snake, snake_draw, snake_add_segment
 
 section .rodata
-snake:
+snake_struct:
     SNAKE_VTABLE_OFFSET equ 0
     SNAKE_LENGTH_OFFSET equ 8
     SNAKE_HEAD_PTR_OFFSET equ 16
     SNAKE_TAIL_PTR_OFFSET equ 24
-snake_end:
-    SNAKE_SIZE equ snake_end - snake
+snake_end_struct:
+    SNAKE_SIZE equ snake_end_struct - snake_struct
+    
     HEAD_CHAR equ "@"
     SEGMENT_CHAR equ "o"
 
@@ -35,6 +36,7 @@ snake_new:
     ; Needs X-Coordinate of position in CX
     ; Needs Y-Coordinate of position in DX
     ; Use them to create the head of the snake.
+    mov r8, 0
     call segment_new
     mov qword [rbp - 8], rax
 
