@@ -1,16 +1,12 @@
-global snake_new, snake_destroy, get_snake, snake_draw, snake_add_segment
+%include "../include/interface_table_struc.inc"
+%include "../include/snake/snake_struc.inc"
+%include "../include/snake/unit_struc.inc"
+
+global snake_new, snake_destroy, get_snake, snake_draw, snake_add_unit
 
 section .rodata
-snake_struct:
-    SNAKE_VTABLE_OFFSET equ 0
-    SNAKE_LENGTH_OFFSET equ 8
-    SNAKE_HEAD_PTR_OFFSET equ 16
-    SNAKE_TAIL_PTR_OFFSET equ 24
-snake_end_struct:
-    SNAKE_SIZE equ snake_end_struct - snake_struct
-    
     HEAD_CHAR equ "@"
-    SEGMENT_CHAR equ "o"
+    UNIT_CHAR equ "o"
 
     constructor_name db "snake_new", 0
 
@@ -20,27 +16,24 @@ section .bss
 section .text
     extern malloc
     extern free
-    extern segment_new
-    extern SEGMENT_CHAR_OFFSET, SEGMENT_INTERFACE_TABLE_PTR_OFFSET, SEGMENT_NEXT_SEGMENT_PTR_OFFSET
-    extern INTERFACE_VTABLE_DRAWABLE_OFFSET, DRAWABLE_VTABLE_DRAW_OFFSET
+    extern unit_new
     extern malloc_failed
-
+    extern DRAWABLE_VTABLE_DRAW_OFFSET
 snake_new:
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
-    ; cmp qword [rel SNAKE_PTR], 0
-    ; jne .complete
+    cmp qword [rel SNAKE_PTR], 0
+    jne .complete
 
     ; Needs X-Coordinate of position in CX
     ; Needs Y-Coordinate of position in DX
     ; Use them to create the head of the snake.
-    mov r8, 0
-    call segment_new
+    call unit_new
     mov qword [rbp - 8], rax
 
-    mov rcx, SNAKE_SIZE
+    mov rcx, snake_size
     call malloc
     test rax, rax
     jz .failed
@@ -48,13 +41,12 @@ snake_new:
     mov qword [rel SNAKE_PTR], rax
 
     mov rcx, [rbp - 8]
-    mov qword [rax + SNAKE_VTABLE_OFFSET], 0
-    mov qword [rax + SNAKE_HEAD_PTR_OFFSET], rcx
-    mov qword [rax + SNAKE_TAIL_PTR_OFFSET], rcx
-    mov qword [rax + SNAKE_LENGTH_OFFSET], 1
+    mov qword [rax + snake.head_ptr], rcx
+    mov qword [rax + snake.tail_ptr], rcx
+    mov qword [rax + snake.length], 1
 
 .complete:
-    mov rax, SNAKE_PTR
+    mov rax, qword [rel SNAKE_PTR]
     mov rsp, rbp
     pop rbp
     ret
@@ -69,7 +61,7 @@ snake_new:
     ret
 
 get_snake:
-    mov rax, SNAKE_PTR
+    mov rax, qword [rel SNAKE_PTR]
     ret
 
 snake_draw:
@@ -84,16 +76,16 @@ snake_draw:
 
     xor r15, r15
     mov r15, [rel SNAKE_PTR]
-    mov r14, [r15 + SNAKE_HEAD_PTR_OFFSET]
-    mov [r14 + SEGMENT_CHAR_OFFSET], byte HEAD_CHAR
+    mov r14, [r15 + snake.head_ptr]
+    mov [r14 + unit.char], byte HEAD_CHAR
 .loop:
-    mov r13, [r14 + SEGMENT_INTERFACE_TABLE_PTR_OFFSET]
-    mov r12, [r13 + INTERFACE_VTABLE_DRAWABLE_OFFSET]
+    mov r13, [r14 + unit.interface_table_ptr]
+    mov r12, [r13 + interface_table.vtable_drawable_ptr]
     call [r12 + DRAWABLE_VTABLE_DRAW_OFFSET]
-    cmp r14, [r15 + SNAKE_TAIL_PTR_OFFSET]
+    cmp r14, [r15 + snake.tail_ptr]
     je .complete
-    mov r14, [r14 + SEGMENT_NEXT_SEGMENT_PTR_OFFSET]
-    mov [r14 + SEGMENT_CHAR_OFFSET], byte SEGMENT_CHAR
+    mov r14, [r14 + unit.next_unit_ptr]
+    mov [r14 + unit.char], byte UNIT_CHAR
     jmp .loop
 
 .complete:
@@ -105,7 +97,7 @@ snake_draw:
     pop rbp
     ret
 
-snake_add_segment:
+snake_add_unit:
     ; Expect X-Coordinate in CX
     ; Expect Y-Coordinate in DX
     ; Expect direction in R8
@@ -113,14 +105,14 @@ snake_add_segment:
     mov rbp, rsp
     sub rsp, 40
 
-    call segment_new
+    call unit_new
     mov [rbp - 8], rax
     mov r9, [rel SNAKE_PTR]
-    mov r10, [r9 + SNAKE_TAIL_PTR_OFFSET]
+    mov r10, [r9 + snake.tail_ptr]
 
-    mov [r10 + SEGMENT_NEXT_SEGMENT_PTR_OFFSET], rax
+    mov [r10 + unit.next_unit_ptr], rax
     mov [r10], rax
-    inc qword [r9 + SNAKE_LENGTH_OFFSET]
+    inc qword [r9 + snake.length]
     mov rsp, rbp
     pop rbp
     ret
@@ -130,7 +122,7 @@ snake_destroy:
     mov rbp, rsp
     sub rsp, 40
 
-    mov rcx, SNAKE_PTR
+    mov rcx, [rel SNAKE_PTR]
     call free
 
     mov rsp, rbp

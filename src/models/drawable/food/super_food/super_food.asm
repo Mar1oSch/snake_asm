@@ -1,20 +1,17 @@
+%include "../include/food/super_food_struc.inc"
+%include "../include/position_struc.inc"
+%include "../include/interface_table_struc.inc"
+
 global super_food_new, super_food_destroy, super_food_get_points, super_food_get_char, super_food_get_x_position, super_food_get_y_position, super_food_draw
 
 section .rodata
-super_food_struct:
-    SUPER_FOOD_INTERFACE_TABLE_PTR_OFFSET equ 0
-    SUPER_FOOD_CHAR_OFFSET equ 8
-    SUPER_FOOD_POINTS_OFFSET equ 9
-    SUPER_FOOD_POSITION_PTR_OFFSET equ 17
-super_food_end_struct:
-    SUPER_FOOD_SIZE equ super_food_end_struct - super_food_struct
     SUPER_FOOD_POINTS equ 250
-    SUPER_FOOD_CHAR equ "§"
+    SUPER_FOOD_CHAR equ "*"
 
 section .text
     extern malloc
     extern free
-    extern position_new, POSITION_X_OFFSET, POSITION_Y_OFFSET
+    extern position_new
     extern interface_table_new
     extern food_vtable_super_food
     extern drawable_vtable_super_food
@@ -34,19 +31,19 @@ super_food_new:
     call interface_table_new
     mov qword [rbp - 16], rax
 
-    mov rcx, SUPER_FOOD_SIZE
+    mov rcx, super_food_size
     call malloc
     mov qword [rbp - 24], rax
 
     mov rcx, [rbp - 16]
-    mov qword [rax + SUPER_FOOD_INTERFACE_TABLE_PTR_OFFSET], rcx
+    mov qword [rax + super_food.interface_table_ptr], rcx
 
-    mov qword [rax + SUPER_FOOD_CHAR_OFFSET], SUPER_FOOD_CHAR
+    mov byte [rax + super_food.char], SUPER_FOOD_CHAR
 
-    mov qword [rax + SUPER_FOOD_POINTS_OFFSET], SUPER_FOOD_POINTS
+    mov qword [rax + super_food.points], SUPER_FOOD_POINTS
 
     mov rcx, [rbp - 8]
-    mov qword [rax + SUPER_FOOD_POSITION_PTR_OFFSET], rcx
+    mov qword [rax + super_food.position_ptr], rcx
 
     mov rsp, rbp
     pop rbp
@@ -58,14 +55,14 @@ super_food_get_char:
 
 super_food_get_x_position:
     ; Expect pointer to super_food_object in RCX.
-    mov rax, [rcx + SUPER_FOOD_POSITION_PTR_OFFSET]
-    mov rax, [rax + POSITION_X_OFFSET]
+    mov rax, [rcx + super_food.position_ptr]
+    mov rax, [rax + position.x]
     ret
 
 super_food_get_y_position:
     ; Expect pointer to super_food_object in RCX.
-    mov rax, [rcx + SUPER_FOOD_POSITION_PTR_OFFSET]
-    mov rax, [rax + POSITION_Y_OFFSET]
+    mov rax, [rcx + super_food.position_ptr]
+    mov rax, [rax + position.y]
     ret
 
 super_food_get_points:

@@ -1,12 +1,8 @@
+%include "../include/game/game_struc.inc"
+
 global game_new, game_destroy
 
 section .rodata
-game_struct:
-    GAME_PLAYER_PTR_OFFSET equ 0
-    GAME_BOARD_PTR_OFFSET equ 8
-game_end_struct:
-    GAME_SIZE equ game_end_struct - game_struct
-
     constructor_name db "game_new", 0
 
 section .bss
@@ -28,15 +24,13 @@ game_new:
     call board_new
     mov [rbp - 8], rax
 
-    mov rcx, GAME_SIZE
+    mov rcx, game_size
     call malloc
     test rax, rax
     jz .failed
 
     mov rcx, [rbp - 8]
-    mov [rax + GAME_BOARD_PTR_OFFSET], rcx
-
-    ; call board_draw
+    mov [rax + game.board_ptr], rcx
     
     mov rsp, rbp
     pop rbp

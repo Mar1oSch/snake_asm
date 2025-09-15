@@ -1,18 +1,15 @@
+%include "../include/game/board_struc.inc"
+
 global board_new, board_destroy, board_draw
 
 section .rodata
-board_struct:
-    BOARD_WIDTH_OFFSET equ 0
-    BOARD_HEIGHT_OFFSET equ 2
-    BOARD_SNAKE_PTR_OFFSET equ 4
-    BOARD_FOOD_PTR_OFFSET equ 12
-board_end_struct:
-    BOARD_SIZE equ board_end_struct - board_struct
-
     constructor_name db "board_new", 0
 
 section .bss
     BOARD_PTR resq 1
+
+section .data
+    small_rect dw 0, 0, 0, 0
 
 section .text
     extern malloc
@@ -20,6 +17,7 @@ section .text
     extern snake_new, snake_draw
     extern GetStdHandle, SetConsoleScreenBufferSize, SetConsoleWindowInfo
     extern malloc_failed
+    extern getchar
 
 board_new:
     ; Expect width in CX
@@ -39,7 +37,7 @@ board_new:
     mov ax, cx
     mul dx
     mov cx, ax
-    add cx, BOARD_SIZE
+    add cx, board_size
     call malloc
     test rax, rax
     jz .failed
@@ -47,9 +45,9 @@ board_new:
     mov [rel BOARD_PTR], rax
 
     mov cx, word [rbp - 8]
-    mov [rax + BOARD_WIDTH_OFFSET], cx
+    mov [rax + board.width], cx
     mov dx, word [rbp - 16]
-    mov [rax + BOARD_HEIGHT_OFFSET], dx
+    mov [rax + board.height], dx
 
     mov cx, word [rbp - 8]
     mov dx, word [rbp - 16]
@@ -57,11 +55,26 @@ board_new:
     shr dx, 1
     call snake_new
     mov rcx, [rel BOARD_PTR]
-    mov [rcx + BOARD_SNAKE_PTR_OFFSET], rax
+    mov [rcx + board.snake_ptr], rax
 
-    ; mov rcx, -11
-    ; call GetStdHandle
-    ; mov [rbp - 24], rax
+    mov rcx, -11
+    call GetStdHandle
+    mov rcx, [rel BOARD_PTR]
+    mov [rcx + board.console_handle], rax
+
+    mov rcx, [rel BOARD_PTR + board.console_handle] ; HANDLE in rcx
+    movzx rdx, word [rel BOARD_PTR + board.width]           ; width in cx
+    movzx r8, word [rel BOARD_PTR + board.height]          ; height in dx
+    call SetConsoleScreenBufferSize
+
+    mov rcx, [rel BOARD_PTR + board.console_handle]
+    mov rdx, 1
+    lea r8, [rel small_rect]
+    movzx rax, word [rel BOARD_PTR + board.width]
+    mov [r8 + 4], ax
+    movzx rax, word [rel BOARD_PTR + board.height]
+    mov [r8 + 6], ax
+    call SetConsoleWindowInfo
 
 .complete:
     mov rax, qword [rel BOARD_PTR]
@@ -84,7 +97,8 @@ board_draw:
     sub rsp, 40
 
     mov rax, [rel BOARD_PTR]
-    mov rcx, [rax + BOARD_SNAKE_PTR_OFFSET]
+    mov rcx, [rax + board.snake_ptr]
+    mov rdx, rax
     call snake_draw
 
     mov rsp, rbp
@@ -104,7 +118,7 @@ board_destroy:
     ret
 
 ; .board_draw_wall:
-;     ; Expect pointer to segment object in RCX.
+;     ; Expect pointer to unit object in RCX.
 ;     push rbp
 ;     mov rbp, rsp
 ;     sub rsp, 56
@@ -116,11 +130,11 @@ board_destroy:
 
 ;     mov rcx, rax
 ;     mov rax, [rbp - 8]
-;     mov rdx, [rax + SEGMENT_POSITION_PTR_OFFSET]
+;     mov rdx, [rax + unit_POSITION_PTR_OFFSET]
 ;     call SetConsoleCursorPosition
 
 ;     mov rcx, [rbp - 16]
-;     lea rdx, [rel SEGMENT_CHAR]
+;     lea rdx, [rel unit_CHAR]
 ;     mov r8, 1
 ;     xor r9, r9
 ;     mov [rsp + 40], 0

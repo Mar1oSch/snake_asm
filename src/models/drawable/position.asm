@@ -1,13 +1,8 @@
-global POSITION_X_OFFSET, POSITION_Y_OFFSET
+%include "../include/position_struc.inc"
+
 global position_new, position_destroy
 
 section .rodata
-position_struct:
-    POSITION_X_OFFSET equ 0
-    POSITION_Y_OFFSET equ 2
-position_end_struct:
-    POSITION_SIZE equ position_end_struct - position_struct
-
     constructor_name db "position_new", 0
 
 section .text
@@ -25,15 +20,18 @@ position_new:
     mov word [rbp - 2], cx
     mov word [rbp - 4], dx
 
-    mov rcx, POSITION_SIZE
+    mov rcx, position_size
     call malloc
     test rax, rax
     jz .failed
 
+    xor rcx, rcx
+    xor rdx, rdx
+
     mov cx, word [rbp - 2]
-    mov [rax + POSITION_X_OFFSET], cx
+    mov word [rax + position.x], cx
     mov dx, word [rbp - 4]
-    mov [rax + POSITION_Y_OFFSET], dx
+    mov word [rax + position.y], dx
 
     mov rsp, rbp
     pop rbp
