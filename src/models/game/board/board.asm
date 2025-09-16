@@ -1,6 +1,6 @@
 %include "../include/game/board_struc.inc"
 
-global board_new, board_destroy, board_draw
+global board_new, board_destroy, board_draw, board_setup, get_board
 
 section .rodata
     constructor_name db "board_new", 0
@@ -8,16 +8,12 @@ section .rodata
 section .bss
     BOARD_PTR resq 1
 
-section .data
-    small_rect dw 0, 0, 0, 0
-
 section .text
     extern malloc
     extern free
-    extern snake_new, snake_draw
-    extern GetStdHandle, SetConsoleScreenBufferSize, SetConsoleWindowInfo
-    extern malloc_failed
-    extern getchar
+    extern snake_new
+    extern malloc_failed, object_not_created
+    extern GetStdHandle, printf
 
 board_new:
     ; Expect width in CX
@@ -40,7 +36,7 @@ board_new:
     add cx, board_size
     call malloc
     test rax, rax
-    jz .failed
+    jz @malloc_failed
 
     mov [rel BOARD_PTR], rax
 
@@ -56,37 +52,10 @@ board_new:
     call snake_new
     mov rcx, [rel BOARD_PTR]
     mov [rcx + board.snake_ptr], rax
-
-    mov rcx, -11
-    call GetStdHandle
-    mov rcx, [rel BOARD_PTR]
-    mov [rcx + board.console_handle], rax
-
-    mov rcx, [rel BOARD_PTR + board.console_handle] ; HANDLE in rcx
-    movzx rdx, word [rel BOARD_PTR + board.width]           ; width in cx
-    movzx r8, word [rel BOARD_PTR + board.height]          ; height in dx
-    call SetConsoleScreenBufferSize
-
-    mov rcx, [rel BOARD_PTR + board.console_handle]
-    mov rdx, 1
-    lea r8, [rel small_rect]
-    movzx rax, word [rel BOARD_PTR + board.width]
-    mov [r8 + 4], ax
-    movzx rax, word [rel BOARD_PTR + board.height]
-    mov [r8 + 6], ax
-    call SetConsoleWindowInfo
+    mov qword [rcx + board.food_ptr], 0
 
 .complete:
     mov rax, qword [rel BOARD_PTR]
-    mov rsp, rbp
-    pop rbp
-    ret
-
-.failed:
-    lea rcx, [rel constructor_name]
-    mov rdx, rax
-    call malloc_failed
-
     mov rsp, rbp
     pop rbp
     ret
@@ -96,20 +65,20 @@ board_draw:
     mov rbp, rsp
     sub rsp, 40
 
-    mov rax, [rel BOARD_PTR]
-    mov rcx, [rax + board.snake_ptr]
-    mov rdx, rax
-    call snake_draw
+    cmp qword [rel BOARD_PTR], 0
+    je @object_failed
 
     mov rsp, rbp
     pop rbp
     ret
 
 board_destroy:
-    ; Expect pointer to board object in RCX.
     push rbp
     mov rbp, rsp
     sub rsp, 40
+
+    cmp qword [rel BOARD_PTR], 0
+    je @object_failed
 
     call free
 
@@ -117,29 +86,26 @@ board_destroy:
     pop rbp
     ret
 
-; .board_draw_wall:
-;     ; Expect pointer to unit object in RCX.
-;     push rbp
-;     mov rbp, rsp
-;     sub rsp, 56
+get_board:
+    cmp qword [rel BOARD_PTR], 0
+    je @object_failed
 
-;     mov qword [rbp - 8], rcx
-;     mov rcx, -11
-;     call GetStdHandle
-;     mov qword [rbp - 16], rax
+    mov rax, [rel BOARD_PTR]
+    ret
 
-;     mov rcx, rax
-;     mov rax, [rbp - 8]
-;     mov rdx, [rax + unit_POSITION_PTR_OFFSET]
-;     call SetConsoleCursorPosition
+@object_failed:
+    lea rcx, [rel constructor_name]
+    call object_not_created
 
-;     mov rcx, [rbp - 16]
-;     lea rdx, [rel unit_CHAR]
-;     mov r8, 1
-;     xor r9, r9
-;     mov [rsp + 40], 0
-;     call WriteConsoleA
+    mov rsp, rbp
+    pop rbp
+    ret
 
-;     mov rsp, rbp
-;     pop rbp
-;     ret
+@malloc_failed:
+    lea rcx, [rel constructor_name]
+    mov rdx, rax
+    call malloc_failed
+
+    mov rsp, rbp
+    pop rbp
+    ret
