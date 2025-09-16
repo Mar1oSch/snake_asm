@@ -1,4 +1,5 @@
 %include "../include/position_struc.inc"
+%include "../include/interface_table_struc.inc"
 %include "../include/game/board_struc.inc"
 %include "../include/snake/snake_struc.inc"
 %include "../include/snake/unit_struc.inc"
@@ -26,6 +27,7 @@ section .data
 
     position_x db "position_x: %d", 13, 10, 0
     position_y db "position_y: %d", 13, 10, 0
+
 section .text
     global main
     extern board_new
@@ -86,7 +88,7 @@ main:
     call printf
 
     mov rax, [rbp - 8]
-    mov rax, [rbp + snake.head_ptr]
+    mov rax, [rax + snake.head_ptr]
     mov [rbp - 8], rax
 
     lea rcx, [rel unit_interface_table]
@@ -111,6 +113,32 @@ main:
     mov rax, [rbp - 8]
     lea rcx, [rel unit_next]
     mov rdx, [rax + unit.next_unit_ptr]
+    call printf
+
+    mov rax, [rbp - 8]
+    mov rax, [rax + unit.interface_table_ptr]
+    mov [rbp - 16], rax
+
+    lea rcx, [rel table_drawable]
+    mov rdx, [rax + interface_table.vtable_drawable_ptr]
+    call printf
+
+    mov rax, [rbp - 16]
+    lea rcx, [rel table_food]
+    mov rdx, [rax + interface_table.vtable_food_ptr]
+    call printf
+
+    mov rax, [rbp - 8]
+    mov rax, [rax + unit.position_ptr]
+    mov [rbp - 8], rax
+
+    lea rcx, [rel position_x]
+    movzx rdx, word [rax + position.x]
+    call printf
+
+    mov rax, [rbp - 8]
+    lea rcx, [rel position_y]
+    movzx rdx, word [rax + position.y]
     call printf
 
     mov rax, 0
