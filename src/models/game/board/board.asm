@@ -4,16 +4,18 @@ global board_new, board_destroy, board_draw, board_setup, get_board
 
 section .rodata
     constructor_name db "board_new", 0
+    debug_char db "D"
 
 section .bss
     BOARD_PTR resq 1
+    BOARD_HANDLE resq 1
 
 section .text
     extern malloc
     extern free
-    extern snake_new
+    extern snake_new, console_manager_new
+    extern console_manager_clean_console
     extern malloc_failed, object_not_created
-    extern GetStdHandle, printf
 
 board_new:
     ; Expect width in CX
@@ -54,8 +56,21 @@ board_new:
     mov [rcx + board.snake_ptr], rax
     mov qword [rcx + board.food_ptr], 0
 
+    call console_manager_new
+    mov rcx, [rel BOARD_PTR]
+    mov [rcx + board.console_manager_ptr], rax
+
 .complete:
     mov rax, qword [rel BOARD_PTR]
+    mov rsp, rbp
+    pop rbp
+    ret
+
+board_setup:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
     mov rsp, rbp
     pop rbp
     ret
@@ -93,6 +108,7 @@ get_board:
     mov rax, [rel BOARD_PTR]
     ret
 
+;;;;;; ERROR HANDLING ;;;;;;
 @object_failed:
     lea rcx, [rel constructor_name]
     call object_not_created
