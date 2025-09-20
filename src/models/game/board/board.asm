@@ -15,7 +15,7 @@ section .text
     extern free
     extern snake_new, console_manager_new
     extern console_manager_clean_console
-    extern malloc_failed, object_not_created
+    extern board_malloc_failed, object_not_created
 
 board_new:
     ; Expect width in CX
@@ -38,7 +38,7 @@ board_new:
     add cx, board_size
     call malloc
     test rax, rax
-    jz @malloc_failed
+    jz board_malloc_failed
 
     mov [rel BOARD_PTR], rax
 
@@ -81,7 +81,7 @@ board_draw:
     sub rsp, 40
 
     cmp qword [rel BOARD_PTR], 0
-    je @object_failed
+    je board_object_failed
 
     mov rsp, rbp
     pop rbp
@@ -93,7 +93,7 @@ board_destroy:
     sub rsp, 40
 
     cmp qword [rel BOARD_PTR], 0
-    je @object_failed
+    je board_object_failed
 
     call free
 
@@ -103,13 +103,13 @@ board_destroy:
 
 get_board:
     cmp qword [rel BOARD_PTR], 0
-    je @object_failed
+    je board_object_failed
 
     mov rax, [rel BOARD_PTR]
     ret
 
 ;;;;;; ERROR HANDLING ;;;;;;
-@object_failed:
+board_object_failed:
     lea rcx, [rel constructor_name]
     call object_not_created
 
@@ -117,10 +117,10 @@ get_board:
     pop rbp
     ret
 
-@malloc_failed:
+board_malloc_failed:
     lea rcx, [rel constructor_name]
     mov rdx, rax
-    call malloc_failed
+    call board_malloc_failed
 
     mov rsp, rbp
     pop rbp

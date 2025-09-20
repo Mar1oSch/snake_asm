@@ -17,7 +17,7 @@ section .text
     extern malloc
     extern free
     extern unit_new
-    extern malloc_failed, object_not_created
+    extern snake_malloc_failed, object_not_created
     extern DRAWABLE_VTABLE_DRAW_OFFSET
 
 snake_new:
@@ -38,7 +38,7 @@ snake_new:
     mov rcx, snake_size
     call malloc
     test rax, rax
-    jz @malloc_failed
+    jz snake_malloc_failed
 
     mov qword [rel SNAKE_PTR], rax
 
@@ -55,7 +55,7 @@ snake_new:
 
 get_snake:
     cmp qword [rel SNAKE_PTR], 0
-    je @object_failed
+    je snake_object_failed
 
     mov rax, qword [rel SNAKE_PTR]
     ret
@@ -69,7 +69,7 @@ snake_add_unit:
     sub rsp, 40
 
     cmp qword [rel SNAKE_PTR], 0
-    je @object_failed
+    je snake_object_failed
 
     call unit_new
     mov [rbp - 8], rax
@@ -89,7 +89,7 @@ snake_destroy:
     sub rsp, 40
 
     cmp qword [rel SNAKE_PTR], 0
-    je @object_failed
+    je snake_object_failed
 
     mov rcx, [rel SNAKE_PTR]
     call free
@@ -98,17 +98,17 @@ snake_destroy:
     pop rbp
     ret
 
-@malloc_failed:
+snake_malloc_failed:
     lea rcx, [rel constructor_name]
     mov rdx, rax
-    call malloc_failed
+    call snake_malloc_failed
 
     mov rsp, rbp
     pop rbp
     ret
 
 
-@object_failed:
+snake_object_failed:
     lea rcx, [rel constructor_name]
     call object_not_created
 

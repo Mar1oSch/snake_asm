@@ -12,7 +12,7 @@ section .text
     extern malloc
     extern free
     extern board_new, board_draw
-    extern malloc_failed, object_not_created
+    extern game_malloc_failed, object_not_created
 
 game_new:
     ; Expect width in CX
@@ -30,7 +30,7 @@ game_new:
     mov rcx, game_size
     call malloc
     test rax, rax
-    jz @malloc_failed
+    jz game_malloc_failed
 
     mov rcx, [rbp - 8]
     mov [rax + game.board_ptr], rcx
@@ -41,17 +41,17 @@ game_new:
     pop rbp
     ret
 
-@malloc_failed:
+game_malloc_failed:
     lea rcx, [rel constructor_name]
     mov rdx, rax
-    call malloc_failed
+    call game_malloc_failed
 
     mov rsp, rbp
     pop rbp
     ret
 
 
-@object_failed:
+game_object_failed:
     lea rcx, [rel constructor_name]
     call object_not_created
 
