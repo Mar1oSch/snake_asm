@@ -14,7 +14,7 @@ section .text
     extern malloc
     extern free
     extern snake_new, console_manager_new
-    extern console_manager_clean_console
+    extern console_manager_setup
     extern board_malloc_failed, object_not_created
 
 board_new:
@@ -70,6 +70,12 @@ board_setup:
     push rbp
     mov rbp, rsp
     sub rsp, 40
+
+    mov r8, [rel BOARD_PTR]
+    mov cx, [r8 + board.width]
+    shl rcx, 16
+    mov cx, [r8 + board.height]
+    call console_manager_setup
 
     mov rsp, rbp
     pop rbp
