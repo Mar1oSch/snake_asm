@@ -17,8 +17,8 @@ main:
     mov rbp, rsp
     sub rsp, 40
 
-    mov rcx, 10
-    mov rdx, 10
+    mov rcx, 20
+    mov rdx, 20
     call board_new
 
     call board_setup

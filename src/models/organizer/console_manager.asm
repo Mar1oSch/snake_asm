@@ -130,7 +130,7 @@ draw_fence:
 .loop:
     cmp r15, 0
     je .draw_whole_line
-    cmp r15w, [rbp - 16]
+    cmp r15, [rbp - 16]
     je .draw_whole_line
 .draw_single_char:
     mov cx, r15w
