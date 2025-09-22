@@ -1,6 +1,6 @@
 %include "../include/food/food_struc.inc"
 %include "../include/position_struc.inc"
-global food_new, food_destroy, food_get_char, food_get_points, food_get_x_position, food_get_y_position, food_draw
+global food_new, food_destroy, food_get_char_ptr, food_get_points, food_get_x_position, food_get_y_position, food_draw
 
 section .rodata
     FOOD_POINTS equ 100
@@ -47,8 +47,8 @@ food_new:
     pop rbp
     ret
 
-food_get_char:
-    mov rax, FOOD_CHAR
+food_get_char_ptr:
+    lea rax, FOOD_CHAR
     ret
 
 food_get_x_position:

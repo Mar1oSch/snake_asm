@@ -2,7 +2,7 @@
 %include "../include/snake/snake_struc.inc"
 %include "../include/snake/unit_struc.inc"
 
-global snake_new, snake_destroy, get_snake, snake_add_unit
+global snake_new, snake_destroy, get_snake, snake_add_unit, snake_update
 
 section .rodata
     HEAD_CHAR equ "@"
@@ -16,10 +16,11 @@ section .bss
 section .text
     extern malloc
     extern free
-    extern unit_new
-    extern snake_malloc_failed, object_not_created
+    extern unit_new, unit_update
+    extern malloc_failed, object_not_created
     extern DRAWABLE_VTABLE_DRAW_OFFSET
 
+;;;;;; PUBLIC FUNCTIONS ;;;;;;
 snake_new:
     push rbp
     mov rbp, rsp
@@ -28,17 +29,16 @@ snake_new:
     cmp qword [rel SNAKE_PTR], 0
     jne .complete
 
-    ; Needs X-Coordinate of position in CX
-    ; Needs Y-Coordinate of position in DX
+    ; Expect X- and Y-Coordinates in ECX.
+    ; Expect direction in RDX.
     ; Use them to create the head of the snake.
-    mov r8, 0
     call unit_new
     mov qword [rbp - 8], rax
 
     mov rcx, snake_size
     call malloc
     test rax, rax
-    jz snake_malloc_failed
+    jz _snake_malloc_failed
 
     mov qword [rel SNAKE_PTR], rax
 
@@ -53,23 +53,37 @@ snake_new:
     pop rbp
     ret
 
-get_snake:
-    cmp qword [rel SNAKE_PTR], 0
-    je snake_object_failed
-
-    mov rax, qword [rel SNAKE_PTR]
-    ret
-
-snake_add_unit:
-    ; Expect X-Coordinate in CX
-    ; Expect Y-Coordinate in DX
-    ; Expect direction in R8
+snake_destroy:
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
     cmp qword [rel SNAKE_PTR], 0
-    je snake_object_failed
+    je _snake_object_failed
+
+    mov rcx, [rel SNAKE_PTR]
+    call free
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+get_snake:
+    cmp qword [rel SNAKE_PTR], 0
+    je _snake_object_failed
+
+    mov rax, qword [rel SNAKE_PTR]
+    ret
+
+snake_add_unit:
+    ; Expect X- and Y-Coordinates in ECX
+    ; Expect direction in RDX
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    cmp qword [rel SNAKE_PTR], 0
+    je _snake_object_failed
 
     call unit_new
     mov [rbp - 8], rax
@@ -79,36 +93,57 @@ snake_add_unit:
     mov [r10 + unit.next_unit_ptr], rax
     mov [r10], rax
     inc qword [r9 + snake.length]
+
     mov rsp, rbp
     pop rbp
     ret
 
-snake_destroy:
+snake_update:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 72
 
+    ; Expect direction in RCX
     cmp qword [rel SNAKE_PTR], 0
-    je snake_object_failed
+    je _snake_object_failed
 
+    mov [rbp - 8], rcx                      ; Save first direction.
     mov rcx, [rel SNAKE_PTR]
-    call free
+    mov r8, [rcx + snake.head_ptr]
+    mov [rbp - 16], r8                       ; Save active unit ptr.
+    mov r9, [rcx + snake.tail_ptr]
+    mov [rbp - 24], r9                          ; Save tail ptr.
 
+.loop:
+    mov rcx, [rbp - 16]
+    mov rdx, [rbp - 8]
+    call unit_update
+    mov rcx, [rbp - 16]
+    cmp rcx, [rbp - 24]
+    je .complete
+.loop_handle:
+    mov rcx, [rcx + unit.next_unit_ptr]
+    jmp .loop
+
+.complete:
     mov rsp, rbp
     pop rbp
     ret
 
-snake_malloc_failed:
+
+
+
+;;;;;; ERROR HANDLING ;;;;;;
+_snake_malloc_failed:
     lea rcx, [rel constructor_name]
     mov rdx, rax
-    call snake_malloc_failed
+    call malloc_failed
 
     mov rsp, rbp
     pop rbp
     ret
 
-
-snake_object_failed:
+_snake_object_failed:
     lea rcx, [rel constructor_name]
     call object_not_created
 

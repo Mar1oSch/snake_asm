@@ -1,15 +1,6 @@
-%include "../include/position_struc.inc"
-%include "../include/interface_table_struc.inc"
-%include "../include/game/board_struc.inc"
-%include "../include/snake/snake_struc.inc"
-%include "../include/snake/unit_struc.inc"
-
-section .data
-
 section .text
     global main
-    extern board_new
-    extern board_setup
+    extern board_new, board_setup, board_draw_content
     extern printf
 
 main:
@@ -17,11 +8,15 @@ main:
     mov rbp, rsp
     sub rsp, 40
 
-    mov rcx, 20
-    mov rdx, 20
+    xor rcx, rcx
+    mov cx, 100                 ; Moving width into CX  (So: ECX = 0, width)
+    shl rcx, 16                 ; Shifting rcx 16 bits left (So : ECX = width, 0)
+    mov cx, 20                  ; Moving height into CX (So: ECX = width, height)
     call board_new
 
     call board_setup
+
+    call board_draw_content
 
     mov rax, 0
     mov rsp, rbp

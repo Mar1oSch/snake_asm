@@ -1,6 +1,9 @@
+%include "../include/interface_table_struc.inc"
 %include "../include/game/board_struc.inc"
+%include "../include/snake/snake_struc.inc"
+%include "../include/snake/unit_struc.inc"
 
-global board_new, board_destroy, board_draw, board_setup, get_board
+global board_new, board_destroy, board_draw, board_setup, board_draw_content, get_board
 
 section .rodata
     constructor_name db "board_new", 0
@@ -8,18 +11,20 @@ section .rodata
 
 section .bss
     BOARD_PTR resq 1
-    BOARD_HANDLE resq 1
 
 section .text
     extern malloc
     extern free
+    extern Sleep
     extern snake_new, console_manager_new
-    extern console_manager_setup
-    extern board_malloc_failed, object_not_created
+    extern snake_update
+    extern console_manager_setup, console_manager_write, console_manager_move_cursor
+    extern malloc_failed, object_not_created
+    extern DRAWABLE_VTABLE_X_POSITION_OFFSET, DRAWABLE_VTABLE_Y_POSITION_OFFSET, DRAWABLE_VTABLE_CHAR_PTR_OFFSET
 
+;;;;;; PUBLIC FUNCTIONS ;;;;;;
 board_new:
-    ; Expect width in CX
-    ; Expect height in DX
+    ; Expect width and height in ECX
     push rbp
     mov rbp, rsp
     sub rsp, 72
@@ -27,31 +32,37 @@ board_new:
     cmp qword [rel BOARD_PTR], 0
     jne .complete
 
-    add cx, 2
-    add dx, 2
-    mov word [rbp - 8], cx
-    mov word [rbp - 16], dx
+    mov word [rbp - 8], cx            ; Move height onto stack. (ECX = width, height)
+    add word [rbp - 8], 2
+    shr rcx, 16                       ; Shifting ECX right by 16 bits. (ECX = 0, width)
+    mov word [rbp - 16], cx           ; Move width onto stack. (ECX = 0, width)
+    add word [rbp - 16], 2
 
-    mov ax, cx
-    mul dx
+    xor rcx, rcx
+    mov ax, word [rbp - 16]
+    mul word [rbp - 8]
     mov cx, ax
     add cx, board_size
     call malloc
     test rax, rax
-    jz board_malloc_failed
-
+    jz _board_malloc_failed
     mov [rel BOARD_PTR], rax
 
-    mov cx, word [rbp - 8]
+    xor rcx, rcx
+    mov cx, word [rbp - 16]
     mov [rax + board.width], cx
-    mov dx, word [rbp - 16]
-    mov [rax + board.height], dx
-
+    shl rcx, 16
     mov cx, word [rbp - 8]
-    mov dx, word [rbp - 16]
+    mov [rax + board.height], cx
+
+    mov cx, word [rbp - 16]
+    shr cx, 2
+    shl rcx, 16
+    mov cx, word [rbp - 8]
     shr cx, 1
-    shr dx, 1
+    mov rdx, 2
     call snake_new
+
     mov rcx, [rel BOARD_PTR]
     mov [rcx + board.snake_ptr], rax
     mov qword [rcx + board.food_ptr], 0
@@ -66,40 +77,13 @@ board_new:
     pop rbp
     ret
 
-board_setup:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    mov r8, [rel BOARD_PTR]
-    mov cx, [r8 + board.width]
-    shl rcx, 16
-    mov cx, [r8 + board.height]
-    call console_manager_setup
-
-    mov rsp, rbp
-    pop rbp
-    ret
-
-board_draw:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    cmp qword [rel BOARD_PTR], 0
-    je board_object_failed
-
-    mov rsp, rbp
-    pop rbp
-    ret
-
 board_destroy:
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
     cmp qword [rel BOARD_PTR], 0
-    je board_object_failed
+    je _board_object_failed
 
     call free
 
@@ -107,15 +91,128 @@ board_destroy:
     pop rbp
     ret
 
+board_setup:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    mov r8, [rel BOARD_PTR]
+    mov cx, [r8 + board.height]
+    shl rcx, 16
+    mov cx, [r8 + board.width]
+    call console_manager_setup
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+board_draw_content:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    cmp qword [rel BOARD_PTR], 0
+    je _board_object_failed
+
+
+    call _draw_snake
+    mov qword [rbp - 8], 50
+.loop:
+    mov rcx, 20
+    call Sleep
+    mov rcx, 2
+    call snake_update
+    call _draw_snake
+    call _move_cursor_to_end
+    dec qword [rbp - 8]
+    cmp qword [rbp - 8], 0
+    je .after_loop
+    jmp .loop
+.after_loop:
+    call _move_cursor_to_end
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
 get_board:
     cmp qword [rel BOARD_PTR], 0
-    je board_object_failed
+    je _board_object_failed
 
     mov rax, [rel BOARD_PTR]
     ret
 
+
+
+
+;;;;;; PRIVATE FUNCTIONS ;;;;;;
+_draw_snake:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 70
+
+    cmp qword [rel BOARD_PTR], 0
+    je _board_object_failed
+
+    mov r9, [rel BOARD_PTR]
+    mov r9, [r9 + board.snake_ptr]                          ; Get snake_ptr into R9.
+    mov r10, [r9 + snake.head_ptr]
+    mov r11, [r10 + unit.interface_table_ptr]
+    mov r11, [r11 + interface_table.vtable_drawable_ptr]    ; Get the drawable-interface into R10
+
+    mov [rbp - 8], r10                                      ; Save head of snake.
+    mov r9, [r9 + snake.tail_ptr]                           
+    mov [rbp - 16], r9                                      ; Save tail of snake.
+    mov [rbp - 24], r11                                     ; Save interface relation.
+
+.loop:
+    mov rcx, r10                                            ; Move pointer to unit to RCX.
+    call [r11 + DRAWABLE_VTABLE_X_POSITION_OFFSET]
+    mov word [rbp - 32], ax                                 ; Save X-Position.
+    mov rcx, r10                                            ; Move pointer to unit to RCX.
+    call [r11 + DRAWABLE_VTABLE_Y_POSITION_OFFSET]
+    mov word [rbp - 40], ax                                 ; Save Y-Position.
+    mov rcx, r10                                            ; Move pointer to unit to RCX.
+    call [r11 + DRAWABLE_VTABLE_CHAR_PTR_OFFSET]
+    mov rdx, rax                                            ; Load pointer to char into RDX.
+    mov cx, [rbp - 32]                                      ; Move X-Position into CX (ECX = 0, X)
+    shl rcx, 16                                             ; Shift ECX 16 bits to the left. (ECX = X, 0)
+    mov cx, [rbp - 40]                                      ; Move Y-Position into CX (ECX = X, Y)
+    call console_manager_write
+    mov r10, [rbp - 8]
+    cmp r10, [rbp - 16]
+    je .complete
+    mov r10, [r10 + unit.next_unit_ptr]
+    mov r11, [rbp - 24]
+    mov [rbp - 8], r10
+    jmp .loop
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_move_cursor_to_end:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    cmp qword [rel BOARD_PTR], 0
+    je _board_object_failed
+
+    xor rcx, rcx
+    mov r8, [rel BOARD_PTR]
+    mov cx, [r8 + board.width]
+    shl rcx, 16
+    mov cx, [r8 + board.height]
+    call console_manager_move_cursor
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
 ;;;;;; ERROR HANDLING ;;;;;;
-board_object_failed:
+_board_object_failed:
     lea rcx, [rel constructor_name]
     call object_not_created
 
@@ -123,10 +220,10 @@ board_object_failed:
     pop rbp
     ret
 
-board_malloc_failed:
+_board_malloc_failed:
     lea rcx, [rel constructor_name]
     mov rdx, rax
-    call board_malloc_failed
+    call malloc_failed
 
     mov rsp, rbp
     pop rbp

@@ -1,0 +1,1 @@
+20x11, 8 Units Start + 212 Futter * Lvl + 100 Endbonus

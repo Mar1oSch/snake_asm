@@ -27,10 +27,10 @@ section .data
     board_height db "board_height: %d", 13, 10, 0
     board_snake db "board_snake: %p", 13, 10, 0
     board_food db "board_food: %p", 13, 10, 0
-    board_console_manager db "console_manager: %p", 13, 10, 0
+    board_console_manager db "board_console_manager: %p", 13, 10, 0
 
     console_manager_pointer db "console_manager_pointer: %p", 13, 10, 0
-    console_manager_handle db "Console_manager_handle: %u", 13, 10, 0
+    console_manager_handle db "console_manager_handle: %u", 13, 10, 0
 
     snake_pointer db "snake_pointer: %p", 13, 10, 0
     snake_length db "snake_length: %d", 13, 10, 0
@@ -63,8 +63,10 @@ constructor_test:
     mov rbp, rsp
     sub rsp, 48
 
-    mov rcx, 50
-    mov rdx, 50
+    xor rcx, rcx
+    mov cx, 100                  ; Moving width into CX  (So: ECX = 0, width)
+    shl rcx, 16                 ; Shifting rcx 16 bits left (So : ECX = width, 0)
+    mov cx, 20  
     call board_new
 
     ;###################################################;

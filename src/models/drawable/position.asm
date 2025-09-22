@@ -15,10 +15,10 @@ position_new:
     mov rbp, rsp
     sub rsp, 44
 
-    ; Expect X-Position in CX
-    ; Expect Y-Position in DX
-    mov word [rbp - 2], cx
-    mov word [rbp - 4], dx
+    ; Expect X- and Y-Position in ECX
+    mov word [rbp - 8], cx             ; Save Y-Position onto stack. (ECX = x, y)
+    shr rcx, 16                        ; Shift RCX right by 16 bits. (ECX = 0, x) 
+    mov word [rbp - 16], cx             ; Save X-Position onto stack. (ECX = 0, x)
 
     mov rcx, position_size
     call malloc
@@ -28,9 +28,9 @@ position_new:
     xor rcx, rcx
     xor rdx, rdx
 
-    mov cx, word [rbp - 2]
+    mov cx, word [rbp - 16]
     mov word [rax + position.x], cx
-    mov dx, word [rbp - 4]
+    mov dx, word [rbp - 8]
     mov word [rax + position.y], dx
 
     mov rsp, rbp

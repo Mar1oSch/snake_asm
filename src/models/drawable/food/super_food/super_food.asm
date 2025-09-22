@@ -2,7 +2,7 @@
 %include "../include/position_struc.inc"
 %include "../include/interface_table_struc.inc"
 
-global super_food_new, super_food_destroy, super_food_get_points, super_food_get_char, super_food_get_x_position, super_food_get_y_position, super_food_draw
+global super_food_new, super_food_destroy, super_food_get_points, super_food_get_char_ptr, super_food_get_x_position, super_food_get_y_position, super_food_draw
 
 section .rodata
     SUPER_FOOD_POINTS equ 250
@@ -49,8 +49,8 @@ super_food_new:
     pop rbp
     ret
 
-super_food_get_char:
-    mov rax, SUPER_FOOD_CHAR
+super_food_get_char_ptr:
+    lea rax, SUPER_FOOD_CHAR
     ret
 
 super_food_get_x_position:

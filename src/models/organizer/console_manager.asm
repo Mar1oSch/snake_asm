@@ -1,6 +1,6 @@
 %include "../include/organizer/console_manager_struc.inc"
 
-global console_manager_new, console_manager_destroy, console_manager_setup
+global console_manager_new, console_manager_destroy, console_manager_setup, console_manager_write, console_manager_move_cursor
 
 section .rodata
     constructor_name db "console_manager", 13, 10, 0
@@ -14,7 +14,7 @@ section .bss
 section .text
     extern malloc
     extern free
-    extern cm_malloc_failed, object_not_created
+    extern _cm_malloc_failed, object_not_created
     extern GetStdHandle, printf
     extern SetConsoleCursorPosition, WriteConsoleA
     extern GetConsoleScreenBufferInfo, FillConsoleOutputCharacterA
@@ -50,10 +50,27 @@ console_manager_destroy:
     sub rsp, 40
 
     cmp qword [rel CONSOLE_MANAGER_PTR], 0
-    je  cm_object_failed
+    je  _cm_object_failed
 
     mov rcx, [rel CONSOLE_MANAGER_PTR]
     call free
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+console_manager_write:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect X- and Y-Coordinates in ECX
+    ; Expect pointer to char in RDX.
+    mov [rbp - 8], rdx
+    call _cm_set_cursor_position
+
+    mov rcx, [rbp - 8]
+    call _cm_write_char
 
     mov rsp, rbp
     pop rbp
@@ -69,30 +86,39 @@ console_manager_setup:
     shr rcx, 16
     mov word [rbp - 16], cx
 
-    call empty_console
+    call _cm_empty_console
     xor rcx, rcx
-    mov cx, [rbp - 8]
-    shl rcx, 16
     mov cx, [rbp - 16]
-    call draw_fence
+    shl rcx, 16
+    mov cx, [rbp - 8]
+    call _cm_draw_fence
 
     mov rsp, rbp
     pop rbp
     ret
 
+console_manager_move_cursor:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
 
+    ; Expect Position-X and Position-Y in ECX. 
+    call _cm_set_cursor_position
 
+    mov rsp, rbp
+    pop rbp
+    ret
 
 ;;;;;; PRIVATE METHODS ;;;;;;;
-empty_console:
+_cm_empty_console:
     push rbp
     mov rbp, rsp
     sub rsp, 56
 
     cmp qword [rel CONSOLE_MANAGER_PTR], 0
-    je cm_object_failed
+    je _cm_object_failed
 
-    call get_buffer_size
+    call _cm_get_buffer_size
 
     mov word[rbp- 8], ax
     shr rax, 16
@@ -113,10 +139,10 @@ empty_console:
     pop rbp
     ret
 
-draw_fence:
+_cm_draw_fence:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 80
 
     ; Expect Width and Height of Board in RCX
     mov word [rbp - 8], cx
@@ -125,60 +151,61 @@ draw_fence:
 
     ; Save non-volatile regs.
     mov [rbp - 24], r15
+    mov [rbp - 32], r14
 
     xor r15, r15        ; Zero Height counter
 .loop:
     cmp r15, 0
     je .draw_whole_line
-    cmp r15, [rbp - 16]
+    cmp r15, [rbp - 8]
     je .draw_whole_line
-.draw_single_char:
+
+.draw_single_chars:
     mov cx, r15w
     shl rcx, 16
     mov cx, 0
-    call set_cursor_position
-    lea rcx, [rel fence_char] 
-    call write_char
+    lea rdx, [rel fence_char] 
+    call console_manager_write
     mov cx, r15w
     shl rcx, 16
-    mov cx, word [rbp - 8]
-    call set_cursor_position
-    lea rcx, [rel fence_char] 
-    call write_char
+    mov cx, word [rbp - 16]
+    lea rdx, [rel fence_char] 
+    call console_manager_write
     jmp .loop_handle
 
 .draw_whole_line:
-    xor r14, r14        ; Zeor Width counter
+    xor r14, r14        ; Zero Width counter
     .inner_loop:
         mov cx, r15w
         shl rcx, 16
         mov cx, r14w
-        call set_cursor_position
-        lea rcx, [rel fence_char]
-        call write_char
+        lea rdx, [rel fence_char]
+        call console_manager_write
     .inner_loop_handle:
-        cmp r14w, [rbp - 8]
+        cmp r14w, [rbp - 16]
         je .loop_handle
         inc r14w
         jmp .inner_loop
 .loop_handle:
-    cmp r15w, [rbp - 16]
+    cmp r15w, [rbp - 8]
     je .complete
     inc r15
     jmp .loop
 
 .complete:
+    mov [rbp - 32], r14
+    mov [rbp - 24], r15
     mov rsp, rbp
     pop rbp
     ret
 
-get_buffer_size:
+_cm_get_buffer_size:
     push rbp
     mov rbp, rsp
     sub rsp, 56
 
     cmp qword [rel CONSOLE_MANAGER_PTR], 0
-    je cm_object_failed
+    je _cm_object_failed
 
     mov rcx, [rel CONSOLE_MANAGER_PTR]
     mov rcx, [rcx + console_manager.handle]
@@ -192,14 +219,14 @@ get_buffer_size:
     pop rbp
     ret
 
-set_cursor_position:
+_cm_set_cursor_position:
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
-    ; Expect COORD struct (2 words) in rcx.
+    ; Expect COORD struct (2 words) in RCX.
     cmp qword [rel CONSOLE_MANAGER_PTR], 0
-    je cm_object_failed
+    je _cm_object_failed
 
     mov word [rbp - 8], cx
     shr rcx, 16
@@ -216,14 +243,14 @@ set_cursor_position:
     pop rbp
     ret
 
-write_char:
+_cm_write_char:
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
     ; Expect pointer to char in rcx.
     cmp qword [rel CONSOLE_MANAGER_PTR], 0
-    je cm_object_failed
+    je _cm_object_failed
 
     mov [rbp - 8], rcx
 
@@ -241,8 +268,9 @@ write_char:
 
 
 
+
 ;;;;;; ERROR HANDLING ;;;;;;
-cm_object_failed:
+_cm_object_failed:
     lea rcx, [rel constructor_name]
     call object_not_created
 
@@ -250,10 +278,10 @@ cm_object_failed:
     pop rbp
     ret
 
-cm_malloc_failed:
+_cm_malloc_failed:
     lea rcx, [rel constructor_name]
     mov rdx, rax
-    call cm_malloc_failed
+    call _cm_malloc_failed
 
     mov rsp, rbp
     pop rbp

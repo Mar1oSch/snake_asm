@@ -12,11 +12,11 @@ section .text
     extern malloc
     extern free
     extern board_new, board_draw
-    extern game_malloc_failed, object_not_created
+    extern malloc_failed, object_not_created
 
+;;;;;; PUBLIC FUNCTIONS ;;;;;;
 game_new:
-    ; Expect width in CX
-    ; Expect height in DX
+    ; Expect width and height for the board in ECX.
     push rbp
     mov rbp, rsp
     sub rsp, 40
@@ -30,7 +30,7 @@ game_new:
     mov rcx, game_size
     call malloc
     test rax, rax
-    jz game_malloc_failed
+    jz _game_malloc_failed
 
     mov rcx, [rbp - 8]
     mov [rax + game.board_ptr], rcx
@@ -41,17 +41,36 @@ game_new:
     pop rbp
     ret
 
-game_malloc_failed:
-    lea rcx, [rel constructor_name]
-    mov rdx, rax
-    call game_malloc_failed
+game_destroy:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    cmp qword [rel GAME_PTR], 0
+    je _game_object_failed
+
+    mov rcx, [rel GAME_PTR]
+    call free
 
     mov rsp, rbp
     pop rbp
     ret
 
 
-game_object_failed:
+;;;;;; PRIVATE FUNCTIONS ;;;;;;
+_move_snake:
+
+;;;;;; ERROR HANDLING ;;;;;;
+_game_malloc_failed:
+    lea rcx, [rel constructor_name]
+    mov rdx, rax
+    call malloc_failed
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_game_object_failed:
     lea rcx, [rel constructor_name]
     call object_not_created
 
