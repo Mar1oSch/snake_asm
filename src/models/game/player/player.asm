@@ -1,16 +1,17 @@
+%include "../include/game/player_struc.inc"
+
 global player_new, player_destroy, player_get_points
 
 section .rodata
-player:
-    PLAYER_NAME_PTR_OFFSET equ 0
-    PLAYER_POINTS_OFFSET equ 8
-end_player:
-    PLAYER_SIZE equ end_player - player
+    player_name db "Mario", 13, 10, 0
 
 section .bss
     PLAYER_PTR resq 1 
 
 section .text
+    extern malloc
+    extern free
+
 player_new:
     push rbp
     mov rbp, rsp
@@ -19,11 +20,13 @@ player_new:
     cmp qword [rel PLAYER_PTR], 0
     jne .complete
 
-    mov rcx, PLAYER_SIZE
+    mov rcx, player_size
     call malloc
 
     mov qword [rel PLAYER_PTR], rax
-
+    lea rcx, [rel player_name]
+    mov [rax + player.name_ptr], rcx
+    mov qword [rax + player.points], 0
 .complete:
     mov rax, [rel PLAYER_PTR]
     mov rsp, rbp
@@ -36,13 +39,13 @@ get_player:
 
 player_get_points:
     mov rax, [rel PLAYER_PTR]
-    mov rax, [rax + PLAYER_POINTS_OFFSET]
+    mov rax, [rax + player.points]
     ret
 
 player_add_points:
     ; Expect points to add in RCX
     mov rax, [rel PLAYER_PTR]
-    mov rax, [rax + PLAYER_POINTS_OFFSET]
+    mov rax, [rax + player.points]
     add [rax], rcx
     ret
 

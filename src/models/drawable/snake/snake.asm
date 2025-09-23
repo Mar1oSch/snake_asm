@@ -1,8 +1,9 @@
 %include "../include/interface_table_struc.inc"
+%include "../include/position_struc.inc"
 %include "../include/snake/snake_struc.inc"
 %include "../include/snake/unit_struc.inc"
 
-global snake_new, snake_destroy, get_snake, snake_add_unit, snake_update
+global snake_new, snake_destroy, get_snake, snake_add_unit, snake_update, snake_get_tail_position
 
 section .rodata
     HEAD_CHAR equ "@"
@@ -38,7 +39,7 @@ snake_new:
     mov rcx, snake_size
     call malloc
     test rax, rax
-    jz _snake_malloc_failed
+    jz _s_malloc_failed
 
     mov qword [rel SNAKE_PTR], rax
 
@@ -46,6 +47,18 @@ snake_new:
     mov qword [rax + snake.head_ptr], rcx
     mov qword [rax + snake.tail_ptr], rcx
     mov qword [rax + snake.length], 1
+
+    ; Save non volatile regs.
+    mov [rbp - 16], r15
+
+    mov r15, 7
+
+.loop:
+    cmp r15, 0
+    je .complete
+    call snake_add_unit
+    dec r15
+    jmp .loop
 
 .complete:
     mov rax, qword [rel SNAKE_PTR]
@@ -59,7 +72,7 @@ snake_destroy:
     sub rsp, 40
 
     cmp qword [rel SNAKE_PTR], 0
-    je _snake_object_failed
+    je _s_object_failed
 
     mov rcx, [rel SNAKE_PTR]
     call free
@@ -70,60 +83,75 @@ snake_destroy:
 
 get_snake:
     cmp qword [rel SNAKE_PTR], 0
-    je _snake_object_failed
+    je _s_object_failed
 
     mov rax, qword [rel SNAKE_PTR]
     ret
 
-snake_add_unit:
-    ; Expect X- and Y-Coordinates in ECX
-    ; Expect direction in RDX
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
+snake_get_tail_position:
     cmp qword [rel SNAKE_PTR], 0
-    je _snake_object_failed
+    je _s_object_failed
 
-    call unit_new
-    mov [rbp - 8], rax
-    mov r9, [rel SNAKE_PTR]
-    mov r10, [r9 + snake.tail_ptr]
+    mov rax, [rel SNAKE_PTR]
+    mov rax, [rax + snake.tail_ptr]
+    mov r8, [rax + unit.position_ptr]
+    movzx rax, word [r8 + position.x]
+    shl rax, 16
+    mov ax, [r8 + position.y]
 
-    mov [r10 + unit.next_unit_ptr], rax
-    mov [r10], rax
-    inc qword [r9 + snake.length]
-
-    mov rsp, rbp
-    pop rbp
     ret
 
-snake_update:
+snake_add_unit:
     push rbp
     mov rbp, rsp
     sub rsp, 72
 
-    ; Expect direction in RCX
     cmp qword [rel SNAKE_PTR], 0
-    je _snake_object_failed
+    je _s_object_failed
 
-    mov [rbp - 8], rcx                      ; Save first direction.
     mov rcx, [rel SNAKE_PTR]
-    mov r8, [rcx + snake.head_ptr]
-    mov [rbp - 16], r8                       ; Save active unit ptr.
-    mov r9, [rcx + snake.tail_ptr]
-    mov [rbp - 24], r9                          ; Save tail ptr.
+    mov rcx, [rcx + snake.tail_ptr]
+    mov rdx, [rcx + unit.direction]
+    mov rcx, [rcx + unit.position_ptr]
+    movzx rax, word [rcx + position.x]
+    mov [rbp - 8], ax
+    shl rax, 16
+    mov ax, [rcx + position.y]
+    mov [rbp - 16], ax
 
-.loop:
-    mov rcx, [rbp - 16]
-    mov rdx, [rbp - 8]
-    call unit_update
-    mov rcx, [rbp - 16]
-    cmp rcx, [rbp - 24]
-    je .complete
-.loop_handle:
-    mov rcx, [rcx + unit.next_unit_ptr]
-    jmp .loop
+    cmp rdx, 0
+    je .left
+    cmp rdx, 1
+    je .up
+    cmp rdx, 2
+    je .right
+    cmp rdx, 3
+    je .down
+
+.left:
+    inc word [rbp - 8]
+    jmp .create_unit
+.up:
+    inc word [rbp - 16]
+    jmp .create_unit
+.right:
+    dec word [rbp - 8]
+    jmp .create_unit
+.down:
+    dec word [rbp - 16]
+
+.create_unit:
+    movzx rcx, word [rbp - 8]
+    shl rcx, 16
+    mov cx, [rbp - 16]
+    call unit_new
+    mov [rbp - 24], rax
+    mov r9, [rel SNAKE_PTR]
+    mov r10, [r9 + snake.tail_ptr]
+
+    mov [r10 + unit.next_unit_ptr], rax
+    mov [r9 + snake.tail_ptr], rax
+    inc qword [r9 + snake.length]
 
 .complete:
     mov rsp, rbp
@@ -134,7 +162,7 @@ snake_update:
 
 
 ;;;;;; ERROR HANDLING ;;;;;;
-_snake_malloc_failed:
+_s_malloc_failed:
     lea rcx, [rel constructor_name]
     mov rdx, rax
     call malloc_failed
@@ -143,7 +171,7 @@ _snake_malloc_failed:
     pop rbp
     ret
 
-_snake_object_failed:
+_s_object_failed:
     lea rcx, [rel constructor_name]
     call object_not_created
 

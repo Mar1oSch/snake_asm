@@ -1,9 +1,10 @@
 %include "../include/interface_table_struc.inc"
+%include "../include/position_struc.inc"
 %include "../include/game/board_struc.inc"
 %include "../include/snake/snake_struc.inc"
 %include "../include/snake/unit_struc.inc"
 
-global board_new, board_destroy, board_draw, board_setup, board_draw_content, get_board
+global board_new, board_destroy, board_draw, board_setup, board_move_snake, get_board
 
 section .rodata
     constructor_name db "board_new", 0
@@ -11,14 +12,14 @@ section .rodata
 
 section .bss
     BOARD_PTR resq 1
+    BOARD_CURRENT_SNAKE_TAIL resd 1
 
 section .text
     extern malloc
     extern free
     extern Sleep
-    extern snake_new, console_manager_new
-    extern snake_update
-    extern console_manager_setup, console_manager_write, console_manager_move_cursor
+    extern snake_new, snake_update, snake_get_tail_position
+    extern console_manager_new, console_manager_setup, console_manager_write, console_manager_move_cursor, console_manager_erase
     extern malloc_failed, object_not_created
     extern DRAWABLE_VTABLE_X_POSITION_OFFSET, DRAWABLE_VTABLE_Y_POSITION_OFFSET, DRAWABLE_VTABLE_CHAR_PTR_OFFSET
 
@@ -67,6 +68,9 @@ board_new:
     mov [rcx + board.snake_ptr], rax
     mov qword [rcx + board.food_ptr], 0
 
+    call snake_get_tail_position
+    mov [rel BOARD_CURRENT_SNAKE_TAIL], eax
+
     call console_manager_new
     mov rcx, [rel BOARD_PTR]
     mov [rcx + board.console_manager_ptr], rax
@@ -106,29 +110,13 @@ board_setup:
     pop rbp
     ret
 
-board_draw_content:
+board_move_snake:
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
-    cmp qword [rel BOARD_PTR], 0
-    je _board_object_failed
-
-
     call _draw_snake
-    mov qword [rbp - 8], 50
-.loop:
-    mov rcx, 20
-    call Sleep
-    mov rcx, 2
-    call snake_update
-    call _draw_snake
-    call _move_cursor_to_end
-    dec qword [rbp - 8]
-    cmp qword [rbp - 8], 0
-    je .after_loop
-    jmp .loop
-.after_loop:
+    call _erase_last_snake_unit
     call _move_cursor_to_end
 
     mov rsp, rbp
@@ -146,6 +134,23 @@ get_board:
 
 
 ;;;;;; PRIVATE FUNCTIONS ;;;;;;
+_board_draw_content:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    cmp qword [rel BOARD_PTR], 0
+    je _board_object_failed
+
+
+    call _draw_snake
+    mov qword [rbp - 8], 50
+    call _move_cursor_to_end
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
 _draw_snake:
     push rbp
     mov rbp, rsp
@@ -156,13 +161,15 @@ _draw_snake:
 
     mov r9, [rel BOARD_PTR]
     mov r9, [r9 + board.snake_ptr]                          ; Get snake_ptr into R9.
-    mov r10, [r9 + snake.head_ptr]
-    mov r11, [r10 + unit.interface_table_ptr]
-    mov r11, [r11 + interface_table.vtable_drawable_ptr]    ; Get the drawable-interface into R10
 
+    mov r10, [r9 + snake.head_ptr]
     mov [rbp - 8], r10                                      ; Save head of snake.
+
     mov r9, [r9 + snake.tail_ptr]                           
     mov [rbp - 16], r9                                      ; Save tail of snake.
+
+    mov r11, [r10 + unit.interface_table_ptr]
+    mov r11, [r11 + interface_table.vtable_drawable_ptr]    ; Get the drawable-interface into R11
     mov [rbp - 24], r11                                     ; Save interface relation.
 
 .loop:
@@ -186,6 +193,27 @@ _draw_snake:
     mov r11, [rbp - 24]
     mov [rbp - 8], r10
     jmp .loop
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_erase_last_snake_unit:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    cmp qword [rel BOARD_PTR], 0
+    je _board_object_failed
+
+    call snake_get_tail_position
+    ; cmp eax, dword [rel BOARD_CURRENT_SNAKE_TAIL]
+    ; je .complete
+
+    mov dword [rel BOARD_CURRENT_SNAKE_TAIL], eax
+    mov ecx, eax
+    call console_manager_erase
 
 .complete:
     mov rsp, rbp

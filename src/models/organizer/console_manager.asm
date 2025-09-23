@@ -1,10 +1,11 @@
 %include "../include/organizer/console_manager_struc.inc"
 
-global console_manager_new, console_manager_destroy, console_manager_setup, console_manager_write, console_manager_move_cursor
+global console_manager_new, console_manager_destroy, console_manager_setup, console_manager_write, console_manager_move_cursor, console_manager_erase
 
 section .rodata
     constructor_name db "console_manager", 13, 10, 0
     fence_char db "#"
+    erase_char db " "
 
 section .bss
     CONSOLE_MANAGER_PTR resq 1
@@ -97,6 +98,21 @@ console_manager_setup:
     pop rbp
     ret
 
+console_manager_erase:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect Position-X and Position-Y in ECX.
+    call _cm_set_cursor_position
+
+    lea rcx, [rel erase_char]
+    call _cm_write_char
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
 console_manager_move_cursor:
     push rbp
     mov rbp, rsp
@@ -108,6 +124,9 @@ console_manager_move_cursor:
     mov rsp, rbp
     pop rbp
     ret
+
+
+
 
 ;;;;;; PRIVATE METHODS ;;;;;;;
 _cm_empty_console:
@@ -145,9 +164,9 @@ _cm_draw_fence:
     sub rsp, 80
 
     ; Expect Width and Height of Board in RCX
-    mov word [rbp - 8], cx
+    mov word [rbp - 8], cx                      ; Save height.
     shr rcx, 16
-    mov word [rbp - 16], cx
+    mov word [rbp - 16], cx                     ; Save width.
 
     ; Save non-volatile regs.
     mov [rbp - 24], r15

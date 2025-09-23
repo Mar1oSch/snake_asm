@@ -3,59 +3,69 @@ global constructor_test
 %include "../include/position_struc.inc"
 %include "../include/interface_table_struc.inc"
 %include "../include/game/board_struc.inc"
+%include "../include/game/game_struc.inc"
+%include "../include/game/player_struc.inc"
 %include "../include/snake/snake_struc.inc"
 %include "../include/snake/unit_struc.inc"
 %include "../include/organizer/console_manager_struc.inc"
 
 ;;;; THIS TEST IS IMPLEMENTED TO TEST THE CONSTRUCTOR CHAIN FROM:
 
-;;;; BOARD
-;;;;   |
-;;;; CONSOLE-MANAGER
-;;;;   |
-;;;; SNAKE
-;;;;   |
-;;;; UNIT
-;;;;   |
-;;;; TABLE
-;;;;   |
+;;;;                        GAME
+;;;;                         ^                              
+;;;;        BOARD                          PLAYER
+;;;;          ^
+;;;;  SNAKE       CONSOLE-MANAGER
+;;;;    |
+;;;;   UNIT
+;;;;    |
+;;;;  TABLE
+;;;;    |
 ;;;; POSITION
 
 section .data
+    game_pointer db "game_pointer: %p", 13, 10, 0
+    game_board db "game_board: %p", 13, 10, 0
+    game_player db "game_player: %p", 13, 10, 13, 10, 0
+
+    player_pointer db "player_pointer: %p", 13, 10, 0
+    player_points db "player_points: %d", 13, 10, 0
+    player_name db "player_name: %s", 13, 10, 0
+
     board_pointer db "board_pointer: %p",13, 10, 0
     board_width db "board_width: %d", 13, 10, 0
     board_height db "board_height: %d", 13, 10, 0
     board_snake db "board_snake: %p", 13, 10, 0
     board_food db "board_food: %p", 13, 10, 0
-    board_console_manager db "board_console_manager: %p", 13, 10, 0
+    board_console_manager db "board_console_manager: %p", 13, 10, 13, 10, 0
 
     console_manager_pointer db "console_manager_pointer: %p", 13, 10, 0
-    console_manager_handle db "console_manager_handle: %u", 13, 10, 0
+    console_manager_handle db "console_manager_handle: %u", 13, 10, 13, 10, 0
 
     snake_pointer db "snake_pointer: %p", 13, 10, 0
     snake_length db "snake_length: %d", 13, 10, 0
     snake_head db "snake_head: %p", 13, 10, 0
-    snake_tail db "snake_tail: %p", 13, 10, 0
+    snake_tail db "snake_tail: %p", 13, 10, 13, 10, 0
 
     unit_pointer db "unit_pointer: %p", 13, 10, 0
     unit_interface_table db "unit_table: %p", 13, 10, 0
     unit_position db "unit_position: %p", 13, 10, 0
     unit_char db "unit_char: '%c'", 13, 10, 0
     unit_direction db "unit_direction: %d", 13, 10, 0
-    unit_next db "unit_next: %p", 13, 10, 0
+    unit_next db "unit_next: %p", 13, 10, 13, 10, 0
 
     table_pointer db "table_pointer: %p", 13, 10, 0
     table_drawable db "table_drawable: %p", 13, 10, 0
-    table_food db "table_food: %p", 13, 10, 0
+    table_food db "table_food: %p", 13, 10, 13, 10, 0
 
     position_pointer db "position_pointer: %p", 13, 10, 0
     position_x db "position_x: %d", 13, 10, 0
-    position_y db "position_y: %d", 13, 10, 0
+    position_y db "position_y: %d", 13, 10, 13, 10, 0
 
 
 section .text
     global main
-    extern board_new
+    extern game_new
     extern printf
 
 constructor_test:
@@ -67,11 +77,52 @@ constructor_test:
     mov cx, 100                  ; Moving width into CX  (So: ECX = 0, width)
     shl rcx, 16                 ; Shifting rcx 16 bits left (So : ECX = width, 0)
     mov cx, 20  
-    call board_new
+    call game_new
+
+    ;###################################################;
+    ;#                    Test GAME                    #;
+    ;###################################################;
+    mov [rbp - 8], rax
+    lea rcx, [rel game_pointer]
+    mov rdx, rax
+    call printf
+
+    mov rax, [rbp - 8]
+    lea rcx, [rel game_board]
+    mov rdx, [rax + game.board_ptr]
+    call printf
+
+    mov rax, [rbp - 8]
+    lea rcx, [rel game_player]
+    mov rdx, [rax + game.player_ptr]
+    call printf
+
+    ;###################################################;
+    ;#                    Test PLAYER                  #;
+    ;###################################################;
+    mov rax, [rbp - 8]
+    mov rax, [rax + game.player_ptr]
+    mov [rbp - 16], rax
+
+    lea rcx, [rel player_pointer]
+    mov rdx, rax
+    call printf
+
+    mov rax, [rbp - 16]
+    lea rcx, [rel player_points]
+    mov rdx, [rax + player.points]
+    call printf
+
+    mov rax, [rbp - 16]
+    lea rcx, [rel player_name]
+    mov rdx, [rax + player.name_ptr]
+    call printf
 
     ;###################################################;
     ;#                    Test BOARD                   #;
     ;###################################################;
+    mov rax, [rbp - 8]
+    mov rax, [rax + game.board_ptr]
     mov [rbp - 8], rax
 
     lea rcx, [rel board_pointer]
