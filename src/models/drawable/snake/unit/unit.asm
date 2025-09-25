@@ -26,32 +26,40 @@ unit_new:
 
     ; Expect X- and Y-Coordinates in ECX
     ; Expect direction in RDX
+    ; Expect Unit-Char or 0 in R8B
     mov [rbp - 8], rdx
-
+    mov byte [rbp - 16], r8b
     ; Save position pointer into the stack.
     call position_new
-    mov [rbp - 16], rax
+    mov [rbp - 24], rax
 
     lea rcx, [rel drawable_vtable_unit]
     mov rdx, 0
     call interface_table_new
-    mov qword [rbp - 24], rax
+    mov qword [rbp - 32], rax
 
     mov rcx, unit_size
     call malloc
     test rax, rax
     jz _u_malloc_failed
-    mov qword [rbp - 32], rax
 
-    mov rcx, [rbp - 24]
+    mov rcx, [rbp - 32]
     mov qword [rax + unit.interface_table_ptr], rcx
-    mov rcx, [rbp - 16]
+    mov rcx, [rbp - 24]
     mov qword [rax + unit.position_ptr], rcx
-    mov byte [rax + unit.char], "O"
     mov rcx, [rbp - 8]
     mov qword [rax + unit.direction], rcx
     mov qword [rax + unit.next_unit_ptr], 0
+    cmp byte [rbp - 16], 0
+    jne .head_char
+    mov byte [rax + unit.char], "O"
+    jmp .complete
 
+.head_char:
+    mov r8b, byte [rbp - 16]
+    mov [rax + unit.char], r8b
+
+.complete:
     mov rsp, rbp
     pop rbp
     ret

@@ -10,6 +10,10 @@ section .rodata
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "game_new", 0
     direction_error db "Direction is illegal: %d"
+
+section .data
+    current_direction db 2
+
 section .bss
     GAME_PTR resq 1
 
@@ -18,6 +22,7 @@ section .text
     extern free
     extern Sleep
     extern printf
+    extern GetAsyncKeyState
 
     extern player_new
     extern board_new, board_draw, board_setup, board_move_snake
@@ -33,6 +38,7 @@ game_new:
     cmp qword [rel GAME_PTR], 0
     jne .complete
 
+    mov rdx, [rel current_direction]
     call board_new
     mov [rbp - 8], rax
 
@@ -77,43 +83,22 @@ game_setup:
 
     call board_setup
 
-    ; Save non volatile regs.
-    mov [rbp - 8], r15          
-
-    mov r15, 10
 .loop:
-    mov rcx, 2
+    call _get_key_press_event
+    mov rcx, [rel current_direction]
     call _update_snake
     call board_move_snake
-    mov rcx, 500
+    call _collission_check
+    cmp rax, 1
+    je .complete
+    mov rcx, 100
     call Sleep
-    cmp r15, 0
-    je .next_loop
-    dec r15
     jmp .loop
 
-.next_loop:
-    mov r15, 10
-    .loop_go:
-        mov rcx, 1
-        call _update_snake
-        call board_move_snake
-        mov rcx, 500
-        call Sleep
-        cmp r15, 0
-        je .complete
-        dec r15
-        jmp .loop_go
-
 .complete:
-    ; Restore non volatile regs.
-    mov r15, [rbp - 8]
-
     mov rsp, rbp
     pop rbp
     ret
-
-
 
 
 
@@ -221,6 +206,157 @@ _update_unit_direction:
     ; Expect pointer to unit object in RCX.
     ; Expect new direction in RDX.
     mov [rcx + unit.direction], rdx
+    ret
+
+_get_key_press_event:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    mov rcx, 25h
+    call GetAsyncKeyState
+    test rax, 8001h
+    jnz .left
+
+    mov rcx, 26h
+    call GetAsyncKeyState
+    test rax, 8001h
+    jnz .up
+
+    mov rcx, 27h
+    call GetAsyncKeyState
+    test rax, 8001h
+    jnz .right
+
+    mov rcx, 28h
+    call GetAsyncKeyState
+    test rax, 8001h
+    jnz .down
+
+    jmp .complete
+
+.left:
+    cmp byte [rel current_direction], 2
+    je .complete
+    mov byte [rel current_direction], 0
+    jmp .complete
+
+.up:
+    cmp byte [rel current_direction], 3
+    je .complete
+    mov byte [rel current_direction], 1
+    jmp .complete
+
+.right:
+    cmp byte [rel current_direction], 0
+    je .complete
+    mov byte [rel current_direction], 2
+    jmp .complete
+
+.down:
+    cmp byte [rel current_direction], 1
+    je .complete
+    mov byte [rel current_direction], 3
+
+.complete:
+    movzx rax, byte [rel current_direction]
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_collission_check:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    call _check_wall_collission
+    cmp rax, 1
+    je .complete
+
+    call _check_snake_collission
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_check_snake_collission:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    mov rcx, [rel GAME_PTR]
+    mov rcx, [rcx + game.board_ptr]
+    mov rcx, [rcx + board.snake_ptr]
+    mov r8, [rcx + snake.head_ptr]
+    mov rdx, [r8 + unit.position_ptr]
+
+    movzx r9, word [rdx + position.y]           ; Save Y-Position of Head
+    mov word [rbp - 8], r9w
+    movzx r9, word [rdx + position.x]           ; Save X-Position of Head
+    mov word [rbp - 16], r9w
+    mov r9, [rcx + snake.tail_ptr]              
+    mov [rbp - 24], r9                          ; Save tail of Snake
+
+    mov r8, [r8 + unit.next_unit_ptr]
+.loop:
+    mov r9, [r8 + unit.position_ptr]
+    mov r10w, word [r9 + position.x]
+    cmp r10w, word [rbp - 16]
+    jne .loop_handle
+    mov r10w, word [r9 + position.y]
+    cmp r10w, word [rbp - 8]
+    je .game_over
+.loop_handle:
+    cmp r8, [rbp - 24]
+    je .game_on
+    mov r8, [r8 + unit.next_unit_ptr]
+    jmp .loop
+
+.game_over:
+    mov rax, 1
+    jmp .complete
+
+.game_on:
+    mov rax, 0
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_check_wall_collission:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    mov rcx, [rel GAME_PTR]
+    mov rcx, [rcx + game.board_ptr]
+    mov rdx, [rcx + board.snake_ptr]
+    mov rdx, [rdx + snake.head_ptr]
+    mov rdx, [rdx + unit.position_ptr]
+
+    cmp word [rdx + position.x], 0
+    je .game_over
+    movzx r9, word [rcx + board.width]
+    cmp word [rdx + position.x], r9w
+    je .game_over
+
+    cmp word [rdx + position.y], 0
+    je .game_over
+    movzx r9, word [rcx + board.height]
+    cmp word [rdx + position.y], r9w
+    je .game_over
+
+    mov rax, 0
+    jmp .complete
+
+.game_over:
+    mov rax, 1
+
+.complete:
+    mov rsp, rbp
+    pop rbp
     ret
 
 

@@ -4,7 +4,6 @@ global console_manager_new, console_manager_destroy, console_manager_setup, cons
 
 section .rodata
     constructor_name db "console_manager", 13, 10, 0
-    fence_char db "#"
     erase_char db " "
 
 section .bss
@@ -15,7 +14,7 @@ section .bss
 section .text
     extern malloc
     extern free
-    extern _cm_malloc_failed, object_not_created
+    extern malloc_failed, object_not_created
     extern GetStdHandle, printf
     extern SetConsoleCursorPosition, WriteConsoleA
     extern GetConsoleScreenBufferInfo, FillConsoleOutputCharacterA
@@ -82,17 +81,7 @@ console_manager_setup:
     mov rbp, rsp
     sub rsp, 40
 
-    ; Expect board width and height in ECX 
-    mov word [rbp - 8], cx
-    shr rcx, 16
-    mov word [rbp - 16], cx
-
     call _cm_empty_console
-    xor rcx, rcx
-    mov cx, [rbp - 16]
-    shl rcx, 16
-    mov cx, [rbp - 8]
-    call _cm_draw_fence
 
     mov rsp, rbp
     pop rbp
@@ -154,66 +143,6 @@ _cm_empty_console:
     mov qword [rsp + 32], r10
     call FillConsoleOutputCharacterA
 
-    mov rsp, rbp
-    pop rbp
-    ret
-
-_cm_draw_fence:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 80
-
-    ; Expect Width and Height of Board in RCX
-    mov word [rbp - 8], cx                      ; Save height.
-    shr rcx, 16
-    mov word [rbp - 16], cx                     ; Save width.
-
-    ; Save non-volatile regs.
-    mov [rbp - 24], r15
-    mov [rbp - 32], r14
-
-    xor r15, r15        ; Zero Height counter
-.loop:
-    cmp r15, 0
-    je .draw_whole_line
-    cmp r15, [rbp - 8]
-    je .draw_whole_line
-
-.draw_single_chars:
-    mov cx, r15w
-    shl rcx, 16
-    mov cx, 0
-    lea rdx, [rel fence_char] 
-    call console_manager_write
-    mov cx, r15w
-    shl rcx, 16
-    mov cx, word [rbp - 16]
-    lea rdx, [rel fence_char] 
-    call console_manager_write
-    jmp .loop_handle
-
-.draw_whole_line:
-    xor r14, r14        ; Zero Width counter
-    .inner_loop:
-        mov cx, r15w
-        shl rcx, 16
-        mov cx, r14w
-        lea rdx, [rel fence_char]
-        call console_manager_write
-    .inner_loop_handle:
-        cmp r14w, [rbp - 16]
-        je .loop_handle
-        inc r14w
-        jmp .inner_loop
-.loop_handle:
-    cmp r15w, [rbp - 8]
-    je .complete
-    inc r15
-    jmp .loop
-
-.complete:
-    mov [rbp - 32], r14
-    mov [rbp - 24], r15
     mov rsp, rbp
     pop rbp
     ret
@@ -300,7 +229,7 @@ _cm_object_failed:
 _cm_malloc_failed:
     lea rcx, [rel constructor_name]
     mov rdx, rax
-    call _cm_malloc_failed
+    call malloc_failed
 
     mov rsp, rbp
     pop rbp

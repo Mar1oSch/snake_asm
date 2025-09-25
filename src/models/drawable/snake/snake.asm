@@ -7,7 +7,6 @@ global snake_new, snake_destroy, get_snake, snake_add_unit, snake_update, snake_
 
 section .rodata
     HEAD_CHAR equ "@"
-    UNIT_CHAR equ "o"
 
     constructor_name db "snake_new", 0
 
@@ -33,6 +32,7 @@ snake_new:
     ; Expect X- and Y-Coordinates in ECX.
     ; Expect direction in RDX.
     ; Use them to create the head of the snake.
+    mov r8, "@"
     call unit_new
     mov qword [rbp - 8], rax
 
@@ -54,9 +54,9 @@ snake_new:
     mov r15, 7
 
 .loop:
+    call snake_add_unit
     cmp r15, 0
     je .complete
-    call snake_add_unit
     dec r15
     jmp .loop
 
@@ -144,6 +144,7 @@ snake_add_unit:
     movzx rcx, word [rbp - 8]
     shl rcx, 16
     mov cx, [rbp - 16]
+    xor r8, r8
     call unit_new
     mov [rbp - 24], rax
     mov r9, [rel SNAKE_PTR]

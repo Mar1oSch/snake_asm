@@ -8,11 +8,10 @@ global board_new, board_destroy, board_draw, board_setup, board_move_snake, get_
 
 section .rodata
     constructor_name db "board_new", 0
-    debug_char db "D"
+    fence_char db "#"
 
 section .bss
     BOARD_PTR resq 1
-    BOARD_CURRENT_SNAKE_TAIL resd 1
 
 section .text
     extern malloc
@@ -46,7 +45,7 @@ board_new:
     add cx, board_size
     call malloc
     test rax, rax
-    jz _board_malloc_failed
+    jz _b_malloc_failed
     mov [rel BOARD_PTR], rax
 
     xor rcx, rcx
@@ -68,9 +67,6 @@ board_new:
     mov [rcx + board.snake_ptr], rax
     mov qword [rcx + board.food_ptr], 0
 
-    call snake_get_tail_position
-    mov [rel BOARD_CURRENT_SNAKE_TAIL], eax
-
     call console_manager_new
     mov rcx, [rel BOARD_PTR]
     mov [rcx + board.console_manager_ptr], rax
@@ -87,7 +83,7 @@ board_destroy:
     sub rsp, 40
 
     cmp qword [rel BOARD_PTR], 0
-    je _board_object_failed
+    je _b_object_failed
 
     call free
 
@@ -105,6 +101,12 @@ board_setup:
     shl rcx, 16
     mov cx, [r8 + board.width]
     call console_manager_setup
+
+    mov r8, [rel BOARD_PTR]
+    mov cx, [r8 + board.height]
+    shl rcx, 16
+    mov cx, [r8 + board.width]
+    call _draw_fence
 
     mov rsp, rbp
     pop rbp
@@ -125,7 +127,7 @@ board_move_snake:
 
 get_board:
     cmp qword [rel BOARD_PTR], 0
-    je _board_object_failed
+    je _b_object_failed
 
     mov rax, [rel BOARD_PTR]
     ret
@@ -140,7 +142,7 @@ _board_draw_content:
     sub rsp, 40
 
     cmp qword [rel BOARD_PTR], 0
-    je _board_object_failed
+    je _b_object_failed
 
 
     call _draw_snake
@@ -157,7 +159,7 @@ _draw_snake:
     sub rsp, 70
 
     cmp qword [rel BOARD_PTR], 0
-    je _board_object_failed
+    je _b_object_failed
 
     mov r9, [rel BOARD_PTR]
     mov r9, [r9 + board.snake_ptr]                          ; Get snake_ptr into R9.
@@ -205,13 +207,10 @@ _erase_last_snake_unit:
     sub rsp, 40
 
     cmp qword [rel BOARD_PTR], 0
-    je _board_object_failed
+    je _b_object_failed
 
     call snake_get_tail_position
-    ; cmp eax, dword [rel BOARD_CURRENT_SNAKE_TAIL]
-    ; je .complete
 
-    mov dword [rel BOARD_CURRENT_SNAKE_TAIL], eax
     mov ecx, eax
     call console_manager_erase
 
@@ -226,7 +225,7 @@ _move_cursor_to_end:
     sub rsp, 40
 
     cmp qword [rel BOARD_PTR], 0
-    je _board_object_failed
+    je _b_object_failed
 
     xor rcx, rcx
     mov r8, [rel BOARD_PTR]
@@ -239,8 +238,75 @@ _move_cursor_to_end:
     pop rbp
     ret
 
+_draw_fence:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 80
+
+    cmp qword [rel BOARD_PTR], 0
+    je _b_object_failed
+
+    ; Expect Width and Height of Board in RCX
+    mov word [rbp - 8], cx                      ; Save height.
+    shr rcx, 16
+    mov word [rbp - 16], cx    
+
+    ; Save non-volatile regs.
+    mov [rbp - 24], r15
+    mov [rbp - 32], r14
+
+    xor r15, r15        ; Zero Height counter
+.loop:
+    cmp r15, 0
+    je .draw_whole_line
+    cmp r15w, word [rbp - 8]
+    je .draw_whole_line
+
+.draw_single_chars:
+    mov cx, r15w
+    shl rcx, 16
+    mov cx, 0
+    lea rdx, [rel fence_char] 
+    call console_manager_write
+    mov cx, r15w
+    shl rcx, 16
+    mov cx, word [rbp - 16]
+    lea rdx, [rel fence_char] 
+    call console_manager_write
+    jmp .loop_handle
+
+.draw_whole_line:
+    xor r14, r14        ; Zero Width counter
+    .inner_loop:
+        mov cx, r15w
+        shl rcx, 16
+        mov cx, r14w
+        lea rdx, [rel fence_char]
+        call console_manager_write
+    .inner_loop_handle:
+        cmp r14w, [rbp - 16]
+        je .loop_handle
+        inc r14w
+        jmp .inner_loop
+
+.loop_handle:
+    cmp r15w, [rbp - 8]
+    je .complete
+    inc r15
+    jmp .loop
+
+.complete:
+    mov [rbp - 32], r14
+    mov [rbp - 24], r15
+    mov rsp, rbp
+    pop rbp
+    ret
+
+
+
+
 ;;;;;; ERROR HANDLING ;;;;;;
-_board_object_failed:
+_b_object_failed:
     lea rcx, [rel constructor_name]
     call object_not_created
 
@@ -248,7 +314,7 @@ _board_object_failed:
     pop rbp
     ret
 
-_board_malloc_failed:
+_b_malloc_failed:
     lea rcx, [rel constructor_name]
     mov rdx, rax
     call malloc_failed
