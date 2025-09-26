@@ -1,5 +1,7 @@
 %include "../include/game/game_struc.inc"
 %include "../include/game/board_struc.inc"
+%include "../include/game/player_struc.inc"
+%include "../include/food/food_struc.inc"
 %include "../include/position_struc.inc"
 %include "../include/snake/unit_struc.inc"
 %include "../include/snake/snake_struc.inc"
@@ -25,7 +27,8 @@ section .text
     extern GetAsyncKeyState
 
     extern player_new
-    extern board_new, board_draw, board_setup, board_move_snake
+    extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food
+    extern snake_add_unit
     extern malloc_failed, object_not_created
 
 ;;;;;; PUBLIC FUNCTIONS ;;;;;;
@@ -89,11 +92,20 @@ game_setup:
     call _update_snake
     call board_move_snake
     call _collission_check
+    cmp rax, 2
+    je .food_event
     cmp rax, 1
     je .complete
+.loop_handle:
     mov rcx, 100
     call Sleep
     jmp .loop
+
+.food_event:
+    call _add_player_points
+    call snake_add_unit
+    call board_create_new_food
+    jmp .loop_handle
 
 .complete:
     mov rsp, rbp
@@ -269,6 +281,10 @@ _collission_check:
     mov rbp, rsp
     sub rsp, 40
 
+    call _check_food_collission
+    cmp rax, 2
+    je .complete
+
     call _check_wall_collission
     cmp rax, 1
     je .complete
@@ -355,6 +371,64 @@ _check_wall_collission:
     mov rax, 1
 
 .complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_check_food_collission:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    mov rcx, [rel GAME_PTR]
+    mov rcx, [rcx + game.board_ptr]
+
+    mov rdx, [rcx + board.snake_ptr]
+    mov rdx, [rdx + snake.head_ptr]
+    mov rdx, [rdx + unit.position_ptr]
+
+    mov r8, [rcx + board.food_ptr]
+    mov r8, [r8 + food.position_ptr]
+
+    movzx r9, word [rdx + position.x]
+    movzx r10, word [r8 + position.x]
+    cmp r9, r10
+    jne .no_food_collission
+
+    movzx r9, word [rdx + position.y]
+    movzx r10, word [r8 + position.y]
+    cmp r9, r10
+    je .food_collission
+
+.no_food_collission:
+    mov rax, 0
+    jmp .complete
+
+.food_collission:
+    mov rax, 2
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_add_player_points:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    cmp qword [rel GAME_PTR], 0
+    je _g_object_failed
+
+    mov rcx, [rel GAME_PTR]
+    mov rdx, [rcx + game.player_ptr]
+
+    mov r8, [rcx + game.board_ptr]
+    mov r8, [r8 + board.food_ptr]
+    mov r8, [r8 + food.points]
+
+    add [rdx + player.points], r8
+
     mov rsp, rbp
     pop rbp
     ret

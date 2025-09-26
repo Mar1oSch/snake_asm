@@ -1,14 +1,18 @@
 %include "../include/interface_table_struc.inc"
 %include "../include/position_struc.inc"
 %include "../include/game/board_struc.inc"
+%include "../include/food/food_struc.inc"
 %include "../include/snake/snake_struc.inc"
 %include "../include/snake/unit_struc.inc"
 
-global board_new, board_destroy, board_draw, board_setup, board_move_snake, get_board
+global board_new, board_destroy, board_draw, board_setup, board_move_snake, get_board, board_create_new_food
 
 section .rodata
     constructor_name db "board_new", 0
     fence_char db "#"
+
+section .data
+    filetime_struct dd 0, 0
 
 section .bss
     BOARD_PTR resq 1
@@ -17,8 +21,11 @@ section .text
     extern malloc
     extern free
     extern Sleep
+    extern GetSystemTimeAsFileTime
+
     extern snake_new, snake_update, snake_get_tail_position
     extern console_manager_new, console_manager_setup, console_manager_write, console_manager_move_cursor, console_manager_erase
+    extern food_new, food_destroy
     extern malloc_failed, object_not_created
     extern DRAWABLE_VTABLE_X_POSITION_OFFSET, DRAWABLE_VTABLE_Y_POSITION_OFFSET, DRAWABLE_VTABLE_CHAR_PTR_OFFSET
 
@@ -55,8 +62,7 @@ board_new:
     mov cx, word [rbp - 8]
     mov [rax + board.height], cx
 
-    mov cx, word [rbp - 16]
-    shr cx, 2
+    mov cx, 10
     shl rcx, 16
     mov cx, word [rbp - 8]
     shr cx, 1
@@ -70,6 +76,13 @@ board_new:
     call console_manager_new
     mov rcx, [rel BOARD_PTR]
     mov [rcx + board.console_manager_ptr], rax
+
+    call _create_random_position
+    mov rcx, rax
+    call food_new
+
+    mov rcx, [rel BOARD_PTR]
+    mov [rcx + board.food_ptr], rax
 
 .complete:
     mov rax, qword [rel BOARD_PTR]
@@ -108,6 +121,8 @@ board_setup:
     mov cx, [r8 + board.width]
     call _draw_fence
 
+    call _draw_food
+
     mov rsp, rbp
     pop rbp
     ret
@@ -120,6 +135,37 @@ board_move_snake:
     call _draw_snake
     call _erase_last_snake_unit
     call _move_cursor_to_end
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+board_create_new_food:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    cmp qword [rel BOARD_PTR], 0
+    je _b_object_failed
+
+    mov rcx, [rel BOARD_PTR]
+    mov rcx, [rcx + board.food_ptr]
+    call food_destroy
+.loop:
+    call _create_random_position
+    mov [rbp - 8], rax
+    mov rcx, rax
+    call _check_position_with_snake
+    cmp rax, 0
+    je .loop
+
+    mov rcx, [rbp - 8]
+    call food_new
+
+    mov rcx, [rel BOARD_PTR]
+    mov [rcx + board.food_ptr], rax
+
+    call _draw_food
 
     mov rsp, rbp
     pop rbp
@@ -201,43 +247,6 @@ _draw_snake:
     pop rbp
     ret
 
-_erase_last_snake_unit:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    cmp qword [rel BOARD_PTR], 0
-    je _b_object_failed
-
-    call snake_get_tail_position
-
-    mov ecx, eax
-    call console_manager_erase
-
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
-
-_move_cursor_to_end:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    cmp qword [rel BOARD_PTR], 0
-    je _b_object_failed
-
-    xor rcx, rcx
-    mov r8, [rel BOARD_PTR]
-    mov cx, [r8 + board.width]
-    shl rcx, 16
-    mov cx, [r8 + board.height]
-    call console_manager_move_cursor
-
-    mov rsp, rbp
-    pop rbp
-    ret
-
 _draw_fence:
     push rbp
     mov rbp, rsp
@@ -298,6 +307,190 @@ _draw_fence:
 .complete:
     mov [rbp - 32], r14
     mov [rbp - 24], r15
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_draw_food:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 72
+
+    cmp qword [rel BOARD_PTR], 0
+    je _b_object_failed
+
+    mov rcx, [rel BOARD_PTR]
+    mov rcx, [rcx + board.food_ptr]
+    mov [rbp - 8], rcx
+
+    mov rdx, [rcx + food.interface_table_ptr]
+    mov rdx, [rdx + interface_table.vtable_drawable_ptr]
+    mov [rbp - 16], rdx
+
+    call [rdx + DRAWABLE_VTABLE_X_POSITION_OFFSET]
+    mov word [rbp - 24], ax
+
+    mov rcx, [rbp - 8]
+    mov rdx, [rbp - 16]
+    call [rdx + DRAWABLE_VTABLE_Y_POSITION_OFFSET]
+    mov word [rbp - 32], ax
+
+    mov rcx, [rbp - 8]
+    mov rdx, [rbp - 16]
+    call [rdx + DRAWABLE_VTABLE_CHAR_PTR_OFFSET]
+
+    mov rdx, rax
+    mov cx, word [rbp - 24]
+    shl rcx, 16
+    mov cx, word [rbp - 32]
+    call console_manager_write
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_erase_last_snake_unit:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    cmp qword [rel BOARD_PTR], 0
+    je _b_object_failed
+
+    call snake_get_tail_position
+
+    mov ecx, eax
+    call console_manager_erase
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_move_cursor_to_end:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    cmp qword [rel BOARD_PTR], 0
+    je _b_object_failed
+
+    xor rcx, rcx
+    mov r8, [rel BOARD_PTR]
+    mov cx, [r8 + board.width]
+    shl rcx, 16
+    mov cx, [r8 + board.height]
+    call console_manager_move_cursor
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_create_random_position:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    cmp qword [rel BOARD_PTR], 0
+    je _b_object_failed
+
+
+    lea rcx, [rel filetime_struct]
+    call GetSystemTimeAsFileTime
+
+    xor rax, rax
+    mov rax, [rel filetime_struct]
+    ror rax, 32
+    mov rcx, [rel BOARD_PTR]
+
+.calculate_x:
+    movzx r8, word [rcx + board.width]
+    xor rdx, rdx
+    div r8
+
+    cmp dx, 0
+    je .increment_x
+    cmp dx, word [rcx + board.width]
+    je .decrement_x
+    jmp .calculate_y
+.increment_x:
+    inc dx
+    jmp .calculate_y
+.decrement_x:
+    dec dx
+
+.calculate_y:
+    mov word [rbp - 8], dx
+    xor rax, rax
+    mov rax, [rel filetime_struct]
+    rol rax, 32
+    movzx r8, word [rcx + board.height]
+    xor rdx, rdx
+    div r8
+
+    cmp dx, 0
+    je .increment_y
+    cmp dx, word [rcx + board.height]
+    je .decrement_y
+    jmp .complete
+.increment_y:
+    inc dx
+    jmp .complete
+.decrement_y:
+    dec dx
+
+.complete:
+    mov word [rbp - 16], dx
+
+    movzx rax, word [rbp - 8]
+    shl rax, 16
+    mov ax, word [rbp - 16]
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_check_position_with_snake:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect X- and Y-Coordinates in ECX.
+    mov [rbp - 8], cx               ; Save Y-Coordinates
+    shr rcx, 16
+    mov [rbp - 16], cx              ; Save X-Coordinates
+
+    cmp qword [rel BOARD_PTR], 0
+    je _b_object_failed
+
+    mov rcx, [rel BOARD_PTR]
+    mov rcx, [rcx + board.snake_ptr]
+    mov r8, [rcx + snake.tail_ptr]
+    mov [rbp - 24], r8
+    mov r8, [rcx + snake.head_ptr]
+
+.loop:
+    mov r9, [r8 + unit.position_ptr]
+    mov r10w, word [r9 + position.x]
+    cmp r10w, word [rbp - 16]
+    jne .loop_handle
+    mov r10w, word [r9 + position.y]
+    cmp r10w, word [rbp - 8]
+    je .failed
+.loop_handle:
+    cmp r8, [rbp - 24]
+    je .worked
+    mov r8, [r8 + unit.next_unit_ptr]
+    jmp .loop
+
+.failed:
+    mov rax, 0
+    jmp .complete
+
+.worked:
+    mov rax, 1
+
+.complete:
     mov rsp, rbp
     pop rbp
     ret

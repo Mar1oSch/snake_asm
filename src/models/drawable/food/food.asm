@@ -4,7 +4,7 @@ global food_new, food_destroy, food_get_char_ptr, food_get_points, food_get_x_po
 
 section .rodata
     FOOD_POINTS equ 100
-    FOOD_CHAR equ "~"
+    FOOD_CHAR equ "*"
 
 section .text
     extern malloc
@@ -19,8 +19,7 @@ food_new:
     mov rbp, rsp
     sub rsp, 40
     
-    ; Expect X-Coordinates in CX
-    ; Expect Y-Coordinates in DX
+    ; Expect X- and Y-Coordinates in ECX
     call position_new
     mov qword [rbp - 8], rax
 
@@ -48,7 +47,8 @@ food_new:
     ret
 
 food_get_char_ptr:
-    lea rax, FOOD_CHAR
+    ; Expect pointer to food object in RCX
+    lea rax, [rcx + food.char]
     ret
 
 food_get_x_position:

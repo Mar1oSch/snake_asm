@@ -5,6 +5,7 @@ global constructor_test
 %include "../include/game/board_struc.inc"
 %include "../include/game/game_struc.inc"
 %include "../include/game/player_struc.inc"
+%include "../include/food/food_struc.inc"
 %include "../include/snake/snake_struc.inc"
 %include "../include/snake/unit_struc.inc"
 %include "../include/organizer/console_manager_struc.inc"
@@ -13,9 +14,9 @@ global constructor_test
 
 ;;;;                        GAME
 ;;;;                         ^                              
-;;;;        BOARD                          PLAYER
-;;;;          ^
-;;;;  SNAKE       CONSOLE-MANAGER
+;;;;          BOARD                          PLAYER
+;;;;            ^
+;;;;  SNAKE   FOOD    CONSOLE-MANAGER
 ;;;;    |
 ;;;;   UNIT
 ;;;;    |
@@ -41,6 +42,12 @@ section .data
 
     console_manager_pointer db "console_manager_pointer: %p", 13, 10, 0
     console_manager_handle db "console_manager_handle: %u", 13, 10, 13, 10, 0
+
+    food_pointer db "food_pointer: %p", 13, 10, 0
+    food_interface_table db "food_table: %p", 13, 10, 0
+    food_points db "food_points: %d", 13, 10, 0
+    food_char db "food_char: '%c'", 13, 10, 0
+    food_position db "food_position: %p", 13, 10, 13, 10, 0
 
     snake_pointer db "snake_pointer: %p", 13, 10, 0
     snake_length db "snake_length: %d", 13, 10, 0
@@ -157,6 +164,7 @@ constructor_test:
     ;###################################################;
     ;#              Test CONSOLE MANAGER               #;
     ;###################################################;
+
     mov rax, [rbp - 8]
     mov rax, [rax + board.console_manager_ptr]
     mov [rbp - 16], rax
@@ -168,6 +176,38 @@ constructor_test:
     mov rax, [rbp - 16]
     lea rcx, [rel console_manager_handle]
     mov rdx, [rax + console_manager.handle]
+    call printf
+
+    ;###################################################;
+    ;#                    Test Food                    #;
+    ;###################################################;
+
+    mov rax, [rbp - 8]
+    mov rax, [rax + board.food_ptr]
+    mov [rbp - 16], rax
+
+    lea rcx, [rel food_pointer]
+    mov rdx, rax
+    call printf
+
+    mov rax, [rbp - 16]
+    lea rcx, [rel food_interface_table]
+    mov rdx, [rax + food.interface_table_ptr]
+    call printf
+
+    mov rax, [rbp - 16]
+    lea rcx, [rel food_points]
+    mov rdx, [rax + food.points]
+    call printf
+
+    mov rax, [rbp - 16]
+    lea rcx, [rel food_char]
+    movzx rdx, byte [rax + food.char]
+    call printf
+
+    mov rax, [rbp - 16]
+    lea rcx, [rel food_position]
+    mov rdx, [rax + food.position_ptr]
     call printf
 
     ;###################################################;
