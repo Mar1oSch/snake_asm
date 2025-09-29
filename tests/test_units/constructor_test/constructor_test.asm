@@ -12,9 +12,9 @@ global constructor_test
 
 ;;;; THIS TEST IS IMPLEMENTED TO TEST THE CONSTRUCTOR CHAIN FROM:
 
-;;;;                        GAME
-;;;;                         ^                              
-;;;;          BOARD                          PLAYER
+;;;;                           GAME
+;;;;                            ^                              
+;;;;          BOARD                          PLAYER 
 ;;;;            ^
 ;;;;  SNAKE   FOOD    CONSOLE-MANAGER
 ;;;;    |
@@ -26,6 +26,7 @@ global constructor_test
 
 section .data
     game_pointer db "game_pointer: %p", 13, 10, 0
+    game_lvl db "game_lvl: %1d", 13, 10, 0
     game_board db "game_board: %p", 13, 10, 0
     game_player db "game_player: %p", 13, 10, 13, 10, 0
 
@@ -41,7 +42,7 @@ section .data
     board_console_manager db "board_console_manager: %p", 13, 10, 13, 10, 0
 
     console_manager_pointer db "console_manager_pointer: %p", 13, 10, 0
-    console_manager_handle db "console_manager_handle: %u", 13, 10, 13, 10, 0
+    console_manager_output_handle db "console_manager_output_handle: %u", 13, 10, 13, 10, 0
 
     food_pointer db "food_pointer: %p", 13, 10, 0
     food_interface_table db "food_table: %p", 13, 10, 0
@@ -62,8 +63,7 @@ section .data
     unit_next db "unit_next: %p", 13, 10, 13, 10, 0
 
     table_pointer db "table_pointer: %p", 13, 10, 0
-    table_drawable db "table_drawable: %p", 13, 10, 0
-    table_food db "table_food: %p", 13, 10, 13, 10, 0
+    table_drawable db "table_drawable: %p", 13, 10, 13, 10, 0
 
     position_pointer db "position_pointer: %p", 13, 10, 0
     position_x db "position_x: %d", 13, 10, 0
@@ -84,6 +84,7 @@ constructor_test:
     mov cx, 100                  ; Moving width into CX  (So: ECX = 0, width)
     shl rcx, 16                 ; Shifting rcx 16 bits left (So : ECX = width, 0)
     mov cx, 20  
+    mov rdx, 5
     call game_new
 
     ;###################################################;
@@ -92,6 +93,11 @@ constructor_test:
     mov [rbp - 8], rax
     lea rcx, [rel game_pointer]
     mov rdx, rax
+    call printf
+
+    mov rax, [rbp - 8]
+    lea rcx, [rel game_lvl]
+    movzx rdx, byte [rax + game.lvl]
     call printf
 
     mov rax, [rbp - 8]
@@ -155,11 +161,6 @@ constructor_test:
     lea rcx, [rel board_food]
     mov rdx, [rax + board.food_ptr]          
     call printf
-    
-    mov rax, [rbp - 8]
-    lea rcx, [rel board_console_manager]
-    mov rdx, [rax + board.console_manager_ptr]
-    call printf
 
     ;###################################################;
     ;#              Test CONSOLE MANAGER               #;
@@ -174,8 +175,8 @@ constructor_test:
     call printf
 
     mov rax, [rbp - 16]
-    lea rcx, [rel console_manager_handle]
-    mov rdx, [rax + console_manager.handle]
+    lea rcx, [rel console_manager_output_handle]
+    mov rdx, [rax + console_manager.output_handle]
     call printf
 
     ;###################################################;
@@ -289,11 +290,6 @@ constructor_test:
     mov rax, [rbp - 16]
     lea rcx, [rel table_drawable]
     mov rdx, [rax + interface_table.vtable_drawable_ptr]
-    call printf
-
-    mov rax, [rbp - 16]
-    lea rcx, [rel table_food]
-    mov rdx, [rax + interface_table.vtable_food_ptr]
     call printf
 
     ;###################################################;

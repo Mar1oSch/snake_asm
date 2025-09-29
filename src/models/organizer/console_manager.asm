@@ -33,10 +33,15 @@ console_manager_new:
     call malloc
     mov [rel CONSOLE_MANAGER_PTR], rax
 
+    mov rcx, -10
+    call GetStdHandle
+    mov rcx, [rel CONSOLE_MANAGER_PTR]
+    mov [rcx + console_manager.input_handle], rax
+
     mov rcx, -11
     call GetStdHandle
     mov rcx, [rel CONSOLE_MANAGER_PTR]
-    mov [rcx + console_manager.handle], rax
+    mov [rcx + console_manager.output_handle], rax
 
 .complete:
     mov rax, [rel CONSOLE_MANAGER_PTR]
@@ -114,6 +119,37 @@ console_manager_move_cursor:
     pop rbp
     ret
 
+console_manager_get_input_handle:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    cmp qword [rel CONSOLE_MANAGER_PTR], 0
+    je _cm_object_failed
+
+    mov rax, [rel CONSOLE_MANAGER_PTR]
+    mov rax, [rax + console_manager.input_handle]
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+console_manager_get_output_handle:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    cmp qword [rel CONSOLE_MANAGER_PTR], 0
+    je _cm_object_failed
+
+    mov rax, [rel CONSOLE_MANAGER_PTR]
+    mov rax, [rax + console_manager.output_handle]
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+
 
 
 
@@ -133,7 +169,7 @@ _cm_empty_console:
     mov word[rbp - 16], ax
 
     mov rdx, [rel CONSOLE_MANAGER_PTR]
-    mov rcx, [rdx + console_manager.handle]
+    mov rcx, [rdx + console_manager.output_handle]
     mov rdx, " "
     movzx r8, word [rbp - 8]
     movzx r9, word [rbp - 16]
@@ -156,7 +192,7 @@ _cm_get_buffer_size:
     je _cm_object_failed
 
     mov rcx, [rel CONSOLE_MANAGER_PTR]
-    mov rcx, [rcx + console_manager.handle]
+    mov rcx, [rcx + console_manager.output_handle]
     lea rdx, [rel CONSOLE_MANAGER_BUFFER_SIZE]
     call GetConsoleScreenBufferInfo
 
@@ -181,7 +217,7 @@ _cm_set_cursor_position:
     mov word [rbp - 16], cx
 
     mov rcx, [rel CONSOLE_MANAGER_PTR]
-    mov rcx, [rcx + console_manager.handle]
+    mov rcx, [rcx + console_manager.output_handle]
     mov dx, [rbp - 8]
     shl rdx, 16
     mov dx, [rbp - 16]
@@ -203,7 +239,7 @@ _cm_write_char:
     mov [rbp - 8], rcx
 
     mov rcx, [rel CONSOLE_MANAGER_PTR]
-    mov rcx, [rcx + console_manager.handle]
+    mov rcx, [rcx + console_manager.output_handle]
     mov rdx, [rbp - 8]
     mov r8, 1
     mov r9, 0

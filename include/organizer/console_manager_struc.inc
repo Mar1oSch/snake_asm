@@ -1,3 +1,4 @@
 struc console_manager
-    .handle resq 1
+    .output_handle resq 1
+    .input_handle resq 1
 endstruc

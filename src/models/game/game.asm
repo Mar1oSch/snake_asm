@@ -9,6 +9,9 @@
 global game_new, game_destroy, game_setup
 
 section .rodata
+    points_format db "%04d", 0
+    game_over db 0x1B,"[1m   GAME OVER   ",0x1B,"[0m",10,0
+
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "game_new", 0
     direction_error db "Direction is illegal: %d"
@@ -29,21 +32,25 @@ section .text
     extern player_new
     extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food
     extern snake_add_unit
+    extern console_manager_move_cursor
     extern malloc_failed, object_not_created
 
 ;;;;;; PUBLIC FUNCTIONS ;;;;;;
 game_new:
     ; Expect width and height for the board in ECX.
+    ; Expect lvl in DL.
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 56
 
     cmp qword [rel GAME_PTR], 0
     jne .complete
+    mov [rbp - 8], dl
 
     mov rdx, [rel current_direction]
     call board_new
-    mov [rbp - 8], rax
+    mov [rbp - 16], rax
+
 
     mov rcx, game_size
     call malloc
@@ -51,12 +58,15 @@ game_new:
     jz _g_malloc_failed
     mov [rel GAME_PTR], rax
 
-    mov rcx, [rbp - 8]
+    mov rcx, [rbp - 16]
     mov [rax + game.board_ptr], rcx
 
     call player_new
     mov rcx, [rel GAME_PTR]
     mov [rcx + game.player_ptr], rax
+
+    mov al, [rbp - 8]
+    mov [rcx + game.lvl], al
 
 .complete:
     mov rax, [rel GAME_PTR]
@@ -82,10 +92,13 @@ game_destroy:
 game_setup:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     call board_setup
+    call _build_scoreboard
+    call _get_delay
 
+    mov [rbp - 8], ax
 .loop:
     call _get_key_press_event
     mov rcx, [rel current_direction]
@@ -97,7 +110,7 @@ game_setup:
     cmp rax, 1
     je .complete
 .loop_handle:
-    mov rcx, 100
+    movzx rcx, word [rbp - 8]
     call Sleep
     jmp .loop
 
@@ -108,6 +121,7 @@ game_setup:
     jmp .loop_handle
 
 .complete:
+    call _game_over
     mov rsp, rbp
     pop rbp
     ret
@@ -423,16 +437,163 @@ _add_player_points:
     mov rcx, [rel GAME_PTR]
     mov rdx, [rcx + game.player_ptr]
 
-    mov r8, [rcx + game.board_ptr]
-    mov r8, [r8 + board.food_ptr]
-    mov r8, [r8 + food.points]
+    movzx r8, byte [rcx + game.lvl]
 
     add [rdx + player.points], r8
+
+    call _print_points
 
     mov rsp, rbp
     pop rbp
     ret
 
+_build_scoreboard:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    cmp qword [rel GAME_PTR], 0
+    je _g_object_failed
+
+    call _print_player
+    call _print_points
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_print_player:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    mov r8, [rel GAME_PTR]
+    mov r8, [r8 + game.board_ptr]
+    xor rcx, rcx
+    mov cx, [r8 + board.height]
+    inc cx
+    call console_manager_move_cursor
+
+    mov rcx, [rel GAME_PTR]
+    mov rcx, [rcx + game.player_ptr]
+    mov rcx, [rcx + player.name_ptr]
+    call printf
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_print_points:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    mov r8, [rel GAME_PTR]
+    mov r8, [r8 + game.board_ptr]
+    movzx rcx, word [r8 + board.width]
+    sub cx, 3
+    shl rcx, 16
+    mov cx, [r8 + board.height]
+    inc cx
+    call console_manager_move_cursor
+
+    lea rcx, [rel points_format]
+    mov rdx, [rel GAME_PTR]
+    mov rdx, [rdx + game.player_ptr]
+    mov rdx, [rdx + player.points]
+    call printf
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_get_delay:
+    push rbp
+    mov rbp, rsp
+
+    mov rax, [rel GAME_PTR]
+    movzx rax, byte [rax + game.lvl]
+
+    ; bounds check (if > 9, clamp to last entry)
+    cmp rax, 9
+    ja  .invalid
+
+    ; table of function pointers (relative addresses)
+    lea rdx, [rel .delay_table]
+    ; get pointer to entry (rax-1)*8
+    dec rax
+    mov rax, [rdx + rax*8]
+    jmp rax
+
+.invalid:
+    mov ax, 400
+    jmp .complete
+
+; ---- jump table ----
+.delay_table:
+    dq .first_level
+    dq .second_level
+    dq .third_level
+    dq .fourth_level
+    dq .fifth_level
+    dq .sixth_level
+    dq .seventh_level
+    dq .eighth_level
+    dq .nineth_level
+
+; ---- handlers ----
+.first_level:  mov ax, 400  ; etc.
+               jmp .complete
+.second_level: mov ax, 330
+               jmp .complete
+.third_level:  mov ax, 270
+               jmp .complete
+.fourth_level: mov ax, 220
+               jmp .complete
+.fifth_level:  mov ax, 180
+               jmp .complete
+.sixth_level:  mov ax, 140
+               jmp .complete
+.seventh_level:mov ax, 100
+               jmp .complete
+.eighth_level: mov ax, 60
+               jmp .complete
+.nineth_level: mov ax, 30
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_game_over:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    mov rcx, [rel GAME_PTR]
+    mov r8, [rcx + game.board_ptr]
+    mov [rbp - 8], r8
+    movzx rcx, word [r8 + board.width]
+    shr rcx, 1
+    sub cx, 7
+    shl rcx, 16
+    mov cx, word [r8 + board.height]
+    shr cx, 1
+    call console_manager_move_cursor
+
+    lea rcx, [rel game_over]
+    call printf
+
+    mov r8, [rbp - 8]
+    movzx rcx, word [r8 + board.width]
+    shl rcx, 16
+    mov cx, word [r8 + board.height]
+    inc cx
+    call console_manager_move_cursor
+
+    mov rsp, rbp
+    pop rbp
+    ret
 
 
 

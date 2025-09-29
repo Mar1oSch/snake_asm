@@ -4,7 +4,6 @@ nasm -f win64 ..\tests\debugging\malloc_failed\malloc_failed.asm -o ..\tests\deb
 nasm -f win64 ..\tests\debugging\object_not_created\object_not_created.asm -o ..\tests\debugging\object_not_created\object_not_created.obj
 nasm -f win64 .\models\drawable\food\super_food\super_food.asm -o .\models\drawable\food\super_food\super_food.obj; 
 nasm -f win64 .\models\drawable\food\food.asm -o .\models\drawable\food\food.obj;
-nasm -f win64 .\models\drawable\food\food_vtable.asm -o .\models\drawable\food\food_vtable.obj;
 nasm -f win64 .\models\drawable\snake\unit\unit.asm -o .\models\drawable\snake\unit\unit.obj;
 nasm -f win64 .\models\drawable\snake\snake.asm -o .\models\drawable\snake\snake.obj;
 nasm -f win64 .\models\drawable\drawable_vtable.asm -o .\models\drawable\drawable_vtable.obj;

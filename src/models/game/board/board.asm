@@ -64,7 +64,7 @@ board_new:
 
     mov cx, 10
     shl rcx, 16
-    mov cx, word [rbp - 8]
+    mov cx, word [rax + board.height]
     shr cx, 1
     mov rdx, 2
     call snake_new
@@ -74,11 +74,14 @@ board_new:
     mov qword [rcx + board.food_ptr], 0
 
     call console_manager_new
-    mov rcx, [rel BOARD_PTR]
-    mov [rcx + board.console_manager_ptr], rax
+    mov r8, [rel BOARD_PTR]
+    mov [r8 + board.console_manager_ptr], rax
 
-    call _create_random_position
-    mov rcx, rax
+    movzx rcx, word [r8 + board.width]
+    sub rcx, 10
+    shl rcx, 16
+    mov cx, word [r8 + board.height]
+    sub cx, 10
     call food_new
 
     mov rcx, [rel BOARD_PTR]
@@ -380,6 +383,7 @@ _move_cursor_to_end:
     mov cx, [r8 + board.width]
     shl rcx, 16
     mov cx, [r8 + board.height]
+    add cx, 1
     call console_manager_move_cursor
 
     mov rsp, rbp
