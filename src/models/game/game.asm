@@ -1,3 +1,4 @@
+%include "../include/organizer/interactor_struc.inc"
 %include "../include/game/game_struc.inc"
 %include "../include/game/board_struc.inc"
 %include "../include/game/player_struc.inc"
@@ -6,11 +7,11 @@
 %include "../include/snake/unit_struc.inc"
 %include "../include/snake/snake_struc.inc"
 
-global game_new, game_destroy, game_setup
+global game_new, game_destroy, game_setup, game_start
 
 section .rodata
     points_format db "%04d", 0
-    game_over db 0x1B,"[1m   GAME OVER   ",0x1B,"[0m",10,0
+    game_over db "   GAME OVER   ", 10, 0
 
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "game_new", 0
@@ -30,6 +31,7 @@ section .text
     extern GetAsyncKeyState
 
     extern player_new
+    extern interactor_new
     extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food
     extern snake_add_unit
     extern console_manager_move_cursor
@@ -45,11 +47,17 @@ game_new:
 
     cmp qword [rel GAME_PTR], 0
     jne .complete
-    mov [rbp - 8], dl
+    mov [rbp - 8], ecx
+    mov [rbp - 16], dl
 
-    mov rdx, [rel current_direction]
+    call interactor_new
+    mov [rbp - 24], rax
+
+    mov ecx, [rbp - 8]
+    mov rdx, [rbp - 24]
+    mov rdx, [rdx + interactor.console_manager_ptr]
     call board_new
-    mov [rbp - 16], rax
+    mov [rbp - 24], rax
 
 
     mov rcx, game_size
@@ -58,16 +66,18 @@ game_new:
     jz _g_malloc_failed
     mov [rel GAME_PTR], rax
 
-    mov rcx, [rbp - 16]
+    mov rcx, [rbp - 24]
     mov [rax + game.board_ptr], rcx
 
     call player_new
     mov rcx, [rel GAME_PTR]
     mov [rcx + game.player_ptr], rax
 
-    mov al, [rbp - 8]
+    mov al, [rbp - 16]
     mov [rcx + game.lvl], al
 
+    mov rax, [rbp - 24]
+    mov [rcx + game.interactor_ptr], rax
 .complete:
     mov rax, [rel GAME_PTR]
     mov rsp, rbp
@@ -96,37 +106,22 @@ game_setup:
 
     call board_setup
     call _build_scoreboard
-    call _get_delay
-
-    mov [rbp - 8], ax
-.loop:
-    call _get_key_press_event
-    mov rcx, [rel current_direction]
-    call _update_snake
-    call board_move_snake
-    call _collission_check
-    cmp rax, 2
-    je .food_event
-    cmp rax, 1
-    je .complete
-.loop_handle:
-    movzx rcx, word [rbp - 8]
-    call Sleep
-    jmp .loop
-
-.food_event:
-    call _add_player_points
-    call snake_add_unit
-    call board_create_new_food
-    jmp .loop_handle
 
 .complete:
-    call _game_over
     mov rsp, rbp
     pop rbp
     ret
 
+game_start:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
 
+    call _game_play
+
+    mov rsp, rbp
+    pop rbp
+    ret
 
 
 ;;;;;; PRIVATE FUNCTIONS ;;;;;;
@@ -561,6 +556,41 @@ _get_delay:
 .nineth_level: mov ax, 30
 
 .complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_game_play:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    call _get_delay
+
+    mov [rbp - 8], ax
+.loop:
+    call _get_key_press_event
+    mov rcx, [rel current_direction]
+    call _update_snake
+    call board_move_snake
+    call _collission_check
+    cmp rax, 2
+    je .food_event
+    cmp rax, 1
+    je .complete
+.loop_handle:
+    movzx rcx, word [rbp - 8]
+    call Sleep
+    jmp .loop
+
+.food_event:
+    call _add_player_points
+    call snake_add_unit
+    call board_create_new_food
+    jmp .loop_handle
+
+.complete:
+    call _game_over
     mov rsp, rbp
     pop rbp
     ret

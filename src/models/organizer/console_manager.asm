@@ -16,9 +16,9 @@ section .text
     extern free
     extern malloc_failed, object_not_created
     extern GetStdHandle, printf
+    extern SetConsoleTextAttribute
     extern SetConsoleCursorPosition, WriteConsoleA
     extern GetConsoleScreenBufferInfo, FillConsoleOutputCharacterA
-    extern printf
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 console_manager_new:
@@ -232,10 +232,10 @@ _cm_write_char:
     mov rbp, rsp
     sub rsp, 40
 
-    ; Expect pointer to char in rcx.
     cmp qword [rel CONSOLE_MANAGER_PTR], 0
     je _cm_object_failed
 
+    ; Expect pointer to char in rcx.
     mov [rbp - 8], rcx
 
     mov rcx, [rel CONSOLE_MANAGER_PTR]
@@ -249,6 +249,25 @@ _cm_write_char:
     mov rsp, rbp
     pop rbp
     ret
+
+; Change console attributes. Maybe it will get used some time later.
+
+; _cm_set_up_console_text_attributes:
+;     push rbp
+;     mov rbp, rsp
+;     sub rsp, 40
+
+;     cmp qword [rel CONSOLE_MANAGER_PTR], 0
+;     je _cm_object_failed
+
+;     mov rcx, [rel CONSOLE_MANAGER_PTR]
+;     mov rcx, [rcx + console_manager.output_handle]
+;     mov rdx, 0x0E
+;     call SetConsoleTextAttribute
+
+;     mov rsp, rbp
+;     pop rbp
+;     ret
 
 
 

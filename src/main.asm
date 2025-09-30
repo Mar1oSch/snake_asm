@@ -1,7 +1,7 @@
 section .text
     global main
     extern console_manager_new
-    extern game_new, game_setup
+    extern game_new, game_setup, game_start
     extern printf
 
 main:
@@ -18,6 +18,7 @@ main:
 
     call game_setup
 
+    call game_start
     mov rax, 0
     mov rsp, rbp
     pop rbp

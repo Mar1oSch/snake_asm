@@ -3,6 +3,8 @@
 
 global interactor_new, interactor_destroy
 
+section .rodata
+    
 section .bss
     INTERACTOR_PTR resq 1
 
@@ -10,23 +12,23 @@ section .text
     extern malloc
     extern free
 
+    extern console_manager_new
+
 interactor_new:
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
     cmp qword [rel INTERACTOR_PTR], 0
-    je .complete
-
-    ; Expect pointer to console_manager in RCX.
-    mov [rbp - 8], rcx
+    jne .complete
 
     mov rcx, interactor_size
     call malloc
     mov [rel INTERACTOR_PTR], rax
 
-    mov rcx, [rbp - 8]
-    mov [rax + interactor.console_manager_ptr], rcx
+    call console_manager_new
+    mov rcx, [rel INTERACTOR_PTR]
+    mov [rcx + interactor.console_manager_ptr], rax
 
 .complete:
     mov rax, [rel INTERACTOR_PTR]
@@ -46,9 +48,11 @@ interactor_destroy:
     pop rbp
     ret
 
-interactor_create_player:
+interactor_start_screen:
     push rbp
     mov rbp, rsp
     sub rsp, 40
+
+    
 
     

@@ -6,6 +6,8 @@
 global unit_new, unit_destroy, unit_get_char_ptr, unit_draw, unit_get_x_position, unit_get_y_position
 
 section .rodata
+    UNIT_CHAR equ "O"
+
     constructor_name db "unit_new", 0
 
 section .text
@@ -52,7 +54,7 @@ unit_new:
     mov qword [rax + unit.next_unit_ptr], 0
     cmp byte [rbp - 16], 0
     jne .head_char
-    mov byte [rax + unit.char], "O"
+    mov byte [rax + unit.char], UNIT_CHAR
     jmp .complete
 
 .head_char:

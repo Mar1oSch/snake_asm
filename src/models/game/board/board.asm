@@ -32,6 +32,7 @@ section .text
 ;;;;;; PUBLIC FUNCTIONS ;;;;;;
 board_new:
     ; Expect width and height in ECX
+    ; Expect pointer to console_manager in RDX
     push rbp
     mov rbp, rsp
     sub rsp, 72
@@ -39,15 +40,17 @@ board_new:
     cmp qword [rel BOARD_PTR], 0
     jne .complete
 
-    mov word [rbp - 8], cx            ; Move height onto stack. (ECX = width, height)
-    add word [rbp - 8], 2
-    shr rcx, 16                       ; Shifting ECX right by 16 bits. (ECX = 0, width)
-    mov word [rbp - 16], cx           ; Move width onto stack. (ECX = 0, width)
+    mov [rbp - 8], rdx                ; Save console_manager pointer
+
+    mov word [rbp - 16], cx            ; Move height onto stack. (ECX = width, height)
     add word [rbp - 16], 2
+    shr rcx, 16                       ; Shifting ECX right by 16 bits. (ECX = 0, width)
+    mov word [rbp - 24], cx           ; Move width onto stack. (ECX = 0, width)
+    add word [rbp - 24], 2
 
     xor rcx, rcx
-    mov ax, word [rbp - 16]
-    mul word [rbp - 8]
+    mov ax, word [rbp - 24]
+    mul word [rbp - 16]
     mov cx, ax
     add cx, board_size
     call malloc
@@ -56,10 +59,10 @@ board_new:
     mov [rel BOARD_PTR], rax
 
     xor rcx, rcx
-    mov cx, word [rbp - 16]
+    mov cx, word [rbp - 24]
     mov [rax + board.width], cx
     shl rcx, 16
-    mov cx, word [rbp - 8]
+    mov cx, word [rbp - 16]
     mov [rax + board.height], cx
 
     mov cx, 10
@@ -73,9 +76,9 @@ board_new:
     mov [rcx + board.snake_ptr], rax
     mov qword [rcx + board.food_ptr], 0
 
-    call console_manager_new
     mov r8, [rel BOARD_PTR]
-    mov [r8 + board.console_manager_ptr], rax
+    mov rcx, [rbp - 8]
+    mov [r8 + board.console_manager_ptr], rcx
 
     movzx rcx, word [r8 + board.width]
     sub rcx, 10

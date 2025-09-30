@@ -32,7 +32,7 @@ snake_new:
     ; Expect X- and Y-Coordinates in ECX.
     ; Expect direction in RDX.
     ; Use them to create the head of the snake.
-    mov r8, "@"
+    mov r8, HEAD_CHAR
     call unit_new
     mov qword [rbp - 8], rax
 
