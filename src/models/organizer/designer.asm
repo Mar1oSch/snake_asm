@@ -1,10 +1,10 @@
 %include "../include/organizer/designer_struc.inc"
 %include "../include/organizer/console_manager_struc.inc"
 
-global designer_new, designer_destroy, designer_start_screen, designer_clear
+global designer_new, designer_destroy, designer_start_screen, designer_clear, designer_type_sequence
 
 section .rodata
-    ;;;;;; START SCREEN ;;;;;;
+;;;;;; START SCREEN ;;;;;;
 headline_table:
     dq .line1
     dq .line2
@@ -35,8 +35,9 @@ section .bss
 
 section .text
     extern malloc, free
+    extern Sleep
 
-    extern console_manager_new, console_manager_print_word, console_manager_clear, console_manager_move_cursor_to_end
+    extern console_manager_new, console_manager_print_word, console_manager_clear, console_manager_move_cursor_to_end, console_manager_print_char
 
 designer_new:
     push rbp
@@ -97,8 +98,46 @@ designer_clear:
     pop rbp
     ret
 
+designer_type_sequence:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
 
+    ; Save non-volatile regs.
+    mov [rbp - 8], r15
 
+    ; Get Middle of Height from the console window.
+    mov r15, [rel DESIGNER_PTR]
+    mov r15, [r15 + designer.console_manager_ptr]
+    mov r15w, [r15 + console_manager.window_size + 6]
+    shr r15, 1
+    mov [rbp - 16], r15w
+
+    ; Expect pointer to sequence_table (table_structure: qword: pointer, qword: length of string) in RCX.
+    ; Expect length of table in RDX.
+    mov [rbp - 24], rcx
+    mov [rbp - 32], rdx
+    shr rdx, 1
+    sub [rbp - 16], rdx
+
+    xor r15, r15
+.loop:
+    mov rcx, [rbp - 24]
+    add rcx, r15
+    mov rdx, [rcx + 8]
+    mov r8w, [rbp - 16]
+    call _write_char_by_char
+.loop_handle:
+    cmp r15, [rbp - 32]
+    je .complete
+    add r15, 16
+    jmp .loop
+
+.complete:
+    mov r15, [rbp - 8]
+    mov rsp, rbp
+    pop rbp
+    ret
 
 ;;;;;; PRIVATE METHODS ;;;;;;
 _show_headline:
@@ -175,3 +214,49 @@ _show_name:
     pop rbp
     ret
 
+_write_char_by_char:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 80
+
+    ; Save non-volatile regs.
+    mov [rbp - 8], r15
+
+    ; Get Middle of Width from the console window.
+    mov r15, [rel DESIGNER_PTR]
+    mov r15, [r15 + designer.console_manager_ptr]
+    mov r15w, [r15 + console_manager.window_size + 4]
+    shr r15, 1
+    mov [rbp - 16], r15w
+
+    ; Expect pointer to string in RCX.
+    ; Expect length of string in RDX.
+    ; Expect starting Y-Coordinate in R8W
+    mov [rbp - 24], rcx
+    mov [rbp - 32], rdx
+    mov [rbp - 40], r8w
+
+    shr rdx, 1
+    add [rbp - 16], rdx
+
+    xor r15, r15
+    mov rcx, [rbp - 16]
+.loop:
+    shl rcx, 16
+    mov cx, [rbp - 40]
+    mov rdx, [rbp - 24]
+    add rdx, r15
+    call console_manager_print_char
+    mov rcx, 20
+    call Sleep
+.loop_handle:
+    cmp r15, [rbp - 32]
+    je .complete
+    inc r15
+    movzx rcx, word [rbp - 40]
+
+.complete:
+    mov r15, [rbp - 8]
+    mov rsp, rbp
+    pop rbp
+    ret
