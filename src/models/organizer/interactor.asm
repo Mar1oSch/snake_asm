@@ -1,18 +1,18 @@
 %include "../include/organizer/interactor_struc.inc"
 %include "../include/organizer/console_manager_struc.inc"
 
-global interactor_new, interactor_destroy
+global interactor_new, interactor_setup, interactor_destroy
 
-section .rodata
-    
 section .bss
     INTERACTOR_PTR resq 1
 
 section .text
     extern malloc
     extern free
+    extern printf
+    extern Sleep
 
-    extern console_manager_new
+    extern designer_new, designer_start_screen, designer_clear
 
 interactor_new:
     push rbp
@@ -26,9 +26,9 @@ interactor_new:
     call malloc
     mov [rel INTERACTOR_PTR], rax
 
-    call console_manager_new
+    call designer_new
     mov rcx, [rel INTERACTOR_PTR]
-    mov [rcx + interactor.console_manager_ptr], rax
+    mov [rcx + interactor.designer_ptr], rax
 
 .complete:
     mov rax, [rel INTERACTOR_PTR]
@@ -48,11 +48,16 @@ interactor_destroy:
     pop rbp
     ret
 
-interactor_start_screen:
+interactor_setup:
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
-    
+    call designer_start_screen
+    mov rcx, 1000
+    call Sleep
+    call designer_clear
 
-    
+    mov rsp, rbp
+    pop rbp
+    ret

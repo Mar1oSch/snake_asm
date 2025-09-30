@@ -20,7 +20,7 @@ section .text
     extern GetStdHandle, SetConsoleCursorPosition, WriteConsoleA
     extern malloc_failed
 
-;;;;;; PUBLIC FUNCTIONS ;;;;;;
+;;;;;; PUBLIC METHODS ;;;;;;
 unit_new:
     push rbp
     mov rbp, rsp
@@ -89,7 +89,7 @@ unit_destroy:
 
 
 
-;;;;;; PRIVATE FUNCTIONS ;;;;;;
+;;;;;; PRIVATE METHODS ;;;;;;
 
 
 ;;;;;; DRAWABLE INTERFACE ;;;;;;

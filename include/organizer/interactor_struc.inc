@@ -1,4 +1,3 @@
 struc interactor
-    .game_ptr resq 1
-    .console_manager_ptr resq 1
+    .designer_ptr resq 1
 endstruc

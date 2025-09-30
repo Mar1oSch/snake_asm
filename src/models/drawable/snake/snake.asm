@@ -20,7 +20,7 @@ section .text
     extern malloc_failed, object_not_created
     extern DRAWABLE_VTABLE_DRAW_OFFSET
 
-;;;;;; PUBLIC FUNCTIONS ;;;;;;
+;;;;;; PUBLIC METHODS ;;;;;;
 snake_new:
     push rbp
     mov rbp, rsp

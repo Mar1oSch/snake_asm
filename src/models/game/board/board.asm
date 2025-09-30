@@ -24,12 +24,12 @@ section .text
     extern GetSystemTimeAsFileTime
 
     extern snake_new, snake_update, snake_get_tail_position
-    extern console_manager_new, console_manager_setup, console_manager_write, console_manager_move_cursor, console_manager_erase
+    extern console_manager_new, console_manager_clear, console_manager_print_char, console_manager_move_cursor, console_manager_erase
     extern food_new, food_destroy
     extern malloc_failed, object_not_created
     extern DRAWABLE_VTABLE_X_POSITION_OFFSET, DRAWABLE_VTABLE_Y_POSITION_OFFSET, DRAWABLE_VTABLE_CHAR_PTR_OFFSET
 
-;;;;;; PUBLIC FUNCTIONS ;;;;;;
+;;;;;; PUBLIC METHODS ;;;;;;
 board_new:
     ; Expect width and height in ECX
     ; Expect pointer to console_manager in RDX
@@ -119,7 +119,7 @@ board_setup:
     mov cx, [r8 + board.height]
     shl rcx, 16
     mov cx, [r8 + board.width]
-    call console_manager_setup
+    call console_manager_clear
 
     mov r8, [rel BOARD_PTR]
     mov cx, [r8 + board.height]
@@ -187,7 +187,7 @@ get_board:
 
 
 
-;;;;;; PRIVATE FUNCTIONS ;;;;;;
+;;;;;; PRIVATE METHODS ;;;;;;
 _board_draw_content:
     push rbp
     mov rbp, rsp
@@ -239,7 +239,7 @@ _draw_snake:
     mov cx, [rbp - 32]                                      ; Move X-Position into CX (ECX = 0, X)
     shl rcx, 16                                             ; Shift ECX 16 bits to the left. (ECX = X, 0)
     mov cx, [rbp - 40]                                      ; Move Y-Position into CX (ECX = X, Y)
-    call console_manager_write
+    call console_manager_print_char
     mov r10, [rbp - 8]
     cmp r10, [rbp - 16]
     je .complete
@@ -282,12 +282,12 @@ _draw_fence:
     shl rcx, 16
     mov cx, 0
     lea rdx, [rel fence_char] 
-    call console_manager_write
+    call console_manager_print_char
     mov cx, r15w
     shl rcx, 16
     mov cx, word [rbp - 16]
     lea rdx, [rel fence_char] 
-    call console_manager_write
+    call console_manager_print_char
     jmp .loop_handle
 
 .draw_whole_line:
@@ -297,7 +297,7 @@ _draw_fence:
         shl rcx, 16
         mov cx, r14w
         lea rdx, [rel fence_char]
-        call console_manager_write
+        call console_manager_print_char
     .inner_loop_handle:
         cmp r14w, [rbp - 16]
         je .loop_handle
@@ -349,7 +349,7 @@ _draw_food:
     mov cx, word [rbp - 24]
     shl rcx, 16
     mov cx, word [rbp - 32]
-    call console_manager_write
+    call console_manager_print_char
 
     mov rsp, rbp
     pop rbp

@@ -1,4 +1,5 @@
 %include "../include/organizer/interactor_struc.inc"
+%include "../include/organizer/designer_struc.inc"
 %include "../include/game/game_struc.inc"
 %include "../include/game/board_struc.inc"
 %include "../include/game/player_struc.inc"
@@ -37,7 +38,7 @@ section .text
     extern console_manager_move_cursor
     extern malloc_failed, object_not_created
 
-;;;;;; PUBLIC FUNCTIONS ;;;;;;
+;;;;;; PUBLIC METHODS ;;;;;;
 game_new:
     ; Expect width and height for the board in ECX.
     ; Expect lvl in DL.
@@ -55,7 +56,8 @@ game_new:
 
     mov ecx, [rbp - 8]
     mov rdx, [rbp - 24]
-    mov rdx, [rdx + interactor.console_manager_ptr]
+    mov rdx, [rdx + interactor.designer_ptr]
+    mov rdx, [rdx + designer.console_manager_ptr]
     call board_new
     mov [rbp - 24], rax
 
@@ -124,7 +126,7 @@ game_start:
     ret
 
 
-;;;;;; PRIVATE FUNCTIONS ;;;;;;
+;;;;;; PRIVATE METHODS ;;;;;;
 _update_snake:
     push rbp
     mov rbp, rsp
