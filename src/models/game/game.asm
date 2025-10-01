@@ -11,7 +11,7 @@
 global game_new, game_destroy, game_setup, game_start
 
 section .rodata
-    points_format db "%04d", 0
+    points_format db " %04d", 0
     game_over db "   GAME OVER   ", 10, 0
 
     ;;;;;; DEBUGGING ;;;;;;
@@ -33,21 +33,21 @@ section .text
 
     extern player_new
     extern interactor_new
-    extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food
+    extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset
     extern snake_add_unit
     extern console_manager_move_cursor
     extern malloc_failed, object_not_created
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 game_new:
-    ; Expect width and height for the board in ECX.
-    ; Expect lvl in DL.
-    ; Expect player pointer in R8.
-    ; Expect interactor pointer in R9.
     push rbp
     mov rbp, rsp
     sub rsp, 56
 
+    ; Expect width and height for the board in ECX.
+    ; Expect lvl in RDX.
+    ; Expect player pointer in R8.
+    ; Expect interactor pointer in R9.
     cmp qword [rel GAME_PTR], 0
     jne .complete
     mov [rbp - 8], dl
@@ -71,8 +71,8 @@ game_new:
     mov rcx, [rbp - 16]
     mov [rax + game.player_ptr], rcx
 
-    mov cl, [rbp - 8]
-    mov [rax + game.lvl], cl
+    mov rcx, [rbp - 8]
+    mov [rax + game.lvl], rcx
 
 .complete:
     mov rax, [rel GAME_PTR]
@@ -98,7 +98,11 @@ game_destroy:
 game_setup:
     push rbp
     mov rbp, rsp
-    sub rsp, 48
+    sub rsp, 40
+
+    call board_reset
+    mov rcx, [rel GAME_PTR]
+    mov [rcx + game.board_ptr], rax
 
     call board_setup
     call _build_scoreboard
@@ -480,7 +484,7 @@ _print_points:
     mov r8, [rel GAME_PTR]
     mov r8, [r8 + game.board_ptr]
     movzx rcx, word [r8 + board.width]
-    sub cx, 3
+    sub cx, 4
     shl rcx, 16
     mov cx, [r8 + board.height]
     inc cx
@@ -503,13 +507,11 @@ _get_delay:
     mov rax, [rel GAME_PTR]
     mov rax, [rax + game.lvl]
 
-    ; bounds check (if > 9, clamp to last entry)
     cmp rax, 9
     ja  .invalid
 
-    ; table of function pointers (relative addresses)
     lea rdx, [rel .delay_table]
-    ; get pointer to entry (rax-1)*8
+
     dec rax
     mov rax, [rdx + rax*8]
     jmp rax
@@ -518,7 +520,6 @@ _get_delay:
     mov ax, 400
     jmp .complete
 
-; ---- jump table ----
 .delay_table:
     dq .first_level
     dq .second_level
@@ -530,7 +531,6 @@ _get_delay:
     dq .eighth_level
     dq .nineth_level
 
-; ---- handlers ----
 .first_level:  mov ax, 400  ; etc.
                jmp .complete
 .second_level: mov ax, 330

@@ -1,7 +1,7 @@
 %include "../include/organizer/interactor_struc.inc"
 %include "../include/organizer/file_manager_struc.inc"
 
-global interactor_new, interactor_setup, interactor_get_player, interactor_create_game, interactor_destroy
+global interactor_new, interactor_setup, interactor_create_game, interactor_start_game, interactor_after_game_dialogue, interactor_destroy
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
@@ -11,6 +11,7 @@ section .rodata
     ;;;;;; FORMATS ;;;;;;;
     char_format db "%c", 0
     string_format db "%s", 0
+    digit_format db "%d", 0
 
     ;;;;;; INTRODUCTION ;;;;;;
     introduction:
@@ -42,10 +43,49 @@ section .rodata
     new_player_table_end:
     new_player_table_size equ (new_player_table_end - new_player_table) /16
 
+    ;;;;;; LEVEL CREATION ;;;;;;
+    level_creation:
+        .string1 db "Nice to meet you, brave person."
+        .string2 db "How brave are you?"
+        .string3 db "Which level do you want to play?"
+        .string4 db "The ride is going to be harder on higher stages, but the rewards are rich."
+        .string5 db 0
+        .string6 db "[1] [2] [3] [4] [5] [6] [7] [8] [9]"
+        .string7 db 0
+    level_creation_end:
+
+    level_creation_table:
+        dq level_creation.string1, (level_creation.string2 - level_creation.string1)
+        dq level_creation.string2, (level_creation.string3 - level_creation.string2)
+        dq level_creation.string3, (level_creation.string4 - level_creation.string3)
+        dq level_creation.string4, (level_creation.string5 - level_creation.string4)
+        dq level_creation.string5, (level_creation.string6 - level_creation.string5)
+        dq level_creation.string6, (level_creation.string7 - level_creation.string6)
+        dq level_creation.string7, (level_creation_end - level_creation.string7)
+    level_creation_table_end:
+    level_creation_table_size equ (level_creation_table_end - level_creation_table) /16
+
+;;;;;; GAME OVER ;;;;;;
+    after_game:
+        .string1 db "The ride was too bumpy for you I guess.."    
+        .string2 db "But you played well! Do you want to play again?"
+        .string3 db "[Y]es / [N]o"
+        .string4 db 0
+    after_game_end:
+
+    after_game_table:
+        dq after_game.string1, (after_game.string2 - after_game.string1)
+        dq after_game.string2, (after_game.string3 - after_game.string2)
+        dq after_game.string3, (after_game.string4 - after_game.string3)
+        dq after_game.string4, (after_game_end - after_game.string4)
+    after_game_table_end:
+    after_game_table_size equ (after_game_table_end - after_game_table) /16
+
 section .bss
     INTERACTOR_PTR resq 1
     INTERACTOR_PLAYER_NAME_PTR resq 1
     INTERACTOR_YES_NO_PTR resq 1
+    INTERACTOR_LEVEL_PTR resq 1
 
 section .text
     extern malloc, free
@@ -54,7 +94,7 @@ section .text
 
     extern console_manager_scan
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence
-    extern game_new
+    extern game_new, game_start, game_setup
     extern file_manager_new
     extern player_new
 
@@ -113,38 +153,15 @@ interactor_setup:
     pop rbp
     ret
 
-interactor_get_player:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    call _get_yes_no
-    test rax, rax
-    jnz .create_new_player
-
-.choose_former_player:
-    ; This option has to be implemented later (save player in a file and let player choose one former player).
-    mov rax, 0
-    jmp .complete
-.create_new_player:
-    lea rcx, [rel new_player_table]
-    mov rdx, new_player_table_size
-    call designer_type_sequence
-
-    call _create_new_player
-
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
-
 interactor_create_game:
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
-    ; Expect pointer to player in RCX.
-    mov [rbp - 8], rcx
+    call _create_player
+    mov [rbp - 8], rax
+
+    call _create_level
 
     xor rcx, rcx
     mov cx, 20                  ; Moving width into CX  (So: ECX = 0, width)
@@ -152,7 +169,7 @@ interactor_create_game:
     mov cx, 11                  ; Moving height into CX (So: ECX = width, height)
 
     ; Have to create dialogue to get level.
-    mov dl, 1
+    mov rdx, [rel INTERACTOR_LEVEL_PTR]
 
     mov r8, [rbp - 8]
     mov r9, [rel INTERACTOR_PTR]
@@ -161,6 +178,34 @@ interactor_create_game:
     mov rsp, rbp
     pop rbp
     ret
+
+interactor_start_game:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    call game_setup
+    call game_start
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+interactor_after_game_dialogue:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    lea rcx, [rel after_game_table]
+    mov rdx, after_game_table_size
+    call designer_type_sequence
+
+    call _get_yes_no
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
 
 
 
@@ -183,7 +228,54 @@ _introduction:
     pop rbp
     ret
 
-_create_new_player:
+_create_player:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    call _get_yes_no
+    test rax, rax
+    jnz .create_new_player
+
+.choose_former_player:
+    ; This option has to be implemented later (save player in a file and let player choose one former player).
+    mov rax, 0
+    jmp .complete
+.create_new_player:
+    lea rcx, [rel new_player_table]
+    mov rdx, new_player_table_size
+    call designer_type_sequence
+
+    call _get_new_player
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_create_level:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    lea rcx, [rel level_creation_table]
+    mov rdx, level_creation_table_size
+    call designer_type_sequence
+
+.loop:
+    lea rcx, [rel digit_format]                
+    lea rdx, [rel INTERACTOR_LEVEL_PTR]
+    call console_manager_scan
+    cmp qword [rel INTERACTOR_LEVEL_PTR], 1
+    jb .loop
+    cmp qword [rel INTERACTOR_LEVEL_PTR], 9
+    ja .loop
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_get_new_player:
     push rbp
     mov rbp, rsp
     sub rsp, 40
@@ -192,6 +284,19 @@ _create_new_player:
 
     lea rcx, [rel INTERACTOR_PLAYER_NAME_PTR]
     call player_new
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_get_player_name:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    lea rcx, [rel string_format]                ; Make 8-Byte names possible.
+    lea rdx, [rel INTERACTOR_PLAYER_NAME_PTR]
+    call console_manager_scan
 
     mov rsp, rbp
     pop rbp
@@ -221,19 +326,6 @@ _get_yes_no:
     mov rax, 0
 
 .complete:
-    mov rsp, rbp
-    pop rbp
-    ret
-
-_get_player_name:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    lea rcx, [rel string_format]                ; Make 8-Byte names possible.
-    lea rdx, [rel INTERACTOR_PLAYER_NAME_PTR]
-    call console_manager_scan
-
     mov rsp, rbp
     pop rbp
     ret

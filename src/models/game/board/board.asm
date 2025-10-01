@@ -5,7 +5,7 @@
 %include "../include/snake/snake_struc.inc"
 %include "../include/snake/unit_struc.inc"
 
-global board_new, board_destroy, board_draw, board_setup, board_move_snake, get_board, board_create_new_food
+global board_new, board_destroy, board_draw, board_setup, board_move_snake, get_board, board_create_new_food, board_reset
 
 section .rodata
     constructor_name db "board_new", 0
@@ -102,7 +102,9 @@ board_destroy:
     cmp qword [rel BOARD_PTR], 0
     je _b_object_failed
 
+    mov rcx, [rel BOARD_PTR]
     call free
+    mov qword [rel BOARD_PTR], 0
 
     mov rsp, rbp
     pop rbp
@@ -126,6 +128,31 @@ board_setup:
     call _draw_fence
 
     call _draw_food
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+board_reset:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    mov r8, [rel BOARD_PTR]
+    movzx rcx, word [r8 + board.width]
+    shl rcx, 16
+    mov cx, [r8 + board.height]
+    mov [rbp - 8], rcx
+
+    mov rdx, [r8 + board.console_manager_ptr]
+    mov [rbp - 16], rdx
+
+    call board_destroy
+
+    mov ecx, [rbp - 8]
+    mov rdx, [rbp - 16]
+
+    call board_new
 
     mov rsp, rbp
     pop rbp
