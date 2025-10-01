@@ -109,7 +109,7 @@ designer_type_sequence:
     ; Get Middle of Height from the console window.
     mov r15, [rel DESIGNER_PTR]
     mov r15, [r15 + designer.console_manager_ptr]
-    mov r15w, [r15 + console_manager.window_size + 6]
+    movzx r15, word [r15 + console_manager.window_size + 6]
     shr r15, 1
     mov [rbp - 16], r15w
 
@@ -117,20 +117,26 @@ designer_type_sequence:
     ; Expect length of table in RDX.
     mov [rbp - 24], rcx
     mov [rbp - 32], rdx
+    dec qword [rbp - 32]
     shr rdx, 1
-    sub [rbp - 16], rdx
+    sub [rbp - 16], dx
+
+    ; Clear console before writing new sequence.
+    call console_manager_clear
 
     xor r15, r15
 .loop:
     mov rcx, [rbp - 24]
-    add rcx, r15
     mov rdx, [rcx + 8]
+    mov rcx, [rcx]
     mov r8w, [rbp - 16]
     call _write_char_by_char
 .loop_handle:
     cmp r15, [rbp - 32]
-    je .complete
-    add r15, 16
+    jae .complete
+    inc r15
+    add qword [rbp - 24], 16
+    inc word [rbp - 16]
     jmp .loop
 
 .complete:
@@ -225,7 +231,7 @@ _write_char_by_char:
     ; Get Middle of Width from the console window.
     mov r15, [rel DESIGNER_PTR]
     mov r15, [r15 + designer.console_manager_ptr]
-    mov r15w, [r15 + console_manager.window_size + 4]
+    movzx r15, word [r15 + console_manager.window_size + 4]
     shr r15, 1
     mov [rbp - 16], r15w
 
@@ -234,26 +240,29 @@ _write_char_by_char:
     ; Expect starting Y-Coordinate in R8W
     mov [rbp - 24], rcx
     mov [rbp - 32], rdx
+    dec qword [rbp - 32]
     mov [rbp - 40], r8w
 
     shr rdx, 1
-    add [rbp - 16], rdx
+    sub [rbp - 16], dx
 
     xor r15, r15
-    mov rcx, [rbp - 16]
+    movzx rcx, word [rbp - 16]
 .loop:
     shl rcx, 16
     mov cx, [rbp - 40]
     mov rdx, [rbp - 24]
     add rdx, r15
     call console_manager_print_char
-    mov rcx, 20
-    call Sleep
+    ; mov rcx, 50
+    ; call Sleep
 .loop_handle:
     cmp r15, [rbp - 32]
-    je .complete
+    jae .complete
     inc r15
-    movzx rcx, word [rbp - 40]
+    movzx rcx, word [rbp - 16]
+    add cx, r15w
+    jmp .loop
 
 .complete:
     mov r15, [rbp - 8]

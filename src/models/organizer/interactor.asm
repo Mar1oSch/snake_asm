@@ -1,41 +1,62 @@
 %include "../include/organizer/interactor_struc.inc"
 %include "../include/organizer/file_manager_struc.inc"
 
-global interactor_new, interactor_setup, interactor_destroy
+global interactor_new, interactor_setup, interactor_get_player, interactor_create_game, interactor_destroy
 
 section .rodata
-;;;;;; INTRODUCTION ;;;;;;
-introduction:
-    .string1 db "Hello, fellow friend! Welcome to your snake adventure."
-    .new_line1 db 13, 10
-    .string2 db "Is this the first time you are entering this dangerous territory?"
-    .new_line2 db 13, 10
-    .new_line3 db 13, 10
-    .string3 db "[Y]es / [N]o"
-introduction_end:
-introduction_size equ introduction_end - introduction
+    ;;;;;; DEBUGGING ;;;;;;
+    recieved_char db "%c", 0
+    player_name db "%s", 13, 10, 0
 
-intro_table:
-    dq introduction.string1, (introduction.new_line1 - introduction.string1)       ; pointer + length (auto calc)
-    dq introduction.new_line1, (introduction.string2 - introduction.new_line1)
-    dq introduction.string2, (introduction.new_line2 - introduction.string2)
-    dq introduction.new_line2, (introduction.new_line3 - introduction.new_line1)
-    dq introduction.new_line3, (introduction.string3 - introduction.new_line3)
-    dq introduction.string3, (introduction_end - introduction.string3)
-intro_table_end:
-intro_table_size equ intro_table_end - intro_table
+    ;;;;;; FORMATS ;;;;;;;
+    char_format db "%c", 0
+    string_format db "%s", 0
+
+    ;;;;;; INTRODUCTION ;;;;;;
+    introduction:
+        .string1 db "Hello, fellow friend! Welcome to your snake adventure."    
+        .string2 db "Is this the first time you are entering this dangerous territory?"
+        .string3 db "[Y]es / [N]o"
+        .string4 db 0
+    introduction_end:
+
+    intro_table:
+        dq introduction.string1, (introduction.string2 - introduction.string1)
+        dq introduction.string2, (introduction.string3 - introduction.string2)
+        dq introduction.string3, (introduction.string4 - introduction.string3)
+        dq introduction.string4, (introduction_end - introduction.string4)
+    intro_table_end:
+    intro_table_size equ (intro_table_end - intro_table) /16
+
+    ;;;;;; PLAYER CREATION ;;;;;;
+    new_player:
+        .string1 db "A Very well welcome from my side."
+        .string2 db "What is your name, adventurer?"
+        .string3 db 0
+    new_player_end:
+
+    new_player_table:
+        dq new_player.string1, (new_player.string2 - new_player.string1)
+        dq new_player.string2, (new_player.string3 - new_player.string2)
+        dq new_player.string3, (new_player_end - new_player.string3)
+    new_player_table_end:
+    new_player_table_size equ (new_player_table_end - new_player_table) /16
 
 section .bss
     INTERACTOR_PTR resq 1
+    INTERACTOR_PLAYER_NAME_PTR resq 1
+    INTERACTOR_YES_NO_PTR resq 1
 
 section .text
-    extern malloc
-    extern free
+    extern malloc, free
     extern printf
     extern Sleep
 
+    extern console_manager_scan
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence
+    extern game_new
     extern file_manager_new
+    extern player_new
 
 interactor_new:
     push rbp
@@ -92,6 +113,55 @@ interactor_setup:
     pop rbp
     ret
 
+interactor_get_player:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    call _get_yes_no
+    test rax, rax
+    jnz .create_new_player
+
+.choose_former_player:
+    ; This option has to be implemented later (save player in a file and let player choose one former player).
+    mov rax, 0
+    jmp .complete
+.create_new_player:
+    lea rcx, [rel new_player_table]
+    mov rdx, new_player_table_size
+    call designer_type_sequence
+
+    call _create_new_player
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+interactor_create_game:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect pointer to player in RCX.
+    mov [rbp - 8], rcx
+
+    xor rcx, rcx
+    mov cx, 20                  ; Moving width into CX  (So: ECX = 0, width)
+    shl rcx, 16                 ; Shifting rcx 16 bits left (So : ECX = width, 0)
+    mov cx, 11                  ; Moving height into CX (So: ECX = width, height)
+
+    ; Have to create dialogue to get level.
+    mov dl, 1
+
+    mov r8, [rbp - 8]
+    mov r9, [rel INTERACTOR_PTR]
+    call game_new
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
 
 
 ;;;;;; PRIVATE FUNCTIONS ;;;;;;
@@ -101,9 +171,68 @@ _introduction:
     sub rsp, 40
 
     lea rcx, [rel intro_table]
-    mov rcx, [rcx]
     mov rdx, intro_table_size
     call designer_type_sequence
+
+.complete:
+    ; lea rcx, [rel recieved_char]
+    ; mov rdx, rax
+    ; call printf
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_create_new_player:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    call _get_player_name
+
+    lea rcx, [rel INTERACTOR_PLAYER_NAME_PTR]
+    call player_new
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_get_yes_no:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+.loop:
+    lea rcx, [rel char_format]
+    lea rdx, [rel INTERACTOR_YES_NO_PTR]
+    call console_manager_scan
+    mov al, [rel INTERACTOR_YES_NO_PTR]
+    and al, 0xDF
+    cmp al, "Y"
+    je .yes
+    cmp al, "N"
+    je .no
+    jmp .loop
+
+.yes:
+    mov rax, 1
+    jmp .complete
+.no:
+    mov rax, 0
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_get_player_name:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    lea rcx, [rel string_format]                ; Make 8-Byte names possible.
+    lea rdx, [rel INTERACTOR_PLAYER_NAME_PTR]
+    call console_manager_scan
 
     mov rsp, rbp
     pop rbp

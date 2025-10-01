@@ -42,7 +42,7 @@ board_new:
 
     mov [rbp - 8], rdx                ; Save console_manager pointer
 
-    mov word [rbp - 16], cx            ; Move height onto stack. (ECX = width, height)
+    mov word [rbp - 16], cx           ; Move height onto stack. (ECX = width, height)
     add word [rbp - 16], 2
     shr rcx, 16                       ; Shifting ECX right by 16 bits. (ECX = 0, width)
     mov word [rbp - 24], cx           ; Move width onto stack. (ECX = 0, width)
@@ -72,11 +72,9 @@ board_new:
     mov rdx, 2
     call snake_new
 
-    mov rcx, [rel BOARD_PTR]
-    mov [rcx + board.snake_ptr], rax
-    mov qword [rcx + board.food_ptr], 0
-
     mov r8, [rel BOARD_PTR]
+    mov [r8 + board.snake_ptr], rax
+
     mov rcx, [rbp - 8]
     mov [r8 + board.console_manager_ptr], rcx
 

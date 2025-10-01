@@ -16,10 +16,10 @@ section .rodata
 
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "game_new", 0
-    direction_error db "Direction is illegal: %d"
+    direction_error db "Direction is illegal: %d", 0
 
 section .data
-    current_direction db 2
+    current_direction dq 2
 
 section .bss
     GAME_PTR resq 1
@@ -42,21 +42,18 @@ section .text
 game_new:
     ; Expect width and height for the board in ECX.
     ; Expect lvl in DL.
+    ; Expect player pointer in R8.
+    ; Expect interactor pointer in R9.
     push rbp
     mov rbp, rsp
     sub rsp, 56
 
     cmp qword [rel GAME_PTR], 0
     jne .complete
-    mov [rbp - 8], ecx
-    mov [rbp - 16], dl
+    mov [rbp - 8], dl
+    mov [rbp - 16], r8
 
-    call interactor_new
-    mov [rbp - 24], rax
-
-    mov ecx, [rbp - 8]
-    mov rdx, [rbp - 24]
-    mov rdx, [rdx + interactor.designer_ptr]
+    mov rdx, [r9 + interactor.designer_ptr]
     mov rdx, [rdx + designer.console_manager_ptr]
     call board_new
     mov [rbp - 24], rax
@@ -71,15 +68,12 @@ game_new:
     mov rcx, [rbp - 24]
     mov [rax + game.board_ptr], rcx
 
-    call player_new
-    mov rcx, [rel GAME_PTR]
-    mov [rcx + game.player_ptr], rax
+    mov rcx, [rbp - 16]
+    mov [rax + game.player_ptr], rcx
 
-    mov al, [rbp - 16]
-    mov [rcx + game.lvl], al
+    mov cl, [rbp - 8]
+    mov [rax + game.lvl], cl
 
-    mov rax, [rbp - 24]
-    mov [rcx + game.interactor_ptr], rax
 .complete:
     mov rax, [rel GAME_PTR]
     mov rsp, rbp
@@ -192,11 +186,9 @@ _update_unit_position:
     sub rsp, 40
 
     ; Expect pointer to unit in RCX.
-    mov [rbp - 8], rcx
     mov rdx, [rcx + unit.position_ptr]
-    mov [rbp - 16], rdx                             ; Save position pointer of unit.
-
     mov r8, [rcx + unit.direction]
+
     cmp r8, 0
     je .left
     cmp r8, 1
@@ -259,30 +251,30 @@ _get_key_press_event:
     jmp .complete
 
 .left:
-    cmp byte [rel current_direction], 2
+    cmp qword [rel current_direction], 2
     je .complete
-    mov byte [rel current_direction], 0
+    mov qword [rel current_direction], 0
     jmp .complete
 
 .up:
-    cmp byte [rel current_direction], 3
+    cmp qword [rel current_direction], 3
     je .complete
-    mov byte [rel current_direction], 1
+    mov qword [rel current_direction], 1
     jmp .complete
 
 .right:
-    cmp byte [rel current_direction], 0
+    cmp qword [rel current_direction], 0
     je .complete
-    mov byte [rel current_direction], 2
+    mov qword [rel current_direction], 2
     jmp .complete
 
 .down:
-    cmp byte [rel current_direction], 1
+    cmp qword [rel current_direction], 1
     je .complete
-    mov byte [rel current_direction], 3
+    mov qword [rel current_direction], 3
 
 .complete:
-    movzx rax, byte [rel current_direction]
+    mov rax, qword [rel current_direction]
     mov rsp, rbp
     pop rbp
     ret
@@ -434,7 +426,7 @@ _add_player_points:
     mov rcx, [rel GAME_PTR]
     mov rdx, [rcx + game.player_ptr]
 
-    movzx r8, byte [rcx + game.lvl]
+    mov r8, [rcx + game.lvl]
 
     add [rdx + player.points], r8
 
@@ -509,7 +501,7 @@ _get_delay:
     mov rbp, rsp
 
     mov rax, [rel GAME_PTR]
-    movzx rax, byte [rax + game.lvl]
+    mov rax, [rax + game.lvl]
 
     ; bounds check (if > 9, clamp to last entry)
     cmp rax, 9

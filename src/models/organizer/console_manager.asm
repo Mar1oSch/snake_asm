@@ -1,6 +1,6 @@
 %include "../include/organizer/console_manager_struc.inc"
 
-global console_manager_new, console_manager_destroy, console_manager_clear, console_manager_print_char, console_manager_move_cursor, console_manager_erase, console_manager_print_word, console_manager_move_cursor_to_end
+global console_manager_new, console_manager_destroy, console_manager_clear, console_manager_print_char, console_manager_move_cursor, console_manager_erase, console_manager_print_word, console_manager_move_cursor_to_end, console_manager_scan
 
 section .rodata
     erase_char db " "
@@ -8,28 +8,29 @@ section .rodata
     ;;;;; DEBUGGING ;;;;;;
     constructor_name db "console_manager", 13, 10, 0
     window_size_string db "top left corner: {%d, %d}, bottom right corner: {%d, %d}", 13, 10, 0
+
 section .data
-_console_screen_buffer_info:
-    dw 0, 0
-    dw 0, 0
-    db 0, 0
-    dw 0, 0, 0, 0
-    dw 0, 0
-
-
+    _console_screen_buffer_info:
+        dw 0, 0
+        dw 0, 0
+        db 0, 0
+        dw 0, 0, 0, 0
+        dw 0, 0
 
 section .bss
     CONSOLE_MANAGER_PTR resq 1
     CHAR_PTR resq 1
 
 section .text
-    extern malloc
-    extern free
+    extern malloc, free
+
     extern malloc_failed, object_not_created
+
     extern GetStdHandle, printf
-    extern SetConsoleTextAttribute
-    extern SetConsoleCursorPosition, WriteConsoleA
+    extern SetConsoleTextAttribute, SetConsoleCursorPosition
+    extern WriteConsoleA
     extern GetConsoleScreenBufferInfo, FillConsoleOutputCharacterA
+    extern scanf
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 console_manager_new:
@@ -124,6 +125,20 @@ console_manager_print_word:
     mov rcx, [rbp - 8]
     call printf
 
+    mov rsp, rbp
+    pop rbp
+    ret
+
+console_manager_scan:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 56
+
+    ; Expect format to scan in RCX.
+    ; Expect pointer to save scan to in RDX.
+    call scanf
+
+.complete:
     mov rsp, rbp
     pop rbp
     ret

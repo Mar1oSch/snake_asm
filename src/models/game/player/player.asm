@@ -20,11 +20,14 @@ player_new:
     cmp qword [rel PLAYER_PTR], 0
     jne .complete
 
+    ; Expect pointer to player_name in RCX.
+    mov [rbp - 8], rcx
+
     mov rcx, player_size
     call malloc
 
     mov qword [rel PLAYER_PTR], rax
-    lea rcx, [rel player_name]
+    mov rcx, [rbp - 8]
     mov [rax + player.name_ptr], rcx
     mov qword [rax + player.points], 0
 .complete:
