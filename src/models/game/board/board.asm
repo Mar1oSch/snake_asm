@@ -23,7 +23,7 @@ section .text
     extern Sleep
     extern GetSystemTimeAsFileTime
 
-    extern snake_new, snake_update, snake_get_tail_position
+    extern snake_new, snake_update, snake_get_tail_position, snake_reset
     extern console_manager_new, console_manager_clear, console_manager_print_char, console_manager_move_cursor, console_manager_erase
     extern food_new, food_destroy
     extern malloc_failed, object_not_created
@@ -126,8 +126,9 @@ board_setup:
     shl rcx, 16
     mov cx, [r8 + board.width]
     call _draw_fence
-
     call _draw_food
+    call _draw_snake
+    call _erase_last_snake_unit
 
     mov rsp, rbp
     pop rbp
@@ -148,6 +149,7 @@ board_reset:
     mov [rbp - 16], rdx
 
     call board_destroy
+    call snake_reset
 
     mov ecx, [rbp - 8]
     mov rdx, [rbp - 16]
@@ -213,23 +215,6 @@ get_board:
 
 
 ;;;;;; PRIVATE METHODS ;;;;;;
-_board_draw_content:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    cmp qword [rel BOARD_PTR], 0
-    je _b_object_failed
-
-
-    call _draw_snake
-    mov qword [rbp - 8], 50
-    call _move_cursor_to_end
-
-    mov rsp, rbp
-    pop rbp
-    ret
-
 _draw_snake:
     push rbp
     mov rbp, rsp

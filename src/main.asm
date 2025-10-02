@@ -5,7 +5,7 @@ section .rodata
 
 section .text
     global main
-    extern interactor_new, interactor_create_game, interactor_setup, interactor_start_game, interactor_after_game_dialogue
+    extern interactor_new, interactor_create_game, interactor_setup, interactor_start_game, interactor_replay_game
     extern game_setup, game_start
     extern printf
 
@@ -19,12 +19,9 @@ main:
 
     mov rcx, rax
     call interactor_create_game
-
-.loop:
     call interactor_start_game
-    call interactor_after_game_dialogue
-    test rax, rax
-    jne .loop
+
+    call interactor_replay_game
 
 .complete:
     mov rsp, rbp

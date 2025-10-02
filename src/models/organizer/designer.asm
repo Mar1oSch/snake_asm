@@ -5,24 +5,28 @@ global designer_new, designer_destroy, designer_start_screen, designer_clear, de
 
 section .rodata
 ;;;;;; START SCREEN ;;;;;;
-headline_table:
-    dq .line1
-    dq .line2
-    dq .line3
-    dq .line4
-    dq .line5
-    dq .line6
-    dq .line7
-    dq .line8
-
+headline:
     .line1 db "  SSSSSS    NNN     NNN    AAAAAAA    KKK    KKK   EEEEEEEEE",13,10, 0
     .line2 db "SSSSSSSSSS  NNNN    NNN   AAAAAAAAA   KKK   KKK    EEEEEEEEE",13,10, 0
-    .line3 db "SSSS        NNNNN   NNN   AAA   AAA   KKK  KKK     EEE",13,10, 0
-    .line4 db " SSSSS      NNN NN  NNN   AAAAAAAAA   KKKKKK       EEEEEEEE",13,10, 0
-    .line5 db "  SSSSS     NNN  NN NNN   AAAAAAAAA   KKK KKK      EEEEEEEE",13,10, 0
-    .line6 db "     SSSS   NNN   NNNNN   AAA   AAA   KKK  KKK     EEE",13,10, 0
+    .line3 db "SSSS        NNNNN   NNN   AAA   AAA   KKK  KKK     EEE      ",13,10, 0
+    .line4 db " SSSSS      NNN NN  NNN   AAAAAAAAA   KKKKKK       EEEEEEEE ",13,10, 0
+    .line5 db "  SSSSS     NNN  NN NNN   AAAAAAAAA   KKK KKK      EEEEEEEE ",13,10, 0
+    .line6 db "     SSSS   NNN   NNNNN   AAA   AAA   KKK  KKK     EEE      ",13,10, 0
     .line7 db "SSSSSSSSS   NNN    NNNN   AAA   AAA   KKK   KKK    EEEEEEEEE",13,10, 0
-    .line8 db "  SSSSS     NNN     NNN   AAA   AAA   KKK    KKK   EEEEEEEEE",13,10,0
+    .line8 db "  SSSSS     NNN     NNN   AAA   AAA   KKK    KKK   EEEEEEEEE",13,10, 0
+headline_end:
+
+headline_table:
+    dq headline.line1, (headline.line2 - headline.line1)
+    dq headline.line2, (headline.line3 - headline.line2)
+    dq headline.line3, (headline.line4 - headline.line3)
+    dq headline.line4, (headline.line5 - headline.line4)
+    dq headline.line5, (headline.line6 - headline.line5)
+    dq headline.line6, (headline.line7 - headline.line6)
+    dq headline.line7, (headline.line8 - headline.line7)
+    dq headline.line8, (headline_end - headline.line8)
+headline_table_end:
+headline_table_size equ (headline_table_end - headline_table) / 16
 
 by:
   db "by Mario Schanzenbach", 0
@@ -101,7 +105,7 @@ designer_clear:
 designer_type_sequence:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     ; Save non-volatile regs.
     mov [rbp - 8], r15
@@ -115,8 +119,10 @@ designer_type_sequence:
 
     ; Expect pointer to sequence_table (table_structure: qword: pointer, qword: length of string) in RCX.
     ; Expect length of table in RDX.
+    ; Expect Sleep time in R8
     mov [rbp - 24], rcx
     mov [rbp - 32], rdx
+    mov [rbp - 40], r8
     dec qword [rbp - 32]
     shr rdx, 1
     sub [rbp - 16], dx
@@ -130,6 +136,7 @@ designer_type_sequence:
     mov rdx, [rcx + 8]
     mov rcx, [rcx]
     mov r8w, [rbp - 16]
+    mov r9, [rbp - 40]
     call _write_char_by_char
 .loop_handle:
     cmp r15, [rbp - 32]
@@ -151,47 +158,11 @@ _show_headline:
     mov rbp, rsp
     sub rsp, 40
 
-    mov [rbp - 8], r15
+    lea rcx, [rel headline_table]
+    mov rdx, headline_table_size
+    mov r8, 0
+    call designer_type_sequence
 
-    call console_manager_clear
-
-    mov r15, [rel DESIGNER_PTR]
-    mov r15, [r15 + designer.console_manager_ptr]
-
-    mov cx, word [r15 + console_manager.window_size + 4]
-    shr rcx, 1
-    sub cx, 30
-    mov [rbp - 16], cx
-
-    mov cx, word [r15 + console_manager.window_size + 6]
-    shr rcx, 1
-    sub cx, 4
-    mov [rbp - 24], cx
-
-    mov byte [rbp - 32], 0
-
-.loop:
-    mov cx, word [rbp - 16]
-    shl rcx, 16
-    mov cx, word [rbp - 24] 
-    
-    lea rdx, [rel headline_table]
-    movzx r8, byte [rbp - 32]
-    shl r8, 3
-    add rdx, r8
-    mov rdx, [rdx]
-    call console_manager_print_word
-
-.loop_handle:
-    cmp byte [rbp - 32], 7
-    je .complete
-    inc byte [rbp - 32]
-    inc word [rbp - 24]
-    jmp .loop
-
-.complete:
-    call console_manager_move_cursor_to_end
-    mov r15, [rbp - 8]
     mov rsp, rbp
     pop rbp
     ret
@@ -223,7 +194,7 @@ _show_name:
 _write_char_by_char:
     push rbp
     mov rbp, rsp
-    sub rsp, 80
+    sub rsp, 88
 
     ; Save non-volatile regs.
     mov [rbp - 8], r15
@@ -238,11 +209,12 @@ _write_char_by_char:
     ; Expect pointer to string in RCX.
     ; Expect length of string in RDX.
     ; Expect starting Y-Coordinate in R8W
+    ; Expect Sleep-Time in R9
     mov [rbp - 24], rcx
     mov [rbp - 32], rdx
     dec qword [rbp - 32]
     mov [rbp - 40], r8w
-
+    mov [rbp - 48], r9
     shr rdx, 1
     sub [rbp - 16], dx
 
@@ -254,8 +226,8 @@ _write_char_by_char:
     mov rdx, [rbp - 24]
     add rdx, r15
     call console_manager_print_char
-    ; mov rcx, 50
-    ; call Sleep
+    mov rcx, [rbp - 48]
+    call Sleep
 .loop_handle:
     cmp r15, [rbp - 32]
     jae .complete

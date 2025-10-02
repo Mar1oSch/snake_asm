@@ -1,7 +1,7 @@
 %include "../include/organizer/interactor_struc.inc"
 %include "../include/organizer/file_manager_struc.inc"
 
-global interactor_new, interactor_setup, interactor_create_game, interactor_start_game, interactor_after_game_dialogue, interactor_destroy
+global interactor_new, interactor_setup, interactor_create_game, interactor_start_game, interactor_destroy, interactor_replay_game
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
@@ -94,7 +94,7 @@ section .text
 
     extern console_manager_scan
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence
-    extern game_new, game_start, game_setup
+    extern game_new, game_start, game_reset
     extern file_manager_new
     extern player_new
 
@@ -184,29 +184,28 @@ interactor_start_game:
     mov rbp, rsp
     sub rsp, 40
 
-    call game_setup
     call game_start
 
     mov rsp, rbp
     pop rbp
     ret
 
-interactor_after_game_dialogue:
+interactor_replay_game:
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
-    lea rcx, [rel after_game_table]
-    mov rdx, after_game_table_size
-    call designer_type_sequence
+.loop:
+    call _after_game_dialogue
+    test rax, rax
+    jz .complete
+    call game_reset
+    jmp .loop
 
-    call _get_yes_no
-
+.complete:
     mov rsp, rbp
     pop rbp
     ret
-
-
 
 
 ;;;;;; PRIVATE FUNCTIONS ;;;;;;
@@ -217,6 +216,7 @@ _introduction:
 
     lea rcx, [rel intro_table]
     mov rdx, intro_table_size
+    mov r8, 25
     call designer_type_sequence
 
 .complete:
@@ -244,6 +244,7 @@ _create_player:
 .create_new_player:
     lea rcx, [rel new_player_table]
     mov rdx, new_player_table_size
+    mov r8, 25
     call designer_type_sequence
 
     call _get_new_player
@@ -260,6 +261,7 @@ _create_level:
 
     lea rcx, [rel level_creation_table]
     mov rdx, level_creation_table_size
+    mov r8, 25
     call designer_type_sequence
 
 .loop:
@@ -297,6 +299,22 @@ _get_player_name:
     lea rcx, [rel string_format]                ; Make 8-Byte names possible.
     lea rdx, [rel INTERACTOR_PLAYER_NAME_PTR]
     call console_manager_scan
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_after_game_dialogue:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    lea rcx, [rel after_game_table]
+    mov rdx, after_game_table_size
+    mov r8, 25
+    call designer_type_sequence
+
+    call _get_yes_no
 
     mov rsp, rbp
     pop rbp

@@ -8,7 +8,7 @@
 %include "../include/snake/unit_struc.inc"
 %include "../include/snake/snake_struc.inc"
 
-global game_new, game_destroy, game_setup, game_start
+global game_new, game_destroy, game_start, game_reset
 
 section .rodata
     points_format db " %04d", 0
@@ -95,14 +95,42 @@ game_destroy:
     pop rbp
     ret
 
-game_setup:
+game_start:
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
+    call _game_setup
+    call _game_play
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+game_reset:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 48
+
     call board_reset
     mov rcx, [rel GAME_PTR]
     mov [rcx + game.board_ptr], rax
+    mov rcx, [rcx + game.player_ptr]
+    mov qword [rcx + player.points], 0
+    call game_start
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+
+
+
+;;;;;; PRIVATE METHODS ;;;;;;
+_game_setup:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 48
 
     call board_setup
     call _build_scoreboard
@@ -112,19 +140,6 @@ game_setup:
     pop rbp
     ret
 
-game_start:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    call _game_play
-
-    mov rsp, rbp
-    pop rbp
-    ret
-
-
-;;;;;; PRIVATE METHODS ;;;;;;
 _update_snake:
     push rbp
     mov rbp, rsp

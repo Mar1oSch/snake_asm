@@ -81,35 +81,35 @@ snake_destroy:
     pop rbp
     ret
 
-; snake_reset:
-;     push rbp
-;     mov rbp, rsp
-;     sub rsp, 40
+snake_reset:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 56
 
-;     mov [rbp - 8], r15
+    mov [rbp - 8], r15
 
-;     mov r15, [rel SNAKE_PTR]
-;     mov rcx, [r15 + snake.tail_ptr]
-;     mov [rbp - 16], rcx
-;     mov r15, [r15 + snake.head_ptr]
+    mov r15, [rel SNAKE_PTR]
+    mov rcx, [r15 + snake.tail_ptr]
+    mov [rbp - 16], rcx
+    mov r15, [r15 + snake.head_ptr]
 
-; .loop:
-;     mov rcx, r15
-;     call unit_destroy
-; .loop_handle:
-;     cmp r15, [rbp - 16]
-;     jne .complete
-;     mov r15, [r15 + unit.next_unit_ptr]
-;     jmp .loop
+.loop:
+    mov rcx, r15
+    call unit_destroy
+.loop_handle:
+    cmp r15, [rbp - 16]
+    jne .complete
+    mov r15, [r15 + unit.next_unit_ptr]
+    jmp .loop
 
-; .complete:
-;     call snake_destroy
-;     mov qword [rel SNAKE_PTR], 0
+.complete:
+    call snake_destroy
+    mov qword [rel SNAKE_PTR], 0
 
-;     mov r15, [rbp - 8]
-;     mov rsp, rbp
-;     pop rbp
-;     ret
+    mov r15, [rbp - 8]
+    mov rsp, rbp
+    pop rbp
+    ret
 
 get_snake:
     cmp qword [rel SNAKE_PTR], 0
