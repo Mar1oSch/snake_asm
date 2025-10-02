@@ -141,8 +141,10 @@ board_reset:
 
     mov r8, [rel BOARD_PTR]
     movzx rcx, word [r8 + board.width]
+    sub rcx, 2
     shl rcx, 16
     mov cx, [r8 + board.height]
+    sub cx, 2
     mov [rbp - 8], rcx
 
     mov rdx, [r8 + board.console_manager_ptr]
