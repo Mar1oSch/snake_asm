@@ -3,7 +3,7 @@
 %include "../include/snake/snake_struc.inc"
 %include "../include/snake/unit_struc.inc"
 
-global snake_new, snake_destroy, get_snake, snake_add_unit, snake_update, snake_get_tail_position
+global snake_new, snake_destroy, get_snake, snake_add_unit, snake_update, snake_get_tail_position, snake_reset
 
 section .rodata
     HEAD_CHAR equ "@"
@@ -16,7 +16,7 @@ section .bss
 section .text
     extern malloc
     extern free
-    extern unit_new, unit_update
+    extern unit_new, unit_update, unit_destroy
     extern malloc_failed, object_not_created
     extern DRAWABLE_VTABLE_DRAW_OFFSET
 
@@ -80,6 +80,36 @@ snake_destroy:
     mov rsp, rbp
     pop rbp
     ret
+
+; snake_reset:
+;     push rbp
+;     mov rbp, rsp
+;     sub rsp, 40
+
+;     mov [rbp - 8], r15
+
+;     mov r15, [rel SNAKE_PTR]
+;     mov rcx, [r15 + snake.tail_ptr]
+;     mov [rbp - 16], rcx
+;     mov r15, [r15 + snake.head_ptr]
+
+; .loop:
+;     mov rcx, r15
+;     call unit_destroy
+; .loop_handle:
+;     cmp r15, [rbp - 16]
+;     jne .complete
+;     mov r15, [r15 + unit.next_unit_ptr]
+;     jmp .loop
+
+; .complete:
+;     call snake_destroy
+;     mov qword [rel SNAKE_PTR], 0
+
+;     mov r15, [rbp - 8]
+;     mov rsp, rbp
+;     pop rbp
+;     ret
 
 get_snake:
     cmp qword [rel SNAKE_PTR], 0

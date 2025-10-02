@@ -35,7 +35,7 @@ section .text
     extern interactor_new
     extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset
     extern snake_add_unit
-    extern console_manager_move_cursor
+    extern console_manager_move_cursor, console_manager_move_cursor_to_end, console_manager_print_word
     extern malloc_failed, object_not_created
 
 ;;;;;; PUBLIC METHODS ;;;;;;
@@ -422,7 +422,7 @@ _check_food_collission:
 _add_player_points:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     cmp qword [rel GAME_PTR], 0
     je _g_object_failed
@@ -443,7 +443,7 @@ _add_player_points:
 _build_scoreboard:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     cmp qword [rel GAME_PTR], 0
     je _g_object_failed
@@ -461,16 +461,13 @@ _print_player:
     sub rsp, 40
 
     mov r8, [rel GAME_PTR]
-    mov r8, [r8 + game.board_ptr]
+    mov r9, [r8 + game.board_ptr]
     xor rcx, rcx
-    mov cx, [r8 + board.height]
+    mov cx, [r9 + board.height]
     inc cx
-    call console_manager_move_cursor
-
-    mov rcx, [rel GAME_PTR]
-    mov rcx, [rcx + game.player_ptr]
-    mov rcx, [rcx + player.name_ptr]
-    call printf
+    mov rdx, [r8 + game.player_ptr]
+    mov rdx, [rdx + player.name_ptr]
+    call console_manager_print_word
 
     mov rsp, rbp
     pop rbp
@@ -557,7 +554,7 @@ _get_delay:
 _game_play:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     call _get_delay
 
@@ -603,17 +600,12 @@ _game_over:
     shl rcx, 16
     mov cx, word [r8 + board.height]
     shr cx, 1
-    call console_manager_move_cursor
+    lea rdx, [rel game_over]
+    call console_manager_print_word
+    call console_manager_move_cursor_to_end
 
-    lea rcx, [rel game_over]
-    call printf
-
-    mov r8, [rbp - 8]
-    movzx rcx, word [r8 + board.width]
-    shl rcx, 16
-    mov cx, word [r8 + board.height]
-    inc cx
-    call console_manager_move_cursor
+    mov rcx, 1000
+    call Sleep
 
     mov rsp, rbp
     pop rbp

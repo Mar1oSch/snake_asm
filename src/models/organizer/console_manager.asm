@@ -98,7 +98,7 @@ console_manager_destroy:
 console_manager_print_char:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     ; Expect X- and Y-Coordinates in ECX
     ; Expect pointer to char in RDX.
@@ -115,7 +115,7 @@ console_manager_print_char:
 console_manager_print_word:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     ; Expect X- and Y-Coordinates in ECX
     ; Expect pointer to char in RDX.
