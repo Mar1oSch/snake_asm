@@ -16,7 +16,7 @@ section .bss
 section .text
     extern malloc
     extern free
-    extern unit_new, unit_update, unit_destroy
+    extern unit_new, unit_update, unit_reset
     extern malloc_failed, object_not_created
     extern DRAWABLE_VTABLE_DRAW_OFFSET
 
@@ -95,7 +95,8 @@ snake_reset:
 
 .loop:
     mov rcx, r15
-    call unit_destroy
+    call unit_reset
+
 .loop_handle:
     cmp r15, [rbp - 16]
     jne .complete

@@ -5,7 +5,7 @@
 %include "../include/snake/snake_struc.inc"
 %include "../include/snake/unit_struc.inc"
 
-global board_new, board_destroy, board_draw, board_setup, board_move_snake, get_board, board_create_new_food, board_reset
+global board_new, board_destroy, board_draw, board_setup, board_move_snake, get_board, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset
 
 section .rodata
     constructor_name db "board_new", 0
@@ -24,7 +24,7 @@ section .text
     extern GetSystemTimeAsFileTime
 
     extern snake_new, snake_update, snake_get_tail_position, snake_reset
-    extern console_manager_new, console_manager_clear, console_manager_print_char, console_manager_move_cursor, console_manager_erase
+    extern console_manager_new, console_manager_clear, console_manager_print_char, console_manager_move_cursor, console_manager_move_cursor_to_end, console_manager_erase, console_manager_get_height_to_center_offset, console_manager_get_width_to_center_offset
     extern food_new, food_destroy
     extern malloc_failed, object_not_created
     extern DRAWABLE_VTABLE_X_POSITION_OFFSET, DRAWABLE_VTABLE_Y_POSITION_OFFSET, DRAWABLE_VTABLE_CHAR_PTR_OFFSET
@@ -121,10 +121,6 @@ board_setup:
     mov cx, [r8 + board.width]
     call console_manager_clear
 
-    mov r8, [rel BOARD_PTR]
-    mov cx, [r8 + board.height]
-    shl rcx, 16
-    mov cx, [r8 + board.width]
     call _draw_fence
     call _draw_food
     call _draw_snake
@@ -169,7 +165,7 @@ board_move_snake:
 
     call _draw_snake
     call _erase_last_snake_unit
-    call _move_cursor_to_end
+    call console_manager_move_cursor_to_end
 
     mov rsp, rbp
     pop rbp
@@ -190,7 +186,7 @@ board_create_new_food:
     call _create_random_position
     mov [rbp - 8], rax
     mov rcx, rax
-    call _check_position_with_snake
+    call _check_food_position_with_snake
     cmp rax, 0
     je .loop
 
@@ -213,6 +209,40 @@ get_board:
     mov rax, [rel BOARD_PTR]
     ret
 
+get_board_width_offset:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 48
+
+    mov rax, [rel BOARD_PTR]
+    movzx rax, word [rax + board.width]
+    shr rax, 1
+    mov [rbp - 8], ax
+
+    call console_manager_get_width_to_center_offset
+    sub ax, [rbp - 8]
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+get_board_height_offset:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    mov rax, [rel BOARD_PTR]
+    movzx rax, word [rax + board.height]
+    shr rax, 1
+    mov [rbp - 8], ax
+
+    call console_manager_get_height_to_center_offset
+    sub ax, [rbp - 8]
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
 
 
 
@@ -220,7 +250,7 @@ get_board:
 _draw_snake:
     push rbp
     mov rbp, rsp
-    sub rsp, 70
+    sub rsp, 104
 
     cmp qword [rel BOARD_PTR], 0
     je _b_object_failed
@@ -238,19 +268,27 @@ _draw_snake:
     mov r11, [r11 + interface_table.vtable_drawable_ptr]    ; Get the drawable-interface into R11
     mov [rbp - 24], r11                                     ; Save interface relation.
 
+    call get_board_width_offset
+    mov [rbp - 32], ax
+
+    call get_board_height_offset
+    mov [rbp - 40], ax
+
 .loop:
     mov rcx, r10                                            ; Move pointer to unit to RCX.
     call [r11 + DRAWABLE_VTABLE_X_POSITION_OFFSET]
-    mov word [rbp - 32], ax                                 ; Save X-Position.
+    add ax, [rbp - 32]
+    mov word [rbp - 48], ax                                 ; Save X-Position.
     mov rcx, r10                                            ; Move pointer to unit to RCX.
     call [r11 + DRAWABLE_VTABLE_Y_POSITION_OFFSET]
-    mov word [rbp - 40], ax                                 ; Save Y-Position.
+    add ax, [rbp - 40]
+    mov word [rbp - 56], ax                                 ; Save Y-Position.
     mov rcx, r10                                            ; Move pointer to unit to RCX.
     call [r11 + DRAWABLE_VTABLE_CHAR_PTR_OFFSET]
     mov rdx, rax                                            ; Load pointer to char into RDX.
-    mov cx, [rbp - 32]                                      ; Move X-Position into CX (ECX = 0, X)
+    mov cx, [rbp - 48]                                      ; Move X-Position into CX (ECX = 0, X)
     shl rcx, 16                                             ; Shift ECX 16 bits to the left. (ECX = X, 0)
-    mov cx, [rbp - 40]                                      ; Move Y-Position into CX (ECX = X, Y)
+    mov cx, [rbp - 56]                                      ; Move Y-Position into CX (ECX = X, Y)
     call console_manager_print_char
     mov r10, [rbp - 8]
     cmp r10, [rbp - 16]
@@ -268,36 +306,45 @@ _draw_snake:
 _draw_fence:
     push rbp
     mov rbp, rsp
-    sub rsp, 80
+    sub rsp, 104
 
     cmp qword [rel BOARD_PTR], 0
     je _b_object_failed
 
-    ; Expect Width and Height of Board in RCX
-    mov word [rbp - 8], cx                      ; Save height.
-    shr rcx, 16
-    mov word [rbp - 16], cx    
+    mov r8, [rel BOARD_PTR]
+    mov cx, [r8 + board.width]
+    mov [rbp - 8], cx                     
+    mov cx, [r8 + board.height]                  ; Save height.
+    mov [rbp - 16], cx    
+
+    call get_board_width_offset
+    mov [rbp - 24], ax
+    call get_board_height_offset
+    mov [rbp - 32], ax
 
     ; Save non-volatile regs.
-    mov [rbp - 24], r15
-    mov [rbp - 32], r14
+    mov [rbp - 40], r15
+    mov [rbp - 48], r14
 
     xor r15, r15        ; Zero Height counter
 .loop:
     cmp r15, 0
     je .draw_whole_line
-    cmp r15w, word [rbp - 8]
+    cmp r15w, [rbp - 16]
     je .draw_whole_line
 
 .draw_single_chars:
-    mov cx, r15w
+    mov cx, [rbp - 24]
     shl rcx, 16
-    mov cx, 0
+    mov cx, r15w
+    add cx, [rbp - 32]
     lea rdx, [rel fence_char] 
     call console_manager_print_char
-    mov cx, r15w
+    mov cx, word [rbp - 8]
+    add cx, [rbp - 24]
     shl rcx, 16
-    mov cx, word [rbp - 16]
+    mov cx, r15w
+    add cx, [rbp - 32]
     lea rdx, [rel fence_char] 
     call console_manager_print_char
     jmp .loop_handle
@@ -305,26 +352,28 @@ _draw_fence:
 .draw_whole_line:
     xor r14, r14        ; Zero Width counter
     .inner_loop:
-        mov cx, r15w
-        shl rcx, 16
         mov cx, r14w
+        add cx, [rbp - 24]
+        shl rcx, 16
+        mov cx, r15w
+        add cx, [rbp - 32]
         lea rdx, [rel fence_char]
         call console_manager_print_char
     .inner_loop_handle:
-        cmp r14w, [rbp - 16]
+        cmp r14w, [rbp - 8]
         je .loop_handle
         inc r14w
         jmp .inner_loop
 
 .loop_handle:
-    cmp r15w, [rbp - 8]
+    cmp r15w, word [rbp - 16]
     je .complete
     inc r15
     jmp .loop
 
 .complete:
-    mov [rbp - 32], r14
-    mov [rbp - 24], r15
+    mov [rbp - 48], r14
+    mov [rbp - 40], r15
     mov rsp, rbp
     pop rbp
     ret
@@ -332,7 +381,7 @@ _draw_fence:
 _draw_food:
     push rbp
     mov rbp, rsp
-    sub rsp, 72
+    sub rsp, 80
 
     cmp qword [rel BOARD_PTR], 0
     je _b_object_failed
@@ -347,11 +396,15 @@ _draw_food:
 
     call [rdx + DRAWABLE_VTABLE_X_POSITION_OFFSET]
     mov word [rbp - 24], ax
+    call get_board_width_offset
+    add word [rbp - 24], ax 
 
     mov rcx, [rbp - 8]
     mov rdx, [rbp - 16]
     call [rdx + DRAWABLE_VTABLE_Y_POSITION_OFFSET]
     mov word [rbp - 32], ax
+    call get_board_height_offset
+    add word [rbp - 32], ax
 
     mov rcx, [rbp - 8]
     mov rdx, [rbp - 16]
@@ -370,37 +423,26 @@ _draw_food:
 _erase_last_snake_unit:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 56
 
     cmp qword [rel BOARD_PTR], 0
     je _b_object_failed
 
-    call snake_get_tail_position
+    call get_board_width_offset
+    mov [rbp - 8], ax
 
+    call get_board_height_offset
+    mov [rbp - 16], ax
+
+    call snake_get_tail_position
     mov ecx, eax
+    ror ecx, 16
+    add cx, [rbp - 8]
+    rol ecx, 16
+    add cx, [rbp - 16]
     call console_manager_erase
 
 .complete:
-    mov rsp, rbp
-    pop rbp
-    ret
-
-_move_cursor_to_end:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    cmp qword [rel BOARD_PTR], 0
-    je _b_object_failed
-
-    xor rcx, rcx
-    mov r8, [rel BOARD_PTR]
-    mov cx, [r8 + board.width]
-    shl rcx, 16
-    mov cx, [r8 + board.height]
-    add cx, 1
-    call console_manager_move_cursor
-
     mov rsp, rbp
     pop rbp
     ret
@@ -469,7 +511,7 @@ _create_random_position:
     pop rbp
     ret
 
-_check_position_with_snake:
+_check_food_position_with_snake:
     push rbp
     mov rbp, rsp
     sub rsp, 40

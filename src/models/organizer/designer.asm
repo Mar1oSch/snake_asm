@@ -138,6 +138,7 @@ designer_type_sequence:
     mov r8w, [rbp - 16]
     mov r9, [rbp - 40]
     call _write_char_by_char
+
 .loop_handle:
     cmp r15, [rbp - 32]
     jae .complete
@@ -151,6 +152,9 @@ designer_type_sequence:
     mov rsp, rbp
     pop rbp
     ret
+
+
+
 
 ;;;;;; PRIVATE METHODS ;;;;;;
 _show_headline:
@@ -190,6 +194,9 @@ _show_name:
     mov rsp, rbp
     pop rbp
     ret
+
+
+
 
 _write_char_by_char:
     push rbp

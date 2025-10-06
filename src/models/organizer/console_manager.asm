@@ -1,6 +1,6 @@
 %include "../include/organizer/console_manager_struc.inc"
 
-global console_manager_new, console_manager_destroy, console_manager_clear, console_manager_print_char, console_manager_move_cursor, console_manager_erase, console_manager_print_word, console_manager_move_cursor_to_end, console_manager_scan
+global console_manager_new, console_manager_destroy, console_manager_clear, console_manager_print_char, console_manager_move_cursor, console_manager_erase, console_manager_print_word, console_manager_move_cursor_to_end, console_manager_get_width_to_center_offset, console_manager_get_height_to_center_offset, console_manager_scan
 
 section .rodata
     erase_char db " "
@@ -132,7 +132,7 @@ console_manager_print_word:
 console_manager_scan:
     push rbp
     mov rbp, rsp
-    sub rsp, 56
+    sub rsp, 40
 
     ; Expect format to scan in RCX.
     ; Expect pointer to save scan to in RDX.
@@ -229,7 +229,17 @@ console_manager_get_output_handle:
     pop rbp
     ret
 
+console_manager_get_width_to_center_offset:
+    mov rax, [rel CONSOLE_MANAGER_PTR]
+    movzx rax, word [rax + console_manager.window_size + 4]
+    shr rax, 1
+    ret
 
+console_manager_get_height_to_center_offset:
+    mov rax, [rel CONSOLE_MANAGER_PTR]
+    movzx rax, word [rax + console_manager.window_size + 6]
+    shr rax, 1
+    ret
 
 
 

@@ -33,7 +33,7 @@ section .text
 
     extern player_new
     extern interactor_new
-    extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset
+    extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset
     extern snake_add_unit
     extern console_manager_move_cursor, console_manager_move_cursor_to_end, console_manager_print_word
     extern malloc_failed, object_not_created
@@ -473,12 +473,21 @@ _build_scoreboard:
 _print_player:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
+
+    call get_board_width_offset
+    mov [rbp - 8], ax
+
+    call get_board_height_offset
+    mov [rbp - 16], ax
 
     mov r8, [rel GAME_PTR]
     mov r9, [r8 + game.board_ptr]
     xor rcx, rcx
+    movzx rcx, word [rbp - 8]
+    shl rcx, 16
     mov cx, [r9 + board.height]
+    add cx, [rbp - 16]
     inc cx
     mov rdx, [r8 + game.player_ptr]
     mov rdx, [rdx + player.name_ptr]
@@ -491,14 +500,22 @@ _print_player:
 _print_points:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 56
+
+    call get_board_width_offset
+    mov [rbp - 8], ax
+
+    call get_board_height_offset
+    mov [rbp - 16], ax
 
     mov r8, [rel GAME_PTR]
     mov r8, [r8 + game.board_ptr]
     movzx rcx, word [r8 + board.width]
+    add cx, [rbp - 8]
     sub cx, 4
     shl rcx, 16
     mov cx, [r8 + board.height]
+    add cx, [rbp - 16]
     inc cx
     call console_manager_move_cursor
 
@@ -606,15 +623,22 @@ _game_over:
     mov rbp, rsp
     sub rsp, 40
 
+    call get_board_width_offset
+    mov [rbp - 8], ax
+
+    call get_board_height_offset
+    mov [rbp - 16], ax
+
     mov rcx, [rel GAME_PTR]
     mov r8, [rcx + game.board_ptr]
-    mov [rbp - 8], r8
     movzx rcx, word [r8 + board.width]
     shr rcx, 1
+    add cx, [rbp - 8]
     sub cx, 7
     shl rcx, 16
     mov cx, word [r8 + board.height]
     shr cx, 1
+    add cx, [rbp - 16]
     lea rdx, [rel game_over]
     call console_manager_print_word
     call console_manager_move_cursor_to_end

@@ -216,7 +216,7 @@ _introduction:
 
     lea rcx, [rel intro_table]
     mov rdx, intro_table_size
-    mov r8, 25
+    mov r8, 0
     call designer_type_sequence
 
 .complete:
@@ -244,7 +244,7 @@ _create_player:
 .create_new_player:
     lea rcx, [rel new_player_table]
     mov rdx, new_player_table_size
-    mov r8, 25
+    mov r8, 0
     call designer_type_sequence
 
     call _get_new_player
@@ -261,7 +261,7 @@ _create_level:
 
     lea rcx, [rel level_creation_table]
     mov rdx, level_creation_table_size
-    mov r8, 25
+    mov r8, 0
     call designer_type_sequence
 
 .loop:
@@ -311,7 +311,7 @@ _after_game_dialogue:
 
     lea rcx, [rel after_game_table]
     mov rdx, after_game_table_size
-    mov r8, 25
+    mov r8, 0
     call designer_type_sequence
 
     call _get_yes_no
