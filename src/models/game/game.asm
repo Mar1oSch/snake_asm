@@ -13,6 +13,7 @@ global game_new, game_destroy, game_start, game_reset
 section .rodata
     points_format db " %04d", 0
     game_over db "   GAME OVER   ", 10, 0
+    GAME_OVER_LENGTH equ $ - game_over
 
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "game_new", 0
@@ -633,8 +634,8 @@ _game_over:
     mov r8, [rcx + game.board_ptr]
     movzx rcx, word [r8 + board.width]
     shr rcx, 1
+    sub cx, GAME_OVER_LENGTH / 2
     add cx, [rbp - 8]
-    sub cx, 7
     shl rcx, 16
     mov cx, word [r8 + board.height]
     shr cx, 1
