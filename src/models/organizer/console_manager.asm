@@ -30,7 +30,7 @@ section .text
     extern SetConsoleTextAttribute, SetConsoleCursorPosition
     extern WriteConsoleA
     extern GetConsoleScreenBufferInfo, FillConsoleOutputCharacterA
-    extern scanf
+    extern scanf, getchar
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 console_manager_new:
@@ -137,6 +137,7 @@ console_manager_scan:
     ; Expect format to scan in RCX.
     ; Expect pointer to save scan to in RDX.
     call scanf
+    call _cm_clear_buffer
 
 .complete:
     mov rsp, rbp
@@ -338,6 +339,24 @@ _cm_write_char:
     xor rax, rax
     call WriteConsoleA
 
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_cm_clear_buffer:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+.loop:
+    call getchar
+    cmp  rax, 10         ; '\n'
+    je   .complete
+    cmp  rax, -1         ; EOF
+    je   .complete
+    jmp  .loop
+
+.complete:
     mov rsp, rbp
     pop rbp
     ret

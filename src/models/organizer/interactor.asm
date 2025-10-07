@@ -10,7 +10,7 @@ section .rodata
 
     ;;;;;; FORMATS ;;;;;;;
     char_format db "%c", 0
-    string_format db "%s", 0
+    name_string_format db "%10s", 0
     digit_format db "%d", 0
 
     ;;;;;; INTRODUCTION ;;;;;;
@@ -296,7 +296,7 @@ _get_player_name:
     mov rbp, rsp
     sub rsp, 40
 
-    lea rcx, [rel string_format]                ; Make 8-Byte names possible.
+    lea rcx, [rel name_string_format]                ; Make 8-Byte names possible.
     lea rdx, [rel INTERACTOR_PLAYER_NAME_PTR]
     call console_manager_scan
 

@@ -11,6 +11,8 @@
 global game_new, game_destroy, game_start, game_reset
 
 section .rodata
+    lvl_format db "Lvl: %02d", 0
+    highscore_format db "Best: %04d", 0
     points_format db " %04d", 0
     game_over db "   GAME OVER   ", 10, 0
     GAME_OVER_LENGTH equ $ - game_over
@@ -466,6 +468,8 @@ _build_scoreboard:
 
     call _print_player
     call _print_points
+    call _print_highscore
+    call _print_level
 
     mov rsp, rbp
     pop rbp
@@ -498,6 +502,35 @@ _print_player:
     pop rbp
     ret
 
+_print_level:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 48
+
+    call get_board_width_offset
+    mov [rbp - 8], ax
+
+    call get_board_height_offset
+    mov [rbp - 16], ax
+
+    mov r8, [rel GAME_PTR]
+    mov r9, [r8 + game.board_ptr]
+    xor rcx, rcx
+    movzx rcx, word [rbp - 8]
+    shl rcx, 16
+    mov cx, [rbp - 16]
+    dec cx
+    call console_manager_move_cursor
+
+    lea rcx, [rel lvl_format]
+    mov rdx, [rel GAME_PTR]
+    mov rdx, [rdx + game.lvl]
+    call printf
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
 _print_points:
     push rbp
     mov rbp, rsp
@@ -524,6 +557,37 @@ _print_points:
     mov rdx, [rel GAME_PTR]
     mov rdx, [rdx + game.player_ptr]
     mov rdx, [rdx + player.points]
+    call printf
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_print_highscore:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 56
+
+    call get_board_width_offset
+    mov [rbp - 8], ax
+
+    call get_board_height_offset
+    mov [rbp - 16], ax
+
+    mov r8, [rel GAME_PTR]
+    mov r8, [r8 + game.board_ptr]
+    movzx rcx, word [r8 + board.width]
+    add cx, [rbp - 8]
+    sub cx, 9
+    shl rcx, 16
+    mov cx, [rbp - 16]
+    dec cx
+    call console_manager_move_cursor
+
+    lea rcx, [rel highscore_format]
+    mov rdx, [rel GAME_PTR]
+    mov rdx, [rdx + game.player_ptr]
+    mov rdx, [rdx + player.highscore]
     call printf
 
     mov rsp, rbp
@@ -589,6 +653,7 @@ _game_play:
     mov rbp, rsp
     sub rsp, 48
 
+    mov qword [rel current_direction], 2
     call _get_delay
 
     mov [rbp - 8], ax
@@ -636,6 +701,7 @@ _game_over:
     shr rcx, 1
     sub cx, GAME_OVER_LENGTH / 2
     add cx, [rbp - 8]
+    inc cx
     shl rcx, 16
     mov cx, word [r8 + board.height]
     shr cx, 1
@@ -643,6 +709,7 @@ _game_over:
     lea rdx, [rel game_over]
     call console_manager_print_word
     call console_manager_move_cursor_to_end
+    call _update_highscore
 
     mov rcx, 1000
     call Sleep
@@ -651,7 +718,23 @@ _game_over:
     pop rbp
     ret
 
+_update_highscore:
+    push rbp
+    mov rbp, rsp
 
+    mov rcx, [rel GAME_PTR]
+    mov rcx, [rcx + game.player_ptr]
+    mov rdx, [rcx + player.points]
+    mov r8, [rcx + player.highscore]
+    cmp rdx, r8
+    jbe .complete
+
+    mov qword [rcx + player.highscore], rdx
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
 
 ;;;;;; ERROR HANDLING ;;;;;;
 _g_malloc_failed:
