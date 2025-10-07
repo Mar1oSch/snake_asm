@@ -200,36 +200,6 @@ console_manager_move_cursor_to_end:
     pop rbp
     ret
 
-console_manager_get_input_handle:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    cmp qword [rel CONSOLE_MANAGER_PTR], 0
-    je _cm_object_failed
-
-    mov rax, [rel CONSOLE_MANAGER_PTR]
-    mov rax, [rax + console_manager.input_handle]
-
-    mov rsp, rbp
-    pop rbp
-    ret
-
-console_manager_get_output_handle:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    cmp qword [rel CONSOLE_MANAGER_PTR], 0
-    je _cm_object_failed
-
-    mov rax, [rel CONSOLE_MANAGER_PTR]
-    mov rax, [rax + console_manager.output_handle]
-
-    mov rsp, rbp
-    pop rbp
-    ret
-
 console_manager_get_width_to_center_offset:
     mov rax, [rel CONSOLE_MANAGER_PTR]
     movzx rax, word [rax + console_manager.window_size + 4]
