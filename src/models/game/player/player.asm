@@ -1,6 +1,6 @@
 %include "../include/game/player_struc.inc"
 
-global player_new, player_destroy, player_get_points
+global player_new, player_destroy, get_player_points, get_player_name_length, get_player, player_update_highscore
 
 section .rodata
     player_name db "Mario", 13, 10, 0
@@ -21,7 +21,9 @@ player_new:
     jne .complete
 
     ; Expect pointer to player_name in RCX.
+    ; Expect highscroe in EDX.
     mov [rbp - 8], rcx
+    mov [rbp - 16], edx
 
     mov rcx, player_size
     call malloc
@@ -29,7 +31,8 @@ player_new:
     mov qword [rel PLAYER_PTR], rax
     mov rcx, [rbp - 8]
     mov [rax + player.name_ptr], rcx
-    mov qword [rax + player.points], 0
+    mov ecx, [rbp - 16]
+    mov [rax + player.highscore], ecx
 .complete:
     mov rax, [rel PLAYER_PTR]
     mov rsp, rbp
@@ -40,16 +43,36 @@ get_player:
     mov rax, [rel PLAYER_PTR]
     ret
 
-player_get_points:
-    mov rax, [rel PLAYER_PTR]
-    mov rax, [rax + player.points]
+get_player_name_length:
+    push rbp
+    mov rbp, rsp
+
+    xor rcx, rcx
+    mov rdx, [rel PLAYER_PTR]
+    mov rdx, [rdx + player.name_ptr]
+.loop:
+    mov r8b, [rdx + rcx]
+    test r8b, r8b
+    jz .complete
+    inc rcx
+    jmp .loop
+
+.complete:
+    mov rax, rcx
+    mov rsp, rbp
+    pop rbp
     ret
 
-player_add_points:
-    ; Expect points to add in RCX
-    mov rax, [rel PLAYER_PTR]
-    mov rax, [rax + player.points]
-    add [rax], rcx
+player_update_highscore:
+    push rbp
+    mov rbp, rsp
+
+    ; Expect new Highscore in ECX.
+    mov rdx, [rel PLAYER_PTR]
+    mov [rdx + player.highscore], ecx
+
+    mov rsp, rbp
+    pop rbp
     ret
 
 player_destroy:

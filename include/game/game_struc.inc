@@ -1,5 +1,6 @@
 struc game
-    .lvl resq 1
     .player_ptr resq 1
     .board_ptr resq 1
+    .points resd 1
+    .lvl resd 1
 endstruc

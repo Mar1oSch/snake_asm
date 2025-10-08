@@ -1,16 +1,23 @@
 %include "../include/organizer/interactor_struc.inc"
 %include "../include/organizer/file_manager_struc.inc"
+%include "../include/game/game_struc.inc"
+%include "../include/game/player_struc.inc"
 
 global interactor_new, interactor_setup, interactor_create_game, interactor_start_game, interactor_destroy, interactor_replay_game
 
 section .rodata
+    ;;;;;; CONSTANTS ;;;;;;
+    DEFAULT_BOARD_HEIGHT equ 11
+    DEFAULT_BOARD_WIDTH equ 20 
+    PLAYER_NAME_LENGTH equ 16               ; 15 signs, 0 terminated.
+
     ;;;;;; DEBUGGING ;;;;;;
     recieved_char db "%c", 0
     player_name db "%s", 13, 10, 0
 
     ;;;;;; FORMATS ;;;;;;;
     char_format db "%c", 0
-    name_string_format db "%10s", 0
+    name_string_format db "%15s", 0
     digit_format db "%d", 0
 
     ;;;;;; INTRODUCTION ;;;;;;
@@ -33,13 +40,15 @@ section .rodata
     new_player:
         .string1 db "A Very well welcome from my side."
         .string2 db "What is your name, adventurer?"
-        .string3 db 0
+        .string3 db "(Max 15 signs)"
+        .string4 db 0
     new_player_end:
 
     new_player_table:
         dq new_player.string1, (new_player.string2 - new_player.string1)
         dq new_player.string2, (new_player.string3 - new_player.string2)
-        dq new_player.string3, (new_player_end - new_player.string3)
+        dq new_player.string3, (new_player.string4 - new_player.string3)
+        dq new_player.string4, (new_player_end - new_player.string4)
     new_player_table_end:
     new_player_table_size equ (new_player_table_end - new_player_table) /16
 
@@ -83,9 +92,9 @@ section .rodata
 
 section .bss
     INTERACTOR_PTR resq 1
-    INTERACTOR_PLAYER_NAME_PTR resq 1
-    INTERACTOR_YES_NO_PTR resq 1
-    INTERACTOR_LEVEL_PTR resq 1
+    INTERACTOR_PLAYER_NAME resb PLAYER_NAME_LENGTH
+    INTERACTOR_YES_NO resq 1
+    INTERACTOR_LVL resq 1
 
 section .text
     extern malloc, free
@@ -95,8 +104,8 @@ section .text
     extern console_manager_scan
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence
     extern game_new, game_start, game_reset
-    extern file_manager_new
-    extern player_new
+    extern file_manager_new, file_manager_add_leaderboard_record
+    extern player_new, get_player_name_length, get_player
 
 interactor_new:
     push rbp
@@ -156,7 +165,7 @@ interactor_setup:
 interactor_create_game:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     call _create_player
     mov [rbp - 8], rax
@@ -164,16 +173,18 @@ interactor_create_game:
     call _create_level
 
     xor rcx, rcx
-    mov cx, 20                  ; Moving width into CX  (So: ECX = 0, width)
-    shl rcx, 16                 ; Shifting rcx 16 bits left (So : ECX = width, 0)
-    mov cx, 11                  ; Moving height into CX (So: ECX = width, height)
+    mov cx, DEFAULT_BOARD_WIDTH                   ; Moving width into CX  (So: ECX = 0, width)
+    shl rcx, 16                                   ; Shifting rcx 16 bits left (So : ECX = width, 0)
+    mov cx, DEFAULT_BOARD_HEIGHT                  ; Moving height into CX (So: ECX = width, height)
 
-    ; Have to create dialogue to get level.
-    mov rdx, [rel INTERACTOR_LEVEL_PTR]
+    mov rdx, [rel INTERACTOR_LVL]
 
     mov r8, [rbp - 8]
     mov r9, [rel INTERACTOR_PTR]
     call game_new
+
+    mov rcx, [rel INTERACTOR_PTR]
+    mov [rcx + interactor.game_ptr], rax
 
     mov rsp, rbp
     pop rbp
@@ -184,6 +195,7 @@ interactor_start_game:
     mov rbp, rsp
     sub rsp, 40
 
+    call _handle_player_in_leaderboard
     call game_start
 
     mov rsp, rbp
@@ -241,13 +253,14 @@ _create_player:
     ; This option has to be implemented later (save player in a file and let player choose one former player).
     mov rax, 0
     jmp .complete
+
 .create_new_player:
     lea rcx, [rel new_player_table]
     mov rdx, new_player_table_size
     mov r8, 0
     call designer_type_sequence
 
-    call _get_new_player
+    call _create_new_player
 
 .complete:
     mov rsp, rbp
@@ -266,39 +279,60 @@ _create_level:
 
 .loop:
     lea rcx, [rel digit_format]                
-    lea rdx, [rel INTERACTOR_LEVEL_PTR]
+    lea rdx, [rel INTERACTOR_LVL]
     call console_manager_scan
-    cmp qword [rel INTERACTOR_LEVEL_PTR], 1
+    cmp qword [rel INTERACTOR_LVL], 1
     jb .loop
-    cmp qword [rel INTERACTOR_LEVEL_PTR], 9
+    cmp qword [rel INTERACTOR_LVL], 9
     ja .loop
 
     mov rsp, rbp
     pop rbp
     ret
 
-_get_new_player:
+_create_new_player:
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
-    call _get_player_name
+    call _create_player_name
 
-    lea rcx, [rel INTERACTOR_PLAYER_NAME_PTR]
+    lea rcx, [rel INTERACTOR_PLAYER_NAME]
+    xor rdx, rdx
     call player_new
 
     mov rsp, rbp
     pop rbp
     ret
 
-_get_player_name:
+_create_player_name:
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
+    call _clear_player_name
+
     lea rcx, [rel name_string_format]                ; Make 8-Byte names possible.
-    lea rdx, [rel INTERACTOR_PLAYER_NAME_PTR]
+    lea rdx, [rel INTERACTOR_PLAYER_NAME]
     call console_manager_scan
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_handle_player_in_leaderboard:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 56
+
+    call get_player_name_length
+    mov [rbp - 8], rax
+
+    call get_player
+    mov rcx, [rax + player.name_ptr]
+    mov rdx, [rbp - 8]
+    mov r8d, [rax + player.highscore]
+    call file_manager_add_leaderboard_record
 
     mov rsp, rbp
     pop rbp
@@ -327,9 +361,9 @@ _get_yes_no:
 
 .loop:
     lea rcx, [rel char_format]
-    lea rdx, [rel INTERACTOR_YES_NO_PTR]
+    lea rdx, [rel INTERACTOR_YES_NO]
     call console_manager_scan
-    mov al, [rel INTERACTOR_YES_NO_PTR]
+    mov al, [rel INTERACTOR_YES_NO]
     and al, 0xDF
     cmp al, "Y"
     je .yes
@@ -342,6 +376,21 @@ _get_yes_no:
     jmp .complete
 .no:
     mov rax, 0
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_clear_player_name:
+    push rbp
+    mov rbp, rsp
+
+    mov rcx, PLAYER_NAME_LENGTH
+    lea rdx, [rel INTERACTOR_PLAYER_NAME]
+.loop:
+    mov byte [rdx + rcx], 0
+    loop .loop
 
 .complete:
     mov rsp, rbp

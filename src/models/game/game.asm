@@ -34,8 +34,7 @@ section .text
     extern printf
     extern GetAsyncKeyState
 
-    extern player_new
-    extern interactor_new
+    extern player_update_highscore
     extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset
     extern snake_add_unit
     extern console_manager_move_cursor, console_manager_move_cursor_to_end, console_manager_print_word
@@ -48,12 +47,12 @@ game_new:
     sub rsp, 56
 
     ; Expect width and height for the board in ECX.
-    ; Expect lvl in RDX.
+    ; Expect lvl in EDX.
     ; Expect player pointer in R8.
     ; Expect interactor pointer in R9.
     cmp qword [rel GAME_PTR], 0
     jne .complete
-    mov [rbp - 8], dl
+    mov [rbp - 8], edx
     mov [rbp - 16], r8
 
     mov rdx, [r9 + interactor.designer_ptr]
@@ -74,9 +73,10 @@ game_new:
     mov rcx, [rbp - 16]
     mov [rax + game.player_ptr], rcx
 
-    mov rcx, [rbp - 8]
-    mov [rax + game.lvl], rcx
+    mov ecx, [rbp - 8]
+    mov [rax + game.lvl], ecx
 
+    mov dword [rax + game.points], 0
 .complete:
     mov rax, [rel GAME_PTR]
     mov rsp, rbp
@@ -118,8 +118,7 @@ game_reset:
     call board_reset
     mov rcx, [rel GAME_PTR]
     mov [rcx + game.board_ptr], rax
-    mov rcx, [rcx + game.player_ptr]
-    mov qword [rcx + player.points], 0
+    mov dword [rcx + game.points], 0
     call game_start
 
     mov rsp, rbp
@@ -437,7 +436,7 @@ _check_food_collission:
     pop rbp
     ret
 
-_add_player_points:
+_add_points:
     push rbp
     mov rbp, rsp
     sub rsp, 48
@@ -446,11 +445,9 @@ _add_player_points:
     je _g_object_failed
 
     mov rcx, [rel GAME_PTR]
-    mov rdx, [rcx + game.player_ptr]
+    mov r8d, [rcx + game.lvl]
 
-    mov r8, [rcx + game.lvl]
-
-    add [rdx + player.points], r8
+    add [rcx + game.points], r8d
 
     call _print_points
 
@@ -466,10 +463,10 @@ _build_scoreboard:
     cmp qword [rel GAME_PTR], 0
     je _g_object_failed
 
-    call _print_player
     call _print_points
     call _print_highscore
     call _print_level
+    call _print_player
 
     mov rsp, rbp
     pop rbp
@@ -524,7 +521,7 @@ _print_level:
 
     lea rcx, [rel lvl_format]
     mov rdx, [rel GAME_PTR]
-    mov rdx, [rdx + game.lvl]
+    mov edx, [rdx + game.lvl]
     call printf
 
     mov rsp, rbp
@@ -555,8 +552,7 @@ _print_points:
 
     lea rcx, [rel points_format]
     mov rdx, [rel GAME_PTR]
-    mov rdx, [rdx + game.player_ptr]
-    mov rdx, [rdx + player.points]
+    mov edx, [rdx + game.points]
     call printf
 
     mov rsp, rbp
@@ -587,7 +583,7 @@ _print_highscore:
     lea rcx, [rel highscore_format]
     mov rdx, [rel GAME_PTR]
     mov rdx, [rdx + game.player_ptr]
-    mov rdx, [rdx + player.highscore]
+    mov edx, [rdx + player.highscore]
     call printf
 
     mov rsp, rbp
@@ -599,7 +595,7 @@ _get_delay:
     mov rbp, rsp
 
     mov rax, [rel GAME_PTR]
-    mov rax, [rax + game.lvl]
+    mov eax, [rax + game.lvl]
 
     cmp rax, 9
     ja  .invalid
@@ -673,7 +669,7 @@ _game_play:
     jmp .loop
 
 .food_event:
-    call _add_player_points
+    call _add_points
     call snake_add_unit
     call board_create_new_food
     jmp .loop_handle
@@ -722,19 +718,22 @@ _update_highscore:
     push rbp
     mov rbp, rsp
 
-    mov rcx, [rel GAME_PTR]
-    mov rcx, [rcx + game.player_ptr]
-    mov rdx, [rcx + player.points]
-    mov r8, [rcx + player.highscore]
-    cmp rdx, r8
+    mov rdx, [rel GAME_PTR]
+    mov ecx, [rdx + game.points]
+    mov r8, [rdx + game.player_ptr]
+    mov r8d, [r8 + player.highscore]
+    cmp ecx, r8d
     jbe .complete
 
-    mov qword [rcx + player.highscore], rdx
+    call player_update_highscore
 
 .complete:
     mov rsp, rbp
     pop rbp
     ret
+
+
+
 
 ;;;;;; ERROR HANDLING ;;;;;;
 _g_malloc_failed:
