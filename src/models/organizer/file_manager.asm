@@ -6,10 +6,17 @@ section .rodata
     leaderboard_file_name db "leaderboard.bin", 0
 
     ;;;;;; BIN Header ;;;;;;
-    MAGIC equ "LDB1"
-    VERSION equ 1
-    HEADER_SIZE equ 16
-    RECORD_SIZE equ 20
+header_template:
+    magic db "LDB1"
+    version dw 1
+    header_size dw 16
+    record_size dw 20
+    reserved dw 0
+    record_count dd 0
+header_template_end:
+
+    FILE_BEGIN   equ 0
+    HEADER_OFFSET equ 16
 
 
     ;;;;;; CREATE FILE CONSTANTS ;;;;;;
@@ -25,11 +32,13 @@ section .rodata
 
 section .bss
     FILE_MANAGER_PTR resq 1
+    FILE_SIZE_LARGE_INT resq 1
 
 section .text
     extern malloc, free
     extern CreateFileA, CloseHandle
     extern ReadFile, WriteFile
+    extern GetFileSizeEx, SetFilePointerEx
 
 file_manager_new:
     push rbp
@@ -126,3 +135,26 @@ _write:
     mov rsp, rbp
     pop rbp
     ret
+
+_ensure_header_initialized:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Save non volatile registers.
+    mov [rbp - 8], r15
+
+    mov r15, [rel FILE_MANAGER_PTR]
+    mov r15, [r15 + file_manager.file_handle]
+
+    mov rcx, r15
+    lea rdx, [rel FILE_SIZE_LARGE_INT]
+    call GetFileSizeEx
+
+    mov rcx, [rel header_size]
+    cmp qword [rel FILE_SIZE_LARGE_INT], rcx
+    jb .init_header
+
+    mov rcx, r15
+    mov rdx, 
+
