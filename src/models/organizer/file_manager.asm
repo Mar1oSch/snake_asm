@@ -4,10 +4,11 @@ global file_manager_new, file_manager_add_leaderboard_record, file_manager_destr
 
 section .rodata
     leaderboard_file_name db "leaderboard.bin", 0
-    ;;;;;; Debugging ;;;;;;
+
+;;;;;; Debugging ;;;;;;
     format db "%16s", 0
 
-    ;;;;;; BIN Header ;;;;;;
+;;;;;; BIN Header ;;;;;;
 header_template:
     magic db "LDB1"
     version dw 1
@@ -19,7 +20,6 @@ header_template_end:
     HEADER_SIZE equ header_template_end - header_template
     FILE_BEGIN   equ 0
 
-
     ;;;;;; CREATE FILE CONSTANTS ;;;;;;
     GENERIC_READ equ 0x80000000
     FILE_APPEND_DATA equ 0x0004
@@ -30,6 +30,15 @@ header_template_end:
     OPEN_ALWAYS equ 4
 
     FILE_ATTRIBUTE_NORMAL equ 0x80
+
+;;;;;; FILE CONSTANTS ;;;;;;
+    FILE_NAME_OFFSET equ 0
+    FILE_NAME_SIZE equ 16
+
+    FILE_HIGHSCORE_OFFSET equ 16
+    FILE_HIGHSCORE_SIZE equ 4
+
+    FILE_RECORD_SIZE equ FILE_NAME_SIZE + FILE_HIGHSCORE_SIZE
 
 section .bss
     FILE_MANAGER_PTR resq 1
@@ -84,6 +93,30 @@ file_manager_destroy:
     pop rbp
     ret
 
+file_manager_add_leaderboard_record:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 72
+
+    ; Expect pointer to player_name in RCX.
+    ; Expect highscore in RDX.
+    mov [rbp - 8], rcx
+    mov [rbp - 16], rdx
+
+    call _ensure_header_initialized
+
+    mov rcx, [rbp - 8]
+    mov rdx, FILE_NAME_SIZE
+    call _write
+
+    lea rcx, [rbp - 16]
+    mov rdx, FILE_HIGHSCORE_SIZE
+    call _write
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
 file_manager_get_record:
     push rbp
     mov rbp, rsp
@@ -101,35 +134,13 @@ file_manager_get_record:
     call SetFilePointerEx
 
     mov rcx, [rbp - 8]
+    mov rdx, FILE_RECORD_SIZE
     call _read
 
     mov rsp, rbp
     pop rbp
     ret
 
-file_manager_add_leaderboard_record:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 72
-
-    ; Expect pointer to player_name in RCX.
-    ; Expect highscore in RDX.
-    mov [rbp - 8], rcx
-    mov [rbp - 16], rdx
-
-    call _ensure_header_initialized
-
-    mov rcx, [rbp - 8]
-    mov rdx, 16
-    call _write
-
-    lea rcx, [rbp - 16]
-    mov rdx, 4
-    call _write
-
-    mov rsp, rbp
-    pop rbp
-    ret
 
 
 
@@ -160,11 +171,12 @@ _read:
     sub rsp, 40
 
     ; Expect pointer to string to load read bytes into in RCX.
+    ; Expect number of bytes to read in RDX.
+    mov r8, rdx
     mov rdx, rcx
 
     mov rcx, [rel FILE_MANAGER_PTR]
     mov rcx, [rcx + file_manager.file_handle]
-    mov r8d, [rel record_size]
     xor r9, r9
     mov qword [rsp + 32], 0
     call ReadFile
@@ -172,6 +184,44 @@ _read:
     mov rsp, rbp
     pop rbp
     ret
+
+; _find_name:
+;     push rbp
+;     mov rbp, rsp
+;     sub rsp, 40
+
+;     ; Expect pointer to name in RCX.
+;     mov [rbp - 8], rcx
+
+_get_name:
+    push rbp
+    mov rbp, rsp
+    sub rsp 40
+
+    ; Expect pointer to buffer to save name into in RCX.
+    ; Expect index of name in RDX
+    mov [rbp - 8], rcx
+    mov r8, rdx
+
+    mov rcx, [rel FILE_MANAGER_PTR]
+    mov rcx, [rcx + file_manager.file_handle]
+    xor rdx, rdx
+    imul r8, FILE_RECORD_SIZE
+    add r8, 16
+    mov r9, FILE_BEGIN
+    call SetFilePointerEx
+
+    mov rcx, [rbp - 8]
+    mov rdx, FILE_NAME_SIZE
+    call _read
+
+    mov rax, [rbp - 8]
+    mov rsp, rbp
+    pop rbp
+    ret
+
+
+
 
 _ensure_header_initialized:
     push rbp
@@ -214,7 +264,7 @@ _ensure_header_initialized:
     jne .init_header
 
     movzx eax, word [rel FILE_MANAGER_HEADER + 8]
-    cmp ax, [rel record_size]
+    cmp ax, FILE_RECORD_SIZE
     jne .init_header
 
     xor rax, rax
