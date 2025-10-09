@@ -136,25 +136,25 @@ _write:
     pop rbp
     ret
 
-_ensure_header_initialized:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+; _ensure_header_initialized:
+;     push rbp
+;     mov rbp, rsp
+;     sub rsp, 40
 
-    ; Save non volatile registers.
-    mov [rbp - 8], r15
+;     ; Save non volatile registers.
+;     mov [rbp - 8], r15
 
-    mov r15, [rel FILE_MANAGER_PTR]
-    mov r15, [r15 + file_manager.file_handle]
+;     mov r15, [rel FILE_MANAGER_PTR]
+;     mov r15, [r15 + file_manager.file_handle]
 
-    mov rcx, r15
-    lea rdx, [rel FILE_SIZE_LARGE_INT]
-    call GetFileSizeEx
+;     mov rcx, r15
+;     lea rdx, [rel FILE_SIZE_LARGE_INT]
+;     call GetFileSizeEx
 
-    mov rcx, [rel header_size]
-    cmp qword [rel FILE_SIZE_LARGE_INT], rcx
-    jb .init_header
+;     mov rcx, [rel header_size]
+;     cmp qword [rel FILE_SIZE_LARGE_INT], rcx
+;     jb .init_header
 
-    mov rcx, r15
-    mov rdx, 
+;     mov rcx, r15
+;     mov rdx, 
 

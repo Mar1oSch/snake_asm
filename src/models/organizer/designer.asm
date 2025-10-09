@@ -32,7 +32,7 @@ by:
   db "by Mario Schanzenbach", 0
 by_end:
 
-by_length equ by_end - by
+BY_LENGTH equ by_end - by
 
 section .bss
     DESIGNER_PTR resq 1
@@ -41,7 +41,7 @@ section .text
     extern malloc, free
     extern Sleep
 
-    extern console_manager_new, console_manager_print_word, console_manager_clear, console_manager_move_cursor_to_end, console_manager_print_char
+    extern console_manager_new, console_manager_write_word, console_manager_clear, console_manager_move_cursor_to_end, console_manager_write_char
 
 designer_new:
     push rbp
@@ -182,12 +182,13 @@ _show_name:
     mov r15, [rel DESIGNER_PTR]
     mov r15, [r15 + designer.console_manager_ptr]
     movzx rcx, word [r15 + console_manager.window_size + 4]
-    sub cx, by_length + 1
+    sub cx, BY_LENGTH + 1
     shl rcx, 16
     mov cx, word [r15 + console_manager.window_size + 6]
     sub cx, 3
     lea rdx, [rel by]
-    call console_manager_print_word
+    mov r8, BY_LENGTH
+    call console_manager_write_word
 
 .complete:
     mov r15, [rbp - 8]
@@ -232,7 +233,7 @@ _write_char_by_char:
     mov cx, [rbp - 40]
     mov rdx, [rbp - 24]
     add rdx, r15
-    call console_manager_print_char
+    call console_manager_write_char
     mov rcx, [rbp - 48]
     call Sleep
 .loop_handle:

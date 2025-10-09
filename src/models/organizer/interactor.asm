@@ -101,7 +101,7 @@ section .text
     extern printf
     extern Sleep
 
-    extern console_manager_scan
+    extern console_manager_read
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence
     extern game_new, game_start, game_reset
     extern file_manager_new, file_manager_add_leaderboard_record
@@ -277,15 +277,17 @@ _create_level:
     mov r8, 0
     call designer_type_sequence
 
-.loop:
-    lea rcx, [rel digit_format]                
-    lea rdx, [rel INTERACTOR_LVL]
-    call console_manager_scan
-    cmp qword [rel INTERACTOR_LVL], 1
+.loop:              
+    lea rcx, [rel INTERACTOR_LVL]
+    mov rdx, 1
+    lea r8, [rbp - 8]
+    call console_manager_read
+    cmp qword [rel INTERACTOR_LVL], "1"
     jb .loop
-    cmp qword [rel INTERACTOR_LVL], 9
+    cmp qword [rel INTERACTOR_LVL], "9"
     ja .loop
 
+    sub qword [rel INTERACTOR_LVL], 48                              ; ASCII-Convert: 49 = "1", 50 = "2", ...
     mov rsp, rbp
     pop rbp
     ret
@@ -312,10 +314,11 @@ _create_player_name:
 
     call _clear_player_name
 
-    lea rcx, [rel name_string_format]                ; Make 8-Byte names possible.
-    lea rdx, [rel INTERACTOR_PLAYER_NAME]
-    call console_manager_scan
-
+    lea rcx, [rel INTERACTOR_PLAYER_NAME]
+    mov rdx, 15
+    lea r8, [rbp - 8]
+    call console_manager_read
+    
     mov rsp, rbp
     pop rbp
     ret
@@ -360,9 +363,10 @@ _get_yes_no:
     sub rsp, 40
 
 .loop:
-    lea rcx, [rel char_format]
-    lea rdx, [rel INTERACTOR_YES_NO]
-    call console_manager_scan
+    lea rcx, [rel INTERACTOR_YES_NO]
+    mov rdx, 1
+    lea r8, [rbp - 8]
+    call console_manager_read
     mov al, [rel INTERACTOR_YES_NO]
     and al, 0xDF
     cmp al, "Y"

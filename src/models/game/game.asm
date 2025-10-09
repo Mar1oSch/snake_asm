@@ -34,10 +34,10 @@ section .text
     extern printf
     extern GetAsyncKeyState
 
-    extern player_update_highscore
+    extern player_update_highscore, get_player_name_length
     extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset
     extern snake_add_unit
-    extern console_manager_move_cursor, console_manager_move_cursor_to_end, console_manager_print_word
+    extern console_manager_move_cursor, console_manager_move_cursor_to_end, console_manager_write_word
     extern malloc_failed, object_not_created
 
 ;;;;;; PUBLIC METHODS ;;;;;;
@@ -483,17 +483,20 @@ _print_player:
     call get_board_height_offset
     mov [rbp - 16], ax
 
-    mov r8, [rel GAME_PTR]
-    mov r9, [r8 + game.board_ptr]
+    call get_player_name_length
+    mov r8, rax
+
+    mov r9, [rel GAME_PTR]
+    mov r10, [r9 + game.board_ptr]
     xor rcx, rcx
     movzx rcx, word [rbp - 8]
     shl rcx, 16
-    mov cx, [r9 + board.height]
+    mov cx, [r10 + board.height]
     add cx, [rbp - 16]
     inc cx
-    mov rdx, [r8 + game.player_ptr]
+    mov rdx, [r9 + game.player_ptr]
     mov rdx, [rdx + player.name_ptr]
-    call console_manager_print_word
+    call console_manager_write_word
 
     mov rsp, rbp
     pop rbp
@@ -703,11 +706,13 @@ _game_over:
     shr cx, 1
     add cx, [rbp - 16]
     lea rdx, [rel game_over]
-    call console_manager_print_word
+    mov r8, GAME_OVER_LENGTH
+    call console_manager_write_word
+
     call console_manager_move_cursor_to_end
     call _update_highscore
 
-    mov rcx, 1000
+    mov rcx, 3000
     call Sleep
 
     mov rsp, rbp
