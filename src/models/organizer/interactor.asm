@@ -7,8 +7,8 @@ global interactor_new, interactor_setup, interactor_create_game, interactor_star
 
 section .rodata
     ;;;;;; CONSTANTS ;;;;;;
-    DEFAULT_BOARD_HEIGHT equ 11
-    DEFAULT_BOARD_WIDTH equ 20 
+    DEFAULT_BOARD_HEIGHT equ 10             ; 0 indexed - so: 11
+    DEFAULT_BOARD_WIDTH equ 19              ; 0 indexed - so: 20
     PLAYER_NAME_LENGTH equ 16               ; 15 signs, 0 terminated.
 
     ;;;;;; DEBUGGING ;;;;;;
@@ -96,6 +96,10 @@ section .bss
     INTERACTOR_YES_NO resq 1
     INTERACTOR_LVL resq 1
 
+    player_from_file_struc:
+        .name resb 16
+        .highscore resd 1
+    player_from_file_struc_end:
 section .text
     extern malloc, free
     extern printf
@@ -104,7 +108,7 @@ section .text
     extern console_manager_read
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence
     extern game_new, game_start, game_reset
-    extern file_manager_new, file_manager_add_leaderboard_record
+    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record
     extern player_new, get_player_name_length, get_player
 
 interactor_new:
@@ -195,7 +199,6 @@ interactor_start_game:
     mov rbp, rsp
     sub rsp, 40
 
-    call _handle_player_in_leaderboard
     call game_start
 
     mov rsp, rbp
@@ -250,8 +253,7 @@ _create_player:
     jnz .create_new_player
 
 .choose_former_player:
-    ; This option has to be implemented later (save player in a file and let player choose one former player).
-    mov rax, 0
+    call _create_player_from_file
     jmp .complete
 
 .create_new_player:
@@ -292,6 +294,22 @@ _create_level:
     pop rbp
     ret
 
+_create_player_from_file:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    lea rcx, [rel player_from_file_struc]
+    call file_manager_get_record
+
+    lea rcx, [rel player_from_file_struc]
+    mov edx, [rel player_from_file_struc + 16]
+    call player_new
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
 _create_new_player:
     push rbp
     mov rbp, rsp
@@ -302,7 +320,13 @@ _create_new_player:
     lea rcx, [rel INTERACTOR_PLAYER_NAME]
     xor rdx, rdx
     call player_new
+    mov [rbp - 8], rax
 
+    lea rcx, [rel INTERACTOR_PLAYER_NAME]
+    xor rdx, rdx
+    call file_manager_add_leaderboard_record
+
+    mov rax, [rbp - 8]
     mov rsp, rbp
     pop rbp
     ret
@@ -312,31 +336,12 @@ _create_player_name:
     mov rbp, rsp
     sub rsp, 40
 
-    call _clear_player_name
-
     lea rcx, [rel INTERACTOR_PLAYER_NAME]
     mov rdx, 15
     lea r8, [rbp - 8]
     call console_manager_read
+    call _clear_player_name
     
-    mov rsp, rbp
-    pop rbp
-    ret
-
-_handle_player_in_leaderboard:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 56
-
-    call get_player_name_length
-    mov [rbp - 8], rax
-
-    call get_player
-    mov rcx, [rax + player.name_ptr]
-    mov rdx, [rbp - 8]
-    mov r8d, [rax + player.highscore]
-    call file_manager_add_leaderboard_record
-
     mov rsp, rbp
     pop rbp
     ret
@@ -392,9 +397,22 @@ _clear_player_name:
 
     mov rcx, PLAYER_NAME_LENGTH
     lea rdx, [rel INTERACTOR_PLAYER_NAME]
-.loop:
     mov byte [rdx + rcx], 0
+.loop:
+    cmp byte [rdx + rcx], 10
+    je .clear_cr
+    cmp byte [rdx + rcx], 13
+    je .clear_lf
     loop .loop
+    jmp .complete
+
+.clear_cr:
+    dec rcx
+    mov word [rdx + rcx], 0
+    jmp .complete
+
+.clear_lf:
+    mov byte [rdx + rcx], 0
 
 .complete:
     mov rsp, rbp

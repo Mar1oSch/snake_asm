@@ -128,7 +128,7 @@ constructor_test:
 
     mov rax, [rbp - 16]
     lea rcx, [rel player_name]
-    mov rdx, [rax + player.name_ptr]
+    mov rdx, [rax + player.name]
     call printf
 
     ;###################################################;

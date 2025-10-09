@@ -495,7 +495,7 @@ _print_player:
     add cx, [rbp - 16]
     inc cx
     mov rdx, [r9 + game.player_ptr]
-    mov rdx, [rdx + player.name_ptr]
+    mov rdx, [rdx + player.name]
     call console_manager_write_word
 
     mov rsp, rbp
@@ -712,7 +712,7 @@ _game_over:
     call console_manager_move_cursor_to_end
     call _update_highscore
 
-    mov rcx, 3000
+    mov rcx, 2000
     call Sleep
 
     mov rsp, rbp

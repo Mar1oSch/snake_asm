@@ -1,4 +1,4 @@
 struc player
-    .name_ptr resq 1
+    .name resb 16
     .highscore resd 1
 endstruc

@@ -27,12 +27,13 @@ player_new:
 
     mov rcx, player_size
     call malloc
+    mov [rel PLAYER_PTR], rax
 
-    mov qword [rel PLAYER_PTR], rax
     mov rcx, [rbp - 8]
-    mov [rax + player.name_ptr], rcx
+    mov [rax + player.name], rcx
     mov ecx, [rbp - 16]
     mov [rax + player.highscore], ecx
+
 .complete:
     mov rax, [rel PLAYER_PTR]
     mov rsp, rbp
@@ -49,7 +50,7 @@ get_player_name_length:
 
     xor rcx, rcx
     mov rdx, [rel PLAYER_PTR]
-    mov rdx, [rdx + player.name_ptr]
+    mov rdx, [rdx + player.name]
 .loop:
     mov r8b, [rdx + rcx]
     test r8b, r8b
