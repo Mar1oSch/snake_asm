@@ -1,6 +1,6 @@
 %include "../include/organizer/file_manager_struc.inc"
 
-global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_record, file_manager_find_name
+global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_record, file_manager_find_name, file_manager_update_highscore
 
 section .rodata
     leaderboard_file_name db "leaderboard.bin", 0
@@ -73,7 +73,7 @@ file_manager_new:
     mov [rel FILE_MANAGER_PTR], rax
 
     lea rcx, [rel leaderboard_file_name]                ; lpFileName
-    mov rdx, GENERIC_READ | FILE_APPEND_DATA            ; dwDesiredAccess
+    mov rdx, GENERIC_READ | GENERIC_WRITE            ; dwDesiredAccess
     mov r8, FILE_SHARE_READ | FILE_SHARE_WRITE          ; dwShareMode
     mov r9, 0                                           ; lpSecurityAttributes (optional)
     mov dword [rsp + 32], OPEN_ALWAYS                   ; dwCreationDisposition
@@ -112,6 +112,8 @@ file_manager_add_leaderboard_record:
     mov [rbp - 16], rdx
 
     call _ensure_header_initialized
+
+    call _set_pointer_end
 
     mov rcx, [rbp - 8]
     mov rdx, FILE_NAME_SIZE
@@ -195,6 +197,28 @@ file_manager_find_name:
     mov rsp, rbp
     pop rbp
     ret
+
+file_manager_update_highscore:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect highscore in RCX.
+    ; Expect player offset in RDX.
+    mov [rbp - 8], rcx
+
+    mov rcx, rdx
+    mov rdx, FILE_HIGHSCORE_OFFSET
+    call _set_pointer
+
+    lea rcx, [rbp - 8]
+    mov rdx, FILE_HIGHSCORE_SIZE
+    call _write
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
 
 
 

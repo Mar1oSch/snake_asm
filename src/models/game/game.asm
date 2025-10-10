@@ -38,6 +38,8 @@ section .text
     extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset
     extern snake_add_unit
     extern console_manager_move_cursor, console_manager_move_cursor_to_end, console_manager_write_word
+    extern file_manager_update_highscore, file_manager_find_name
+
     extern malloc_failed, object_not_created
 
 ;;;;;; PUBLIC METHODS ;;;;;;
@@ -722,6 +724,7 @@ _game_over:
 _update_highscore:
     push rbp
     mov rbp, rsp
+    sub rsp, 40
 
     mov rdx, [rel GAME_PTR]
     mov ecx, [rdx + game.points]
@@ -731,6 +734,17 @@ _update_highscore:
     jbe .complete
 
     call player_update_highscore
+
+    mov rcx, [rel GAME_PTR]
+    mov rcx, [rcx + game.player_ptr]
+    mov rcx, [rcx + player.name]
+    call file_manager_find_name
+
+    mov rdx, rax
+    mov rcx, [rel GAME_PTR]
+    mov rcx, [rcx + game.player_ptr]
+    mov ecx, dword [rcx + player.highscore]
+    call file_manager_update_highscore
 
 .complete:
     mov rsp, rbp
