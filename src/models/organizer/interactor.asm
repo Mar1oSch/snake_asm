@@ -14,6 +14,7 @@ section .rodata
     ;;;;;; DEBUGGING ;;;;;;
     recieved_char db "%c", 0
     player_name db "%s", 13, 10, 0
+    return_value db "%d", 0
 
     ;;;;;; FORMATS ;;;;;;;
     char_format db "%c", 0
@@ -51,6 +52,22 @@ section .rodata
         dq new_player.string4, (new_player_end - new_player.string4)
     new_player_table_end:
     new_player_table_size equ (new_player_table_end - new_player_table) /16
+
+    ;;;;;; FILE PLAYER CREATION ;;;;;;
+    file_player:
+        .string1 db "Welcome back then."
+        .string2 db "What is your name?"
+        .string3 db "(Max 15 signs)"
+        .string4 db 0
+    file_player_end:
+
+    file_player_table:
+        dq file_player.string1, (file_player.string2 - file_player.string1)
+        dq file_player.string2, (file_player.string3 - file_player.string2)
+        dq file_player.string3, (file_player.string4 - file_player.string3)
+        dq file_player.string4, (file_player_end - file_player.string4)
+    file_player_table_end:
+    file_player_table_size equ (file_player_table_end - file_player_table) /16
 
     ;;;;;; LEVEL CREATION ;;;;;;
     level_creation:
@@ -97,9 +114,10 @@ section .bss
     INTERACTOR_LVL resq 1
 
     player_from_file_struc:
-        .name resb 16
+        .name resb PLAYER_NAME_LENGTH
         .highscore resd 1
     player_from_file_struc_end:
+
 section .text
     extern malloc, free
     extern printf
@@ -108,7 +126,7 @@ section .text
     extern console_manager_read
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence
     extern game_new, game_start, game_reset
-    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record
+    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record, file_manager_find_name
     extern player_new, get_player_name_length, get_player
 
 interactor_new:
@@ -252,44 +270,14 @@ _create_player:
     test rax, rax
     jnz .create_new_player
 
-.choose_former_player:
+.create_file_player:
     call _create_player_from_file
     jmp .complete
 
 .create_new_player:
-    lea rcx, [rel new_player_table]
-    mov rdx, new_player_table_size
-    mov r8, 0
-    call designer_type_sequence
-
     call _create_new_player
 
 .complete:
-    mov rsp, rbp
-    pop rbp
-    ret
-
-_create_level:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    lea rcx, [rel level_creation_table]
-    mov rdx, level_creation_table_size
-    mov r8, 0
-    call designer_type_sequence
-
-.loop:              
-    lea rcx, [rel INTERACTOR_LVL]
-    mov rdx, 1
-    lea r8, [rbp - 8]
-    call console_manager_read
-    cmp qword [rel INTERACTOR_LVL], "1"
-    jb .loop
-    cmp qword [rel INTERACTOR_LVL], "9"
-    ja .loop
-
-    sub qword [rel INTERACTOR_LVL], 48                              ; ASCII-Convert: 49 = "1", 50 = "2", ...
     mov rsp, rbp
     pop rbp
     ret
@@ -299,7 +287,18 @@ _create_player_from_file:
     mov rbp, rsp
     sub rsp, 40
 
+    lea rcx, [rel file_player_table]
+    mov rdx, file_player_table_size
+    mov r8, 0
+    call designer_type_sequence
+
+    call _create_player_name
+
+    lea rcx, [rel INTERACTOR_PLAYER_NAME]
+    call file_manager_find_name
+
     lea rcx, [rel player_from_file_struc]
+    mov rdx, rax
     call file_manager_get_record
 
     lea rcx, [rel player_from_file_struc]
@@ -314,6 +313,11 @@ _create_new_player:
     push rbp
     mov rbp, rsp
     sub rsp, 40
+
+    lea rcx, [rel new_player_table]
+    mov rdx, new_player_table_size
+    mov r8, 0
+    call designer_type_sequence
 
     call _create_player_name
 
@@ -342,6 +346,31 @@ _create_player_name:
     call console_manager_read
     call _clear_player_name
     
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_create_level:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    lea rcx, [rel level_creation_table]
+    mov rdx, level_creation_table_size
+    mov r8, 0
+    call designer_type_sequence
+
+.loop:              
+    lea rcx, [rel INTERACTOR_LVL]
+    mov rdx, 1
+    lea r8, [rbp - 8]
+    call console_manager_read
+    cmp qword [rel INTERACTOR_LVL], "1"
+    jb .loop
+    cmp qword [rel INTERACTOR_LVL], "9"
+    ja .loop
+
+    sub qword [rel INTERACTOR_LVL], 48                              ; ASCII-Convert: 49 = "1", 50 = "2", ...
     mov rsp, rbp
     pop rbp
     ret

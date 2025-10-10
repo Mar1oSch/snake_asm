@@ -475,7 +475,7 @@ _build_scoreboard:
 _print_player:
     push rbp
     mov rbp, rsp
-    sub rsp, 48
+    sub rsp, 56
 
     call get_board_width_offset
     mov [rbp - 8], ax
@@ -505,7 +505,7 @@ _print_player:
 _print_level:
     push rbp
     mov rbp, rsp
-    sub rsp, 48
+    sub rsp, 56
 
     call get_board_width_offset
     mov [rbp - 8], ax
