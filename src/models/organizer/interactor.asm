@@ -292,10 +292,13 @@ _create_player_from_file:
     mov r8, 0
     call designer_type_sequence
 
+.loop:
     call _create_player_name
 
     lea rcx, [rel INTERACTOR_PLAYER_NAME]
     call file_manager_find_name
+    cmp rax, -1
+    je .loop
 
     lea rcx, [rel player_from_file_struc]
     mov rdx, rax
@@ -413,7 +416,7 @@ _get_yes_no:
     mov rax, 1
     jmp .complete
 .no:
-    mov rax, 0
+    xor rax, rax
 
 .complete:
     mov rsp, rbp
