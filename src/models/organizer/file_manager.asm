@@ -1,6 +1,6 @@
 %include "../include/organizer/file_manager_struc.inc"
 
-global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_record, file_manager_find_name, file_manager_update_highscore, file_manager_get_file_records_length
+global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_single_record, file_manager_find_name, file_manager_update_highscore, file_manager_get_file_records_length, file_manager_get_records
 
 section .rodata
     leaderboard_file_name db "leaderboard.bin", 0
@@ -74,7 +74,7 @@ file_manager_new:
     mov [rel FILE_MANAGER_PTR], rax
 
     lea rcx, [rel leaderboard_file_name]                ; lpFileName
-    mov rdx, GENERIC_READ | GENERIC_WRITE            ; dwDesiredAccess
+    mov rdx, GENERIC_READ | GENERIC_WRITE               ; dwDesiredAccess
     mov r8, FILE_SHARE_READ | FILE_SHARE_WRITE          ; dwShareMode
     mov r9, 0                                           ; lpSecurityAttributes (optional)
     mov dword [rsp + 32], OPEN_ALWAYS                   ; dwCreationDisposition
@@ -128,7 +128,7 @@ file_manager_add_leaderboard_record:
     pop rbp
     ret
 
-file_manager_get_record:
+file_manager_get_single_record:
     push rbp
     mov rbp, rsp
     sub rsp, 40
@@ -143,6 +143,28 @@ file_manager_get_record:
 
     mov rcx, [rbp - 8]
     mov rdx, FILE_RECORD_SIZE
+    call _read
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+file_manager_get_records:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect pointer to memory, big enough to hold records in RCX.
+    ; Expect bytes to read in RDX.
+    mov [rbp - 8], rcx
+    mov [rbp - 16], rdx
+
+    xor rcx, rcx
+    mov rdx, FILE_NAME_OFFSET
+    call _set_pointer
+
+    mov rcx, [rbp - 8]
+    mov rdx, [rbp - 16]
     call _read
 
     mov rsp, rbp

@@ -91,7 +91,7 @@ section .rodata
     level_creation_table_end:
     level_creation_table_size equ (level_creation_table_end - level_creation_table) /16
 
-;;;;;; GAME OVER ;;;;;;
+    ;;;;;; GAME OVER ;;;;;;
     after_game:
         .string1 db "The ride was too bumpy for you I guess.."    
         .string2 db "But you played well! Do you want to play again?"
@@ -126,7 +126,7 @@ section .text
     extern console_manager_read
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence
     extern game_new, game_start, game_reset
-    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record, file_manager_find_name
+    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_single_record, file_manager_get_records, file_manager_get_file_records_length, file_manager_find_name
     extern player_new, get_player_name_length, get_player
 
 interactor_new:
@@ -302,7 +302,7 @@ _create_player_from_file:
 
     lea rcx, [rel player_from_file_struc]
     mov rdx, rax
-    call file_manager_get_record
+    call file_manager_get_single_record
 
     lea rcx, [rel player_from_file_struc]
     mov edx, [rel player_from_file_struc + 16]
