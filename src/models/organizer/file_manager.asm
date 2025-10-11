@@ -85,7 +85,6 @@ file_manager_new:
     mov rcx, [rel FILE_MANAGER_PTR]
     mov [rcx + file_manager.file_handle], rax
 
-    call file_manager_get_file_records_length
 .complete:
     mov rax, [rel FILE_MANAGER_PTR]
     mov rsp, rbp
