@@ -1,6 +1,6 @@
 %include "../include/organizer/file_manager_struc.inc"
 
-global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_record, file_manager_find_name, file_manager_update_highscore
+global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_record, file_manager_find_name, file_manager_update_highscore, file_manager_get_file_records_length
 
 section .rodata
     leaderboard_file_name db "leaderboard.bin", 0
@@ -49,7 +49,9 @@ section .bss
     FILE_SIZE_LARGE_INT resq 1
     FILE_MANAGER_HEADER resq 2
 
-    FILE_MANAGER_ACTIVE_NAME resb 16
+    FILE_MANAGER_ACTIVE_RECORD resb FILE_RECORD_SIZE
+    FILE_MANAGER_ACTIVE_NAME resb FILE_NAME_SIZE
+    FILE_MANAGER_ACTIVE_FILE_POINTER resq 1
     FILE_MANAGER_BYTES_READ resd 1
     FILE_MANAGER_BYTES_WRITTEN resd 1
 
@@ -83,6 +85,7 @@ file_manager_new:
     mov rcx, [rel FILE_MANAGER_PTR]
     mov [rcx + file_manager.file_handle], rax
 
+    call file_manager_get_file_records_length
 .complete:
     mov rax, [rel FILE_MANAGER_PTR]
     mov rsp, rbp
@@ -219,6 +222,26 @@ file_manager_update_highscore:
     pop rbp
     ret
 
+file_manager_get_file_records_length:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Save non-volatile regs.
+    mov [rbp - 8], r15
+
+    call _set_pointer_end
+    mov r15, [rel FILE_MANAGER_ACTIVE_FILE_POINTER]
+
+    call _set_pointer_start
+    add qword [rel FILE_MANAGER_ACTIVE_FILE_POINTER], HEADER_SIZE
+    sub r15, [rel FILE_MANAGER_ACTIVE_FILE_POINTER]
+
+.complete:
+    mov rax, r15
+    mov rsp, rbp
+    pop rbp
+    ret
 
 
 
@@ -240,7 +263,7 @@ _set_pointer:
 
     mov rcx, [rel FILE_MANAGER_PTR]
     mov rcx, [rcx + file_manager.file_handle]
-    xor r8, r8
+    lea r8, [rel FILE_MANAGER_ACTIVE_FILE_POINTER]
     mov r9, FILE_BEGIN
     call SetFilePointerEx
 
@@ -256,7 +279,7 @@ _set_pointer_end:
     mov rcx, [rel FILE_MANAGER_PTR]
     mov rcx, [rcx + file_manager.file_handle]
     xor rdx, rdx
-    xor r8, r8
+    lea r8, [rel FILE_MANAGER_ACTIVE_FILE_POINTER]
     mov r9, FILE_END
     call SetFilePointerEx
 
@@ -272,7 +295,7 @@ _set_pointer_start:
     mov rcx, [rel FILE_MANAGER_PTR]
     mov rcx, [rcx + file_manager.file_handle]
     xor rdx, rdx
-    xor r8, r8
+    lea r8, [rel FILE_MANAGER_ACTIVE_FILE_POINTER]
     mov r9, FILE_BEGIN
     call SetFilePointerEx
 
