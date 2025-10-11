@@ -60,7 +60,6 @@ section .text
     extern CreateFileA, CloseHandle
     extern ReadFile, WriteFile
     extern GetFileSizeEx, SetFilePointerEx
-    extern printf
 
 file_manager_new:
     push rbp
@@ -226,22 +225,11 @@ file_manager_get_file_records_length:
     mov rbp, rsp
     sub rsp, 40
 
-    ; Save non-volatile regs.
-    mov [rbp - 8], r15
-
     call _set_pointer_end
-    mov r15, [rel FILE_MANAGER_ACTIVE_FILE_POINTER]
-
-    call _set_pointer_start
-    add qword [rel FILE_MANAGER_ACTIVE_FILE_POINTER], HEADER_SIZE
-    sub r15, [rel FILE_MANAGER_ACTIVE_FILE_POINTER]
+    mov rax, [rel FILE_MANAGER_ACTIVE_FILE_POINTER]
+    sub rax, HEADER_SIZE
 
 .complete:
-    mov rax, r15
-
-    ; Restore non-volatile regs.
-    mov r15, [rbp - 8]
-
     mov rsp, rbp
     pop rbp
     ret
