@@ -238,6 +238,10 @@ file_manager_get_file_records_length:
 
 .complete:
     mov rax, r15
+
+    ; Restore non-volatile regs.
+    mov r15, [rbp - 8]
+
     mov rsp, rbp
     pop rbp
     ret
