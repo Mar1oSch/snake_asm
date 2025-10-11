@@ -338,6 +338,20 @@ _create_new_player:
     pop rbp
     ret
 
+_create_leaderboard:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    call file_manager_get_file_records_length
+    mov [rbp - 8], rax
+
+    mov rcx, rax
+    call malloc
+    mov [rbp - 16], rax
+
+    mov rcx, rax
+    mov rdx, 
 _create_player_name:
     push rbp
     mov rbp, rsp
