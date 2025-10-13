@@ -1,14 +1,15 @@
 %include "../include/organizer/file_manager_struc.inc"
 
-global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_single_record, file_manager_find_name, file_manager_update_highscore, file_manager_get_file_records_length, file_manager_get_records
+global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_single_record, file_manager_find_name, file_manager_update_highscore, file_manager_get_all_records, file_manager_get_record_length, file_manager_get_record_size_struc, file_manager_get_num_of_entries, file_manager_get_total_bytes
 
 section .rodata
     leaderboard_file_name db "leaderboard.bin", 0
+    record_size_struc db FILE_NAME_SIZE, FILE_HIGHSCORE_SIZE
 
-;;;;;; Debugging ;;;;;;
+    ;;;;;; Debugging ;;;;;;
     format db "%16s", 0
 
-;;;;;; BIN Header ;;;;;;
+    ;;;;;; BIN Header ;;;;;;
 header_template:
     magic db "LDB1"
     version dw 1
@@ -19,7 +20,7 @@ header_template:
 header_template_end:
     HEADER_SIZE equ header_template_end - header_template
 
-;;;;;; CREATE FILE CONSTANTS ;;;;;;
+    ;;;;;; CREATE FILE CONSTANTS ;;;;;;
     GENERIC_READ equ 0x80000000
     GENERIC_WRITE equ 0x40000000
     FILE_APPEND_DATA equ 0x0004
@@ -31,11 +32,11 @@ header_template_end:
 
     FILE_ATTRIBUTE_NORMAL equ 0x80
 
-;;;;;; FILE POINTER CONSTANTS ;;;;;;
+    ;;;;;; FILE POINTER CONSTANTS ;;;;;;
     FILE_BEGIN   equ 0
     FILE_END equ 2
 
-;;;;;; FILE CONSTANTS ;;;;;;
+    ;;;;;; FILE CONSTANTS ;;;;;;
     FILE_NAME_OFFSET equ 0
     FILE_NAME_SIZE equ 16
 
@@ -149,15 +150,16 @@ file_manager_get_single_record:
     pop rbp
     ret
 
-file_manager_get_records:
+file_manager_get_all_records:
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
     ; Expect pointer to memory, big enough to hold records in RCX.
-    ; Expect bytes to read in RDX.
     mov [rbp - 8], rcx
-    mov [rbp - 16], rdx
+
+    call file_manager_get_total_bytes
+    mov [rbp - 16], rax
 
     xor rcx, rcx
     mov rdx, FILE_NAME_OFFSET
@@ -167,6 +169,7 @@ file_manager_get_records:
     mov rdx, [rbp - 16]
     call _read
 
+    mov rax, [rbp - 8]
     mov rsp, rbp
     pop rbp
     ret
@@ -242,7 +245,7 @@ file_manager_update_highscore:
     pop rbp
     ret
 
-file_manager_get_file_records_length:
+file_manager_get_total_bytes:
     push rbp
     mov rbp, rsp
     sub rsp, 40
@@ -255,6 +258,29 @@ file_manager_get_file_records_length:
     mov rsp, rbp
     pop rbp
     ret
+
+file_manager_get_num_of_entries:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    call file_manager_get_total_bytes
+    mov rcx, FILE_RECORD_SIZE
+    xor rdx, rdx
+    div rcx
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+file_manager_get_record_length:
+    mov rax, FILE_RECORD_SIZE
+    ret
+
+file_manager_get_record_size_struc:
+    lea rax, [rel record_size_struc]
+    ret
+
 
 
 
@@ -377,9 +403,6 @@ _get_name:
     mov rsp, rbp
     pop rbp
     ret
-
-
-
 
 _ensure_header_initialized:
     push rbp

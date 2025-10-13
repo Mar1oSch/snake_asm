@@ -124,9 +124,9 @@ section .text
     extern Sleep
 
     extern console_manager_read
-    extern designer_new, designer_start_screen, designer_clear, designer_type_sequence
+    extern designer_new, designer_start_screen, designer_clear, designer_type_sequence, designer_write_table
     extern game_new, game_start, game_reset
-    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_single_record, file_manager_get_records, file_manager_get_file_records_length, file_manager_find_name
+    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_single_record, file_manager_get_all_records, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_record_size_struc, file_manager_get_total_bytes
     extern player_new, get_player_name_length, get_player
 
 interactor_new:
@@ -287,26 +287,27 @@ _create_player_from_file:
     mov rbp, rsp
     sub rsp, 40
 
-    lea rcx, [rel file_player_table]
-    mov rdx, file_player_table_size
-    mov r8, 0
-    call designer_type_sequence
+    call _create_leaderboard
+;     lea rcx, [rel file_player_table]
+;     mov rdx, file_player_table_size
+;     mov r8, 0
+;     call designer_type_sequence
 
-.loop:
-    call _create_player_name
+; .loop:
+;     call _create_player_name
 
-    lea rcx, [rel INTERACTOR_PLAYER_NAME]
-    call file_manager_find_name
-    cmp rax, -1
-    je .loop
+;     lea rcx, [rel INTERACTOR_PLAYER_NAME]
+;     call file_manager_find_name
+;     cmp rax, -1
+;     je .loop
 
-    lea rcx, [rel player_from_file_struc]
-    mov rdx, rax
-    call file_manager_get_single_record
+;     lea rcx, [rel player_from_file_struc]
+;     mov rdx, rax
+;     call file_manager_get_single_record
 
-    lea rcx, [rel player_from_file_struc]
-    mov edx, [rel player_from_file_struc + 16]
-    call player_new
+;     lea rcx, [rel player_from_file_struc]
+;     mov edx, [rel player_from_file_struc + 16]
+;     call player_new
 
     mov rsp, rbp
     pop rbp
@@ -341,17 +342,36 @@ _create_new_player:
 _create_leaderboard:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 56
 
-    call file_manager_get_file_records_length
-    mov [rbp - 8], rax
-
+    call file_manager_get_total_bytes
     mov rcx, rax
     call malloc
+    mov [rbp - 8], rax
+
+    call file_manager_get_num_of_entries
     mov [rbp - 16], rax
 
+
+    call file_manager_get_record_size_struc
+    mov [rbp - 24], rax
+
+    mov rcx, [rbp - 8]
+    call file_manager_get_all_records
+
     mov rcx, rax
-    mov rdx, 
+    mov rdx, 2
+    mov r8, [rbp - 16]
+    mov r9, [rbp - 24]
+    call designer_write_table
+
+    mov rcx, 10000
+    call Sleep
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
 _create_player_name:
     push rbp
     mov rbp, rsp

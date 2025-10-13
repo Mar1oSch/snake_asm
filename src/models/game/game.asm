@@ -37,7 +37,7 @@ section .text
     extern player_update_highscore, get_player_name_length
     extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset
     extern snake_add_unit
-    extern console_manager_move_cursor, console_manager_move_cursor_to_end, console_manager_write_word
+    extern console_manager_set_cursor, console_manager_set_cursor_to_end, console_manager_write_word
     extern file_manager_update_highscore, file_manager_find_name
 
     extern malloc_failed, object_not_created
@@ -522,7 +522,7 @@ _print_level:
     shl rcx, 16
     mov cx, [rbp - 16]
     dec cx
-    call console_manager_move_cursor
+    call console_manager_set_cursor
 
     lea rcx, [rel lvl_format]
     mov rdx, [rel GAME_PTR]
@@ -553,7 +553,7 @@ _print_points:
     mov cx, [r8 + board.height]
     add cx, [rbp - 16]
     inc cx
-    call console_manager_move_cursor
+    call console_manager_set_cursor
 
     lea rcx, [rel points_format]
     mov rdx, [rel GAME_PTR]
@@ -583,7 +583,7 @@ _print_highscore:
     shl rcx, 16
     mov cx, [rbp - 16]
     dec cx
-    call console_manager_move_cursor
+    call console_manager_set_cursor
 
     lea rcx, [rel highscore_format]
     mov rdx, [rel GAME_PTR]
@@ -711,7 +711,7 @@ _game_over:
     mov r8, GAME_OVER_LENGTH
     call console_manager_write_word
 
-    call console_manager_move_cursor_to_end
+    call console_manager_set_cursor_to_end
     call _update_highscore
 
     mov rcx, 2000

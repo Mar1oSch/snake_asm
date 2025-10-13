@@ -24,7 +24,7 @@ section .text
     extern GetSystemTimeAsFileTime
 
     extern snake_new, snake_update, snake_get_tail_position, snake_reset
-    extern console_manager_new, console_manager_clear, console_manager_write_char, console_manager_move_cursor, console_manager_move_cursor_to_end, console_manager_erase, console_manager_get_height_to_center_offset, console_manager_get_width_to_center_offset
+    extern console_manager_new, console_manager_clear, console_manager_write_char, console_manager_set_cursor, console_manager_set_cursor_to_end, console_manager_erase, console_manager_get_height_to_center_offset, console_manager_get_width_to_center_offset
     extern food_new, food_destroy
     extern malloc_failed, object_not_created
     extern DRAWABLE_VTABLE_X_POSITION_OFFSET, DRAWABLE_VTABLE_Y_POSITION_OFFSET, DRAWABLE_VTABLE_CHAR_PTR_OFFSET
@@ -165,7 +165,7 @@ board_move_snake:
 
     call _draw_snake
     call _erase_last_snake_unit
-    call console_manager_move_cursor_to_end
+    call console_manager_set_cursor_to_end
 
     mov rsp, rbp
     pop rbp
