@@ -150,23 +150,37 @@ console_manager_write_word:
 console_manager_read:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 64
 
     ; Expect pointer to save string to in RCX.
     ; Expect number of chars to read in RDX.
-    mov [rbp - 8], rdx
+    mov [rbp - 8], rcx
+    mov [rbp - 16], rdx
 
     mov r8, rdx
-    mov rdx, rcx
+    mov rdx, [rbp - 8]
     mov rcx, [rel CONSOLE_MANAGER_PTR]
     mov rcx, [rcx + console_manager.input_handle]
-    lea r9, [rbp - 16]
+    lea r9, [rbp - 24]
     call ReadConsoleA
 
-    mov eax, [rbp - 16]
-    cmp rax, [rbp - 8]
+    mov eax, [rbp - 24]
+    cmp rax, [rbp - 16]
     jb .complete
+
+    mov rdx, [rbp - 16]
+    dec rdx
+    mov rcx, [rbp - 8]
+    cmp byte [rcx + rdx], 0
+    je .complete
+    cmp byte [rcx + rdx], 10
+    je .complete
+
+.loop:
+    lea rcx, [rbp - 8]
     call _cm_clear_buffer
+    cmp byte [rbp - 8], 10
+    jne .loop
 
 .complete:
     mov rsp, rbp
@@ -347,23 +361,13 @@ _cm_clear_buffer:
     mov rbp, rsp
     sub rsp, 40
 
+    ; Expect pointer to buffer in RCX.
+    mov rdx, rcx
     mov rcx, [rel CONSOLE_MANAGER_PTR]
     mov rcx, [rcx + console_manager.input_handle]   
-    lea rdx, [rbp - 8]
-    call GetNumberOfConsoleInputEvents
-    mov eax, dword [rbp - 8]
-    test eax, eax
-    jz .complete
-
-.loop:
-    mov rcx, [rel CONSOLE_MANAGER_PTR]
-    mov rcx, [rcx + console_manager.input_handle]   
-    lea rdx, [rbp - 8]
     mov r8, 1
     lea r9, [rbp - 16]
     call ReadConsoleA
-    cmp byte [rbp - 8], 10
-    jne .loop
 
 .complete:
     mov rsp, rbp
