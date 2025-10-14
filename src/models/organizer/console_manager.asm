@@ -166,7 +166,6 @@ console_manager_read:
     mov eax, [rbp - 16]
     cmp rax, [rbp - 8]
     jb .complete
-
     call _cm_clear_buffer
 
 .complete:

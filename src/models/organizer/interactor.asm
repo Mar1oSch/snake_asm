@@ -133,7 +133,7 @@ section .text
     extern game_new, game_start, game_reset
     extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_single_record, file_manager_get_all_records, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_record_size_struc, file_manager_get_total_bytes
     extern player_new, get_player_name_length, get_player
-    extern helper_get_digits_of_number, helper_check_if_input_is_just_numbers, helper_parse_string_to_digits
+    extern helper_get_digits_of_number, helper_is_input_just_numbers, helper_parse_string_to_digits
 
 interactor_new:
     push rbp
@@ -333,7 +333,7 @@ _create_new_player:
 _create_leaderboard:
     push rbp
     mov rbp, rsp
-    sub rsp, 56
+    sub rsp, 64
 
     call file_manager_get_total_bytes
     mov rcx, rax
@@ -391,7 +391,7 @@ _get_player_index:
 
     mov rcx, [rbp - 24]
     mov rdx, [rbp - 16]
-    call helper_check_if_input_is_just_numbers
+    call helper_is_input_just_numbers
     test rax, rax
     jz .loop
 
@@ -436,6 +436,7 @@ _create_player_name:
     mov rdx, 15
     lea r8, [rbp - 8]
     call console_manager_read
+
     call _clear_player_name
     
     mov rsp, rbp
@@ -493,6 +494,7 @@ _get_yes_no:
     mov rdx, 1
     lea r8, [rbp - 8]
     call console_manager_read
+.afterwards:
     mov al, [rel INTERACTOR_YES_NO]
     and al, 0xDF
     cmp al, "Y"

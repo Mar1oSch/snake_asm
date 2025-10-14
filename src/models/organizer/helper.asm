@@ -1,4 +1,4 @@
-global helper_get_digits_of_number, helper_parse_number_to_string, helper_check_if_input_is_just_numbers, helper_parse_string_to_digits
+global helper_get_digits_of_number, helper_parse_number_to_string, helper_is_input_just_numbers, helper_parse_string_to_digits
 section .data
     convert_number db "0000", 0
 
@@ -57,7 +57,7 @@ helper_parse_number_to_string:
     pop rbp
     ret
 
-helper_check_if_input_is_just_numbers:
+helper_is_input_just_numbers:
     push rbp
     mov rbp, rsp
     sub rsp, 40
