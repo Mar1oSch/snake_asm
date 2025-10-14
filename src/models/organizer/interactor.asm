@@ -69,6 +69,11 @@ section .rodata
     file_player_table_end:
     file_player_table_size equ (file_player_table_end - file_player_table) /16
 
+    file_player_headline:
+        db "Who are you?"
+    file_player_headline_end:
+    file_player_headline_length equ file_player_headline_end - file_player_headline
+
     ;;;;;; LEVEL CREATION ;;;;;;
     level_creation:
         .string1 db "Nice to meet you, brave person."
@@ -123,11 +128,12 @@ section .text
     extern printf
     extern Sleep
 
-    extern console_manager_read
-    extern designer_new, designer_start_screen, designer_clear, designer_type_sequence, designer_write_table
+    extern console_manager_read, console_manager_clear
+    extern designer_new, designer_start_screen, designer_clear, designer_type_sequence, designer_write_table, designer_write_headline
     extern game_new, game_start, game_reset
     extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_single_record, file_manager_get_all_records, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_record_size_struc, file_manager_get_total_bytes
     extern player_new, get_player_name_length, get_player
+    extern helper_get_digits_of_number, helper_check_if_input_is_just_numbers, helper_parse_string_to_digits
 
 interactor_new:
     push rbp
@@ -288,26 +294,11 @@ _create_player_from_file:
     sub rsp, 40
 
     call _create_leaderboard
-;     lea rcx, [rel file_player_table]
-;     mov rdx, file_player_table_size
-;     mov r8, 0
-;     call designer_type_sequence
 
-; .loop:
-;     call _create_player_name
-
-;     lea rcx, [rel INTERACTOR_PLAYER_NAME]
-;     call file_manager_find_name
-;     cmp rax, -1
-;     je .loop
-
-;     lea rcx, [rel player_from_file_struc]
-;     mov rdx, rax
-;     call file_manager_get_single_record
-
-;     lea rcx, [rel player_from_file_struc]
-;     mov edx, [rel player_from_file_struc + 16]
-;     call player_new
+    call _get_player_index
+    dec rax
+    mov rcx, rax
+    call _create_player_from_index
 
     mov rsp, rbp
     pop rbp
@@ -352,21 +343,85 @@ _create_leaderboard:
     call file_manager_get_num_of_entries
     mov [rbp - 16], rax
 
-
     call file_manager_get_record_size_struc
     mov [rbp - 24], rax
 
     mov rcx, [rbp - 8]
     call file_manager_get_all_records
 
-    mov rcx, rax
+    call console_manager_clear
+
+    lea rcx, [rel file_player_headline]
+    mov rdx, file_player_headline_length
+    call designer_write_headline
+
+    mov rcx, [rbp - 8]
     mov rdx, 2
     mov r8, [rbp - 16]
     mov r9, [rbp - 24]
     call designer_write_table
 
-    mov rcx, 10000
-    call Sleep
+    mov rcx, [rbp - 8]
+    call free
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_get_player_index:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 72
+
+    call file_manager_get_num_of_entries
+    mov [rbp - 8], rax
+
+    mov rcx, rax
+    call helper_get_digits_of_number
+    mov [rbp - 16], rax
+
+    mov rcx, rax
+    call malloc
+    mov [rbp - 24], rax
+
+.loop:
+    mov rcx, rax
+    mov rdx, [rbp - 16]
+    call console_manager_read
+
+    mov rcx, [rbp - 24]
+    mov rdx, [rbp - 16]
+    call helper_check_if_input_is_just_numbers
+    test rax, rax
+    jz .loop
+
+    mov rcx, [rbp - 24]
+    mov rdx, [rbp - 16]
+    call helper_parse_string_to_digits
+    mov [rbp - 32], rax
+
+.complete:
+    mov rcx, [rbp - 24]
+    call free
+
+    mov rax, [rbp - 32]
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_create_player_from_index:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect index of player in RCX.
+    mov rdx, rcx
+    lea rcx, [rel player_from_file_struc]
+    call file_manager_get_single_record
+
+    lea rcx, [rel player_from_file_struc]
+    mov edx, [rel player_from_file_struc + 16]
+    call player_new
 
     mov rsp, rbp
     pop rbp
@@ -407,7 +462,7 @@ _create_level:
     cmp qword [rel INTERACTOR_LVL], "9"
     ja .loop
 
-    sub qword [rel INTERACTOR_LVL], 48                              ; ASCII-Convert: 49 = "1", 50 = "2", ...
+    sub qword [rel INTERACTOR_LVL], 48                              ; ASCII-Convert: 48 = "0", 49 = "1", 50 = "2", ...
     mov rsp, rbp
     pop rbp
     ret

@@ -9,7 +9,6 @@ section .rodata
     window_size_string db "top left corner: {%d, %d}, bottom right corner: {%d, %d}", 13, 10, 0
 
 section .data
-    convert_number db "0000", 0
     _console_screen_buffer_info:
         dw 0, 0
         dw 0, 0
@@ -25,6 +24,8 @@ section .text
     extern malloc, free
 
     extern malloc_failed, object_not_created
+
+    extern helper_parse_number_to_string
 
     extern GetStdHandle
     extern SetConsoleCursorPosition
@@ -134,7 +135,7 @@ console_manager_write_word:
     mov rcx, [rbp - 8]
     mov rdx, [rbp - 24]
 
-    call _cm_parse_number_to_string
+    call helper_parse_number_to_string
     mov [rbp - 8], rax
 
 .write:
@@ -366,32 +367,6 @@ _cm_clear_buffer:
     jne .loop
 
 .complete:
-    mov rsp, rbp
-    pop rbp
-    ret
-
-_cm_parse_number_to_string:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    ; Expect pointer to number (dword) in ECX.
-    ; Expect number of digits to parse in RDX.
-    mov eax, [rcx]
-    mov rcx, rdx
-    mov ebx, 10
-    lea rsi, [rel convert_number + 3]
-
-.loop:
-    xor rdx, rdx
-    div ebx
-    add dl, "0"
-    mov [rsi], dl
-    dec rsi
-    loop .loop
-
-    lea rax, [rel convert_number]
-
     mov rsp, rbp
     pop rbp
     ret

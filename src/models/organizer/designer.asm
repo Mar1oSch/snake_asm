@@ -1,7 +1,7 @@
 %include "../include/organizer/designer_struc.inc"
 %include "../include/organizer/console_manager_struc.inc"
 
-global designer_new, designer_destroy, designer_start_screen, designer_clear, designer_type_sequence, designer_write_table
+global designer_new, designer_destroy, designer_start_screen, designer_clear, designer_type_sequence, designer_write_headline, designer_write_table
 
 section .rodata
     ;;;;;; START SCREEN ;;;;;;
@@ -184,7 +184,7 @@ designer_write_headline:
     shr rdx, 1
     sub rcx, rdx
     shl rcx, 16
-    mov cx, 2
+    xor cx, cx
     mov rdx, [rbp - 8]
     mov r8, [rbp - 16]
     xor r9, r9
@@ -238,9 +238,7 @@ designer_write_table:
     shr rax, 1
 
     mov [rbp - 64], ax                                                  ; Save center X of each column.
-    mov word [rbp - 72], 2                                              ; Starting Y-coordinate of the table.
-
-    call console_manager_clear
+    mov word [rbp - 72], 3                                              ; Starting Y-coordinate of the table.
 
 .loop:
     .inner_loop:
@@ -301,6 +299,13 @@ designer_write_table:
     jmp .write
 
 .complete:
+    call console_manager_get_width_to_center_offset
+    mov rcx, rax
+    shl rcx, 16
+    mov cx, word [rbp - 72]
+    inc cx
+    call console_manager_set_cursor
+
     mov r13, [rbp - 24]
     mov r14, [rbp - 16]
     mov r15, [rbp - 8]
