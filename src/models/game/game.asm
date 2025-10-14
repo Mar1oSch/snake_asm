@@ -498,6 +498,7 @@ _print_player:
     inc cx
     mov rdx, [r9 + game.player_ptr]
     mov rdx, [rdx + player.name]
+    xor r9, r9
     call console_manager_write_word
 
     mov rsp, rbp
@@ -709,6 +710,7 @@ _game_over:
     add cx, [rbp - 16]
     lea rdx, [rel game_over]
     mov r8, GAME_OVER_LENGTH
+    xor r9, r9
     call console_manager_write_word
 
     call console_manager_set_cursor_to_end

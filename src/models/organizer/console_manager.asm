@@ -4,12 +4,12 @@ global console_manager_new, console_manager_destroy, console_manager_clear, cons
 
 section .rodata
     erase_char db " "
-
     ;;;;; DEBUGGING ;;;;;;
     constructor_name db "console_manager", 13, 10, 0
     window_size_string db "top left corner: {%d, %d}, bottom right corner: {%d, %d}", 13, 10, 0
 
 section .data
+    convert_number db "0000", 0
     _console_screen_buffer_info:
         dw 0, 0
         dw 0, 0
@@ -121,11 +121,23 @@ console_manager_write_word:
     ; Expect X- and Y-Coordinates in ECX
     ; Expect pointer to word in RDX.
     ; Expect length of string in R8
+    ; If it is a number, expect length of number in R9, else expect 0.
     mov [rbp - 8], rdx
     mov [rbp - 16], r8
+    mov [rbp - 24], r9
 
     call _cm_set_cursor_position
 
+    cmp qword [rbp - 24], 0
+    je .write
+
+    mov rcx, [rbp - 8]
+    mov rdx, [rbp - 24]
+
+    call _cm_parse_number_to_string
+    mov [rbp - 8], rax
+
+.write:
     mov rcx, [rbp - 8]
     mov rdx, [rbp - 16]
     call _cm_write
@@ -354,6 +366,32 @@ _cm_clear_buffer:
     jne .loop
 
 .complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_cm_parse_number_to_string:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect pointer to number (dword) in ECX.
+    ; Expect number of digits to parse in RDX.
+    mov eax, [rcx]
+    mov rcx, rdx
+    mov ebx, 10
+    lea rsi, [rel convert_number + 3]
+
+.loop:
+    xor rdx, rdx
+    div ebx
+    add dl, "0"
+    mov [rsi], dl
+    dec rsi
+    loop .loop
+
+    lea rax, [rel convert_number]
+
     mov rsp, rbp
     pop rbp
     ret

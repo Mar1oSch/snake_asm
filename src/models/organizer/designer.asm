@@ -44,6 +44,7 @@ section .rodata
 
     ;;;;;; TABLE ;;;;;;
     pagination_format db "[%d]", 0
+    highscore_format db "%4d", 0
 
 section .bss
     DESIGNER_PTR resq 1
@@ -186,6 +187,7 @@ designer_write_headline:
     mov cx, 2
     mov rdx, [rbp - 8]
     mov r8, [rbp - 16]
+    xor r9, r9
     call console_manager_write_word
 
     mov rsp, rbp
@@ -195,7 +197,7 @@ designer_write_headline:
 designer_write_table:
     push rbp
     mov rbp, rsp
-    sub rsp, 112
+    sub rsp, 120
 
     ; Save non-volatile regs.
     mov [rbp - 8], r15
@@ -209,6 +211,7 @@ designer_write_table:
     ; Expect amount of rows in R8.
     ; Expect pointer to Byte-Struc showing length of each cell-entry in R9.
     mov r13, rcx                                                        ; Save table-pointer in R14.
+    dec r8
     mov [rbp - 32], rdx
     mov [rbp - 40], r8
     mov [rbp - 48], r9
@@ -245,8 +248,10 @@ designer_write_table:
         jz .handle_pagination
 
         movzx rcx, word [rbp - 64]
-        shl rcx, 1
-        imul rcx, r15
+        mov rdx, rcx
+        shl rdx, 1
+        imul rdx, r15
+        add rcx, rdx
         shl rcx, 16
         mov cx, [rbp - 72]
 
@@ -256,15 +261,20 @@ designer_write_table:
         add r8, r15
         dec r8
         movzx r8, byte [r8]
+        mov [rbp - 80], r8
+
+        cmp r15, 2
+        je .handle_number
+
+        xor r9, r9
+
+    .write:    
         call console_manager_write_word
 
     .inner_loop_handle:
-        mov r8, [rbp - 48]
-        add r8, r15
-        movzx r8, byte [r8]
-        add r13, r8
+        add r13, [rbp - 80]
         cmp r15, [rbp - 32]
-        ja .loop_handle
+        je .loop_handle
         inc r15
         jmp .inner_loop
 .loop_handle:
@@ -285,6 +295,10 @@ designer_write_table:
     call _table_pagination
     inc r15
     jmp .inner_loop
+
+.handle_number:
+    mov r9, [rbp - 80]
+    jmp .write
 
 .complete:
     mov r13, [rbp - 24]
@@ -330,6 +344,7 @@ _show_name:
     sub cx, 3
     lea rdx, [rel by]
     mov r8, BY_LENGTH
+    xor r9, r9
     call console_manager_write_word
 
 .complete:
