@@ -440,13 +440,18 @@ _create_player_name:
     mov rbp, rsp
     sub rsp, 40
 
+.loop:
     lea rcx, [rel INTERACTOR_PLAYER_NAME]
     mov rdx, 15
     lea r8, [rbp - 8]
     call console_manager_read
-
     call _clear_player_name
-    
+
+    lea rcx, [rel INTERACTOR_PLAYER_NAME]
+    call file_manager_find_name
+    cmp rax, -1
+    jne .loop
+
     mov rsp, rbp
     pop rbp
     ret
