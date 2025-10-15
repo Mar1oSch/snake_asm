@@ -7,6 +7,7 @@ global snake_new, snake_destroy, get_snake, snake_add_unit, snake_update, snake_
 
 section .rodata
     HEAD_CHAR equ "@"
+    STARTING_LENGTH equ 8
 
     constructor_name db "snake_new", 0
 
@@ -46,17 +47,17 @@ snake_new:
     mov rcx, [rbp - 8]
     mov qword [rax + snake.head_ptr], rcx
     mov qword [rax + snake.tail_ptr], rcx
-    mov qword [rax + snake.length], 1
+    mov qword [rax + snake.length], 0
 
     ; Save non volatile regs.
     mov [rbp - 16], r15
 
-    mov r15, 7
+    mov r15, STARTING_LENGTH
 
 .loop:
-    call snake_add_unit
     cmp r15, 0
     je .complete
+    call snake_add_unit
     dec r15
     jmp .loop
 
