@@ -176,11 +176,7 @@ console_manager_read:
     cmp byte [rcx + rdx], 10
     je .complete
 
-.loop:
-    lea rcx, [rbp - 8]
     call _cm_clear_buffer
-    cmp byte [rbp - 8], 10
-    jne .loop
 
 .complete:
     mov rsp, rbp
@@ -269,9 +265,10 @@ _cm_empty_console:
 
     mov rdx, [rel CONSOLE_MANAGER_PTR]
 
-    mov cx, word [rdx + console_manager.window_size + 4]
+
+    mov cx, word [rel _console_screen_buffer_info]
     mov word[rbp- 8], cx
-    mov cx, word [rdx + console_manager.window_size + 6]
+    mov cx, word [rel _console_screen_buffer_info + 2]
     mov word[rbp - 16], cx
 
     mov rcx, [rdx + console_manager.output_handle]
@@ -283,6 +280,8 @@ _cm_empty_console:
     lea r10, [rel CHAR_PTR]
     mov qword [rsp + 32], r10
     call FillConsoleOutputCharacterA
+
+    call _cm_set_cursor_start
 
     mov rsp, rbp
     pop rbp
@@ -334,6 +333,20 @@ _cm_set_cursor_position:
     pop rbp
     ret
 
+_cm_set_cursor_start:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    mov rcx, [rel CONSOLE_MANAGER_PTR]
+    mov rcx, [rcx + console_manager.output_handle]
+    xor rdx, rdx
+    call SetConsoleCursorPosition
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
 _cm_write:
     push rbp
     mov rbp, rsp
@@ -359,15 +372,17 @@ _cm_write:
 _cm_clear_buffer:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 56
 
-    ; Expect pointer to buffer in RCX.
-    mov rdx, rcx
+.loop:
+    lea rdx, [rbp - 8]
     mov rcx, [rel CONSOLE_MANAGER_PTR]
     mov rcx, [rcx + console_manager.input_handle]   
     mov r8, 1
     lea r9, [rbp - 16]
     call ReadConsoleA
+    cmp byte [rbp - 8], 10
+    jne .loop
 
 .complete:
     mov rsp, rbp
