@@ -728,6 +728,8 @@ _update_highscore:
     mov rbp, rsp
     sub rsp, 40
 
+    call _add_bonus_points
+
     mov rdx, [rel GAME_PTR]
     mov ecx, [rdx + game.points]
     mov r8, [rdx + game.player_ptr]
@@ -753,7 +755,29 @@ _update_highscore:
     pop rbp
     ret
 
+_add_bonus_points:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
 
+    mov rcx, [rel GAME_PTR]
+    mov rcx, [rcx + game.board_ptr]
+    movzx rax, word [rcx + board.width]
+    dec rax
+    movzx rdx, word [rcx + board.height]
+    dec rdx
+    mul rdx
+
+    mov r8, [rcx + board.snake_ptr]
+    mov r8, [r8 + snake.length]
+    cmp r8, rax
+    jb .complete
+
+    mov dword [rcx + game.points], 100
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
 
 
 ;;;;;; ERROR HANDLING ;;;;;;

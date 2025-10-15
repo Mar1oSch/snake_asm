@@ -295,7 +295,16 @@ _create_player_from_file:
 
     call _create_leaderboard
 
+    call file_manager_get_num_of_entries
+    mov [rbp - 8], rax
+
+.loop:
     call _get_player_index
+    cmp rax, [rbp - 8]
+    ja .loop
+    cmp rax, 0
+    jb .loop
+
     dec rax
     mov rcx, rax
     call _create_player_from_index
@@ -373,10 +382,9 @@ _get_player_index:
     mov rbp, rsp
     sub rsp, 72
 
-    call file_manager_get_num_of_entries
-    mov [rbp - 8], rax
+    ; Expect num of entries in RCX.
+    mov [rbp - 8], rcx
 
-    mov rcx, rax
     call helper_get_digits_of_number
     mov [rbp - 16], rax
 
