@@ -14,8 +14,33 @@ section .rodata
     lvl_format db "Lvl: %02d", 0
     highscore_format db "Best: %04d", 0
     points_format db " %04d", 0
-    game_over db "   GAME OVER   ", 10, 0
-    GAME_OVER_LENGTH equ $ - game_over
+
+    game_over:
+        .string1 db 32, "GAME OVER"
+    game_over_end:
+
+    game_over_table:
+        dq game_over.string1, (game_over_end - game_over.string1)
+    game_over_table_end:
+    game_over_table_size equ (game_over_table_end - game_over_table) /16
+
+    paused:
+        .string1 db 32, "P A U S E D"
+    paused_end:
+
+    paused_table:
+        dq paused.string1, (paused_end - paused.string1)
+    paused_table_end:
+    paused_table_size equ (paused_table_end - paused_table) /16
+
+    empty:
+        .string1 db "              "
+    empty_end:
+
+    empty_table:
+        dq empty.string1, (empty_end - empty.string1)
+    empty_table_end:
+    empty_table_size equ (empty_table_end - empty_table) /16
 
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "game_new", 0
@@ -23,6 +48,7 @@ section .rodata
 
 section .data
     current_direction dq 2
+    is_paused db 0
 
 section .bss
     GAME_PTR resq 1
@@ -35,10 +61,11 @@ section .text
     extern GetAsyncKeyState
 
     extern player_update_highscore, get_player_name_length
-    extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset
+    extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset, board_draw_food
     extern snake_add_unit
     extern console_manager_set_cursor, console_manager_set_cursor_to_end, console_manager_write_word
     extern file_manager_update_highscore, file_manager_find_name
+    extern designer_type_sequence
 
     extern malloc_failed, object_not_created
 
@@ -246,7 +273,7 @@ _update_unit_direction:
     mov [rcx + unit.direction], rdx
     ret
 
-_get_key_press_event:
+_get_direction_change:
     push rbp
     mov rbp, rsp
     sub rsp, 40
@@ -301,6 +328,32 @@ _get_key_press_event:
     mov rsp, rbp
     pop rbp
     ret
+
+_get_pause_request:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    mov rcx, 50h
+    call GetAsyncKeyState
+    test rax, 1
+
+    jz .complete
+
+    cmp byte [rel is_paused], 1
+    je .pause_stop
+
+    mov byte [rel is_paused], 1
+    jmp .complete
+
+.pause_stop:
+    mov byte [rel is_paused], 0
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
 
 _collission_check:
     push rbp
@@ -660,7 +713,10 @@ _game_play:
 
     mov [rbp - 8], ax
 .loop:
-    call _get_key_press_event
+    call _get_pause_request
+    cmp byte [rel is_paused], 0
+    jne .pause
+    call _get_direction_change
     mov rcx, [rel current_direction]
     call _update_snake
     call board_move_snake
@@ -680,8 +736,61 @@ _game_play:
     call board_create_new_food
     jmp .loop_handle
 
+.pause:
+    call _pause
+    jmp .loop_handle
+
 .complete:
     call _game_over
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_pause:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+.loop:
+    call _get_pause_request
+    cmp byte [rel is_paused], 0
+    je .complete
+
+    lea rcx, [rel paused_table]
+    mov rdx, paused_table_size
+    xor r8, r8
+    call designer_type_sequence
+    call console_manager_set_cursor_to_end
+
+    mov rcx, 500
+    call Sleep
+
+    call _get_pause_request
+    cmp byte [rel is_paused], 0
+    je .complete
+
+    lea rcx, [rel empty_table]
+    mov rdx, empty_table_size
+    xor r8, r8
+    call designer_type_sequence
+    call console_manager_set_cursor_to_end
+
+    mov rcx, 500
+    call Sleep
+
+    call _get_pause_request
+    cmp byte [rel is_paused], 0
+    jne .loop
+
+
+.complete:
+    lea rcx, [rel empty_table]
+    mov rdx, empty_table_size
+    xor r8, r8
+    call designer_type_sequence
+
+    call board_draw_food
+
     mov rsp, rbp
     pop rbp
     ret
@@ -691,27 +800,10 @@ _game_over:
     mov rbp, rsp
     sub rsp, 40
 
-    call get_board_width_offset
-    mov [rbp - 8], ax
-
-    call get_board_height_offset
-    mov [rbp - 16], ax
-
-    mov rcx, [rel GAME_PTR]
-    mov r8, [rcx + game.board_ptr]
-    movzx rcx, word [r8 + board.width]
-    shr rcx, 1
-    sub cx, GAME_OVER_LENGTH / 2
-    add cx, [rbp - 8]
-    inc cx
-    shl rcx, 16
-    mov cx, word [r8 + board.height]
-    shr cx, 1
-    add cx, [rbp - 16]
-    lea rdx, [rel game_over]
-    mov r8, GAME_OVER_LENGTH
-    xor r9, r9
-    call console_manager_write_word
+    lea rcx, [rel game_over_table]
+    mov rdx, game_over_table_size
+    xor r8, r8
+    call designer_type_sequence
 
     call console_manager_set_cursor_to_end
     call _update_highscore

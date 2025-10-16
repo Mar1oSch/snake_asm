@@ -5,7 +5,7 @@
 %include "../include/snake/snake_struc.inc"
 %include "../include/snake/unit_struc.inc"
 
-global board_new, board_destroy, board_draw, board_setup, board_move_snake, get_board, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset
+global board_new, board_destroy, board_draw, board_setup, board_move_snake, get_board, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset, board_draw_food
 
 section .rodata
     constructor_name db "board_new", 0
@@ -24,8 +24,9 @@ section .text
     extern GetSystemTimeAsFileTime
 
     extern snake_new, snake_update, snake_get_tail_position, snake_reset
-    extern console_manager_new, console_manager_clear, console_manager_write_char, console_manager_set_cursor, console_manager_set_cursor_to_end, console_manager_erase, console_manager_get_height_to_center_offset, console_manager_get_width_to_center_offset
+    extern console_manager_new, console_manager_write_char, console_manager_set_cursor, console_manager_set_cursor_to_end, console_manager_erase, console_manager_get_height_to_center_offset, console_manager_get_width_to_center_offset
     extern food_new, food_destroy
+    extern designer_clear
     extern malloc_failed, object_not_created
     extern DRAWABLE_VTABLE_X_POSITION_OFFSET, DRAWABLE_VTABLE_Y_POSITION_OFFSET, DRAWABLE_VTABLE_CHAR_PTR_OFFSET
 
@@ -119,7 +120,7 @@ board_setup:
     mov cx, [r8 + board.height]
     shl rcx, 16
     mov cx, [r8 + board.width]
-    call console_manager_clear
+    call designer_clear
 
     call _draw_fence
     call _draw_food
@@ -243,6 +244,16 @@ get_board_height_offset:
     pop rbp
     ret
 
+board_draw_food:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    call _draw_food
+
+    mov rsp, rbp
+    pop rbp
+    ret
 
 
 
@@ -440,6 +451,7 @@ _erase_last_snake_unit:
     add cx, [rbp - 8]
     rol ecx, 16
     add cx, [rbp - 16]
+    mov rdx, 1
     call console_manager_erase
 
 .complete:

@@ -129,7 +129,7 @@ section .text
     extern printf
     extern Sleep
 
-    extern console_manager_read, console_manager_clear
+    extern console_manager_read
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence, designer_write_table, designer_write_headline
     extern game_new, game_start, game_reset
     extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file
@@ -254,6 +254,9 @@ _introduction:
     mov rbp, rsp
     sub rsp, 40
 
+    ; Clear console before writing new sequence.
+    call designer_clear
+
     lea rcx, [rel intro_table]
     mov rdx, intro_table_size
     mov r8, 0
@@ -319,6 +322,9 @@ _create_new_player:
     mov rbp, rsp
     sub rsp, 40
 
+    ; Clear console before writing new sequence.
+    call designer_clear
+
     lea rcx, [rel new_player_table]
     mov rdx, new_player_table_size
     mov r8, 0
@@ -354,7 +360,7 @@ _create_leaderboard:
     call file_manager_create_table_from_file
     mov [rbp - 16], rax
 
-    call console_manager_clear
+    call designer_clear
 
     lea rcx, [rel file_player_headline]
     mov rdx, file_player_headline_length
@@ -454,6 +460,9 @@ _create_level:
     mov rbp, rsp
     sub rsp, 40
 
+    ; Clear console before writing new sequence.
+    call designer_clear
+
     lea rcx, [rel level_creation_table]
     mov rdx, level_creation_table_size
     mov r8, 0
@@ -478,6 +487,9 @@ _after_game_dialogue:
     push rbp
     mov rbp, rsp
     sub rsp, 40
+
+    ; Clear console before writing new sequence.
+    call designer_clear
 
     lea rcx, [rel after_game_table]
     mov rdx, after_game_table_size

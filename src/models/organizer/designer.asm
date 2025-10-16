@@ -98,6 +98,7 @@ designer_start_screen:
     mov rbp, rsp
     sub rsp, 40
 
+    call designer_clear
     call _show_headline
     call _show_name
 
@@ -141,9 +142,6 @@ designer_type_sequence:
     dec qword [rbp - 32]
     shr rdx, 1
     sub [rbp - 16], dx
-
-    ; Clear console before writing new sequence.
-    call console_manager_clear
 
     xor r15, r15
 .loop:

@@ -200,10 +200,13 @@ console_manager_erase:
     sub rsp, 40
 
     ; Expect Position-X and Position-Y in ECX.
+    ; Expect length to clear in RDX.
+    mov [rbp - 8], rdx
+
     call _cm_set_cursor_position
 
     lea rcx, [rel erase_char]
-    mov rdx, 1
+    mov rdx, [rbp - 8]
     call _cm_write
 
     mov rsp, rbp
