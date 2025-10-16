@@ -1,5 +1,5 @@
 %include "../include/organizer/table/table_struc.inc"
-%include "../include/organizer/table/column_struc.inc"
+%include "../include/organizer/table/column_format_struc.inc"
 
 global table_manager_create_table, table_manager_add_column, table_manager_add_content
 section .data
@@ -7,7 +7,7 @@ section .data
 
 section .bss
     TABLE_MANAGER_TABLE_PTR resq 1
-    TABLE_MANAGER_COLUMN_LIST_PTR resq 1
+    TABLE_MANAGER_COLUMN_FORMAT_LIST_PTR resq 1
 
 section .text
     extern malloc, realloc, free
@@ -50,49 +50,49 @@ table_manager_add_column:
     mov rbp, rsp
     sub rsp, 40
 
-    ; Expect length of entries in column in CL.
-    ; Expect type of entries in column in DL.
-    mov [rbp - 8], cl
-    mov [rbp - 16], dl
+    ; Expect length of entries in column in ECX.
+    ; Expect type of entries in column in EDX.
+    mov [rbp - 8], ecx
+    mov [rbp - 16], edx
 
-    cmp qword [rel TABLE_MANAGER_COLUMN_LIST_PTR], 0
+    cmp qword [rel TABLE_MANAGER_COLUMN_FORMAT_LIST_PTR], 0
     jne .add_new
 
 .initiate:
-    mov rcx, column_size
+    mov rcx, column_format_size
     call malloc
-    mov [rel TABLE_MANAGER_COLUMN_LIST_PTR], rax
+    mov [rel TABLE_MANAGER_COLUMN_FORMAT_LIST_PTR], rax
 
     mov rdx, [rel TABLE_MANAGER_TABLE_PTR]
-    mov [rdx + table.column_list_ptr], rax
+    mov [rdx + table.column_format_ptr], rax
 
-    mov cl, [rbp - 8]
-    mov [rax + column.entry_length], cl
+    mov ecx, [rbp - 8]
+    mov [rax + column_format.entry_length], ecx
 
-    mov cl, [rbp - 16]
-    mov [rax + column.entry_type], cl
+    mov ecx, [rbp - 16]
+    mov [rax + column_format.entry_type], ecx
 
     jmp .complete
 
 .add_new:
-    mov rcx, [rel TABLE_MANAGER_COLUMN_LIST_PTR]
-    mov rdx, column_size
+    mov rcx, [rel TABLE_MANAGER_COLUMN_FORMAT_LIST_PTR]
+    mov rdx, column_format_size
     call realloc
-    mov [rel TABLE_MANAGER_COLUMN_LIST_PTR], rax
+    mov [rel TABLE_MANAGER_COLUMN_FORMAT_LIST_PTR], rax
 
     mov rdx, [rel TABLE_MANAGER_TABLE_PTR]
-    mov [rdx + table.column_list_ptr], rax
+    mov [rdx + table.column_format_ptr], rax
 
-    mov rax, column_size
+    mov rax, column_format_size
     mul dword [rdx + table.column_count]
 
-    add rax, [rel TABLE_MANAGER_COLUMN_LIST_PTR]
+    add rax, [rel TABLE_MANAGER_COLUMN_FORMAT_LIST_PTR]
 
-    mov cl, [rbp - 8]
-    mov [rax + column.entry_length], cl
+    mov ecx, [rbp - 8]
+    mov [rax + column_format.entry_length], ecx
 
-    mov cl, [rbp - 16]
-    mov [rax + column.entry_type], cl
+    mov ecx, [rbp - 16]
+    mov [rax + column_format.entry_type], ecx
 
 .complete:
     mov rax, [rel TABLE_MANAGER_TABLE_PTR]

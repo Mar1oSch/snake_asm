@@ -132,7 +132,7 @@ section .text
     extern console_manager_read, console_manager_clear
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence, designer_write_table, designer_write_headline
     extern game_new, game_start, game_reset
-    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_single_record, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_table_struc, file_manager_get_total_bytes, file_manager_create_table_from_file
+    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file
     extern player_new, get_player_name_length, get_player
     extern helper_get_digits_of_number, helper_get_digits_in_string, helper_is_input_just_numbers, helper_parse_string_to_number
 
@@ -360,11 +360,7 @@ _create_leaderboard:
     mov rdx, file_player_headline_length
     call designer_write_headline
 
-    mov rax, [rbp - 16]
-    mov rcx, [rax + table.content_ptr]
-    mov edx, [rax + table.column_count]
-    mov r8d, [rax + table.row_count]
-    mov r9, [rax + table.column_list_ptr]
+    mov rcx, [rbp - 16]
     call designer_write_table
 
     mov rcx, [rbp - 8]
@@ -422,7 +418,7 @@ _create_player_from_index:
     ; Expect index of player in RCX.
     mov rdx, rcx
     lea rcx, [rel player_from_file_struc]
-    call file_manager_get_single_record
+    call file_manager_get_record_by_index
 
     lea rcx, [rel player_from_file_struc]
     mov edx, [rel player_from_file_struc + 16]

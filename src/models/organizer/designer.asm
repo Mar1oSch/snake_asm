@@ -1,3 +1,5 @@
+%include "../include/organizer/table/table_struc.inc"
+%include "../include/organizer/table/column_format_struc.inc"
 %include "../include/organizer/designer_struc.inc"
 %include "../include/organizer/console_manager_struc.inc"
 
@@ -44,7 +46,6 @@ section .rodata
 
     ;;;;;; TABLE ;;;;;;
     pagination_format db "[%d]", 0
-    highscore_format db "%4d", 0
 
 section .bss
     DESIGNER_PTR resq 1
@@ -205,28 +206,19 @@ designer_write_table:
     mov [rbp - 16], r14
     xor r14, r14                                                        ; Set row-counter to 0
     mov [rbp - 24], r13
-
+    
     ; Expect pointer to table in RCX.
-    ; Expect amount of columns in RDX.
-    ; Expect amount of rows in R8.
-    ; Expect pointer to Byte-Struc showing length of each cell-entry in R9.
-    mov r13, rcx                                                        ; Save table-pointer in R14.
-    dec r8
+    ; Expect column count in RDX.
+    ; Expect row count in R8.
+    ; Expect DWORD Struc (Length of Entry, Type of Entry) per Column in R9.
+    mov r13, [rcx + table.content_ptr]                                                      ; Save table-pointer in R13.
+    mov edx, [rcx + table.column_count]
     mov [rbp - 32], rdx
+    mov r8d, [rcx + table.row_count]
     mov [rbp - 40], r8
+    dec qword [rbp - 40]
+    mov r9, [rcx + table.column_format_ptr]
     mov [rbp - 48], r9
-
-    xor rax, rax
-    xor rcx, rcx
-.get_record_size:
-    cmp rcx, rdx
-    jae .record_size_done
-    movzx r8, byte [r9 + rcx]
-    add rax, r8
-    inc rcx
-    jmp .get_record_size
-.record_size_done:
-    mov [rbp - 56], rax
 
     mov rax, [rel DESIGNER_PTR]
     mov rax, [rax + designer.console_manager_ptr]
@@ -234,10 +226,10 @@ designer_write_table:
     mov rcx, [rbp - 32]
     inc rcx                                                             ; Add one column for pagination.
     xor rdx, rdx
-    div rcx                                                             ; Divide the width into n parts for each column.
+    div rcx                                                             ; Divide the width into n parts for each column
     shr rax, 1
 
-    mov [rbp - 64], ax                                                  ; Save center X of each column.
+    mov [rbp - 64], ax                                                  ; Save center X of each column_format
     mov word [rbp - 72], 3                                              ; Starting Y-coordinate of the table.
 
 .loop:
@@ -256,9 +248,11 @@ designer_write_table:
         mov rdx, r13
 
         mov r8, [rbp - 48]
-        add r8, r15
-        dec r8
-        movzx r8, byte [r8]
+        mov r9, r15
+        dec r9
+        imul r9, column_format_size
+        add r8, r9
+        mov r8d, dword [r8]
         mov [rbp - 80], r8
 
         cmp r15, 2
@@ -270,7 +264,8 @@ designer_write_table:
         call console_manager_write_word
 
     .inner_loop_handle:
-        add r13, [rbp - 80]
+        mov ecx, dword [rbp - 80]
+        add r13, rcx
         cmp r15, [rbp - 32]
         je .loop_handle
         inc r15

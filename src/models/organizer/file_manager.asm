@@ -1,19 +1,9 @@
 %include "../include/organizer/file_manager_struc.inc"
 
-global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_single_record, file_manager_find_name, file_manager_update_highscore, file_manager_get_record_length, file_manager_get_table_struc, file_manager_get_num_of_entries, file_manager_get_total_bytes, file_manager_create_table_from_file
+global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_record_by_index, file_manager_find_name, file_manager_update_highscore, file_manager_get_record_length, file_manager_get_num_of_entries, file_manager_get_total_bytes, file_manager_create_table_from_file
 
 section .rodata
-    leaderboard_file_name db "leaderboard.bin", 0
-
-    ; If I want to print the table, I ran into the problem, that I need to handle raw numbers and turn them into 
-    ; strings. So I decided to do following: The function expects a structure, holding two bytes for each entry:
-    ; 1.) Size of the String to print.
-    ; 2.) Is the String to write a raw number? If no, it simply holds a 0.
-    ;       If yes, it also holds the number of signs to print. So the parser knows how many digits to parse into a
-    ;       string.
-    table_struc:
-        db FILE_NAME_SIZE, 0 
-        db FILE_HIGHSCORE_SIZE, FILE_HIGHSCORE_SIZE     
+    leaderboard_file_name db "leaderboard.bin", 0  
 
     ;;;;;; Debugging ;;;;;;
     format db "%16s", 0
@@ -139,7 +129,7 @@ file_manager_add_leaderboard_record:
     pop rbp
     ret
 
-file_manager_get_single_record:
+file_manager_get_record_by_index:
     push rbp
     mov rbp, rsp
     sub rsp, 40
@@ -263,10 +253,6 @@ file_manager_get_record_length:
     mov rax, FILE_RECORD_SIZE
     ret
 
-file_manager_get_table_struc:
-    lea rax, [rel table_struc]
-    ret
-
 file_manager_create_table_from_file:
     push rbp
     mov rbp, rsp
@@ -282,12 +268,12 @@ file_manager_create_table_from_file:
     call table_manager_create_table
     mov [rbp - 16], rax
 
-    mov cl, FILE_NAME_SIZE
+    mov ecx, FILE_NAME_SIZE
     xor rdx, rdx
     call table_manager_add_column
 
-    mov cl, FILE_HIGHSCORE_SIZE
-    mov dl, 1
+    mov ecx, FILE_HIGHSCORE_SIZE
+    mov edx, 1
     call table_manager_add_column
 
     mov rcx, [rbp - 8]
