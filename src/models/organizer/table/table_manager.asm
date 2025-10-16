@@ -1,5 +1,5 @@
-%include "../include/organizer/table/table_struc.inc"
-%include "../include/organizer/table/column_format_struc.inc"
+%include "../include/strucs/organizer/table/table_struc.inc"
+%include "../include/strucs/organizer/table/column_format_struc.inc"
 
 global table_manager_create_table, table_manager_add_column, table_manager_add_content
 section .data

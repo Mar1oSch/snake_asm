@@ -1,4 +1,4 @@
-%include "../include/interface_table_struc.inc"
+%include "../include/strucs/interface_table_struc.inc"
 
 global interface_table_new, interface_table_destroy
 

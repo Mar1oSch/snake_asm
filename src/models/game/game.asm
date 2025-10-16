@@ -1,12 +1,16 @@
-%include "../include/organizer/interactor_struc.inc"
-%include "../include/organizer/designer_struc.inc"
-%include "../include/game/game_struc.inc"
-%include "../include/game/board_struc.inc"
-%include "../include/game/player_struc.inc"
-%include "../include/food/food_struc.inc"
-%include "../include/position_struc.inc"
-%include "../include/snake/unit_struc.inc"
-%include "../include/snake/snake_struc.inc"
+; Data:
+%include "../include/data/game_strings/game_strings.inc"
+
+; Strucs:
+%include "../include/strucs/organizer/interactor_struc.inc"
+%include "../include/strucs/organizer/designer_struc.inc"
+%include "../include/strucs/game/game_struc.inc"
+%include "../include/strucs/game/board_struc.inc"
+%include "../include/strucs/game/player_struc.inc"
+%include "../include/strucs/food/food_struc.inc"
+%include "../include/strucs/position_struc.inc"
+%include "../include/strucs/snake/unit_struc.inc"
+%include "../include/strucs/snake/snake_struc.inc"
 
 global game_new, game_destroy, game_start, game_reset
 
@@ -14,33 +18,6 @@ section .rodata
     lvl_format db "Lvl: %02d", 0
     highscore_format db "Best: %04d", 0
     points_format db " %04d", 0
-
-    game_over:
-        .string1 db 32, "GAME OVER"
-    game_over_end:
-
-    game_over_table:
-        dq game_over.string1, (game_over_end - game_over.string1)
-    game_over_table_end:
-    game_over_table_size equ (game_over_table_end - game_over_table) /16
-
-    paused:
-        .string1 db 32, "P A U S E D"
-    paused_end:
-
-    paused_table:
-        dq paused.string1, (paused_end - paused.string1)
-    paused_table_end:
-    paused_table_size equ (paused_table_end - paused_table) /16
-
-    empty:
-        .string1 db "              "
-    empty_end:
-
-    empty_table:
-        dq empty.string1, (empty_end - empty.string1)
-    empty_table_end:
-    empty_table_size equ (empty_table_end - empty_table) /16
 
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "game_new", 0

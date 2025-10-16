@@ -1,9 +1,9 @@
-%include "../include/interface_table_struc.inc"
-%include "../include/position_struc.inc"
-%include "../include/game/board_struc.inc"
-%include "../include/food/food_struc.inc"
-%include "../include/snake/snake_struc.inc"
-%include "../include/snake/unit_struc.inc"
+%include "../include/strucs/interface_table_struc.inc"
+%include "../include/strucs/position_struc.inc"
+%include "../include/strucs/game/board_struc.inc"
+%include "../include/strucs/food/food_struc.inc"
+%include "../include/strucs/snake/snake_struc.inc"
+%include "../include/strucs/snake/unit_struc.inc"
 
 global board_new, board_destroy, board_draw, board_setup, board_move_snake, get_board, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset, board_draw_food
 

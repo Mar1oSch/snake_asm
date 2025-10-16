@@ -1,6 +1,6 @@
-%include "../include/food/super_food_struc.inc"
-%include "../include/position_struc.inc"
-%include "../include/interface_table_struc.inc"
+%include "../include/strucs/food/super_food_struc.inc"
+%include "../include/strucs/position_struc.inc"
+%include "../include/strucs/interface_table_struc.inc"
 
 global super_food_new, super_food_destroy, super_food_get_char_ptr, super_food_get_x_position, super_food_get_y_position, super_food_draw
 

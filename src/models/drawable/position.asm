@@ -1,4 +1,4 @@
-%include "../include/position_struc.inc"
+%include "../include/strucs/position_struc.inc"
 
 global position_new, position_destroy
 

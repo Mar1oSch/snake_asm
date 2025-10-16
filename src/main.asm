@@ -1,4 +1,4 @@
-%include "../include/game/player_struc.inc"
+%include "../include/strucs/game/player_struc.inc"
 
 section .rodata
     player_ptr db "%p", 13, 10, 0

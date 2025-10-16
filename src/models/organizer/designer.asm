@@ -1,51 +1,17 @@
-%include "../include/organizer/table/table_struc.inc"
-%include "../include/organizer/table/column_format_struc.inc"
-%include "../include/organizer/designer_struc.inc"
-%include "../include/organizer/console_manager_struc.inc"
+; Data:
+%include "../include/data/designer_strings/designer_strings.inc"
+
+; Strucs:
+%include "../include/strucs/organizer/table/table_struc.inc"
+%include "../include/strucs/organizer/table/column_format_struc.inc"
+%include "../include/strucs/organizer/designer_struc.inc"
+%include "../include/strucs/organizer/console_manager_struc.inc"
 
 global designer_new, designer_destroy, designer_start_screen, designer_clear, designer_type_sequence, designer_write_headline, designer_write_table
 
 section .rodata
-    ;;;;;; START SCREEN ;;;;;;
-    headline:
-        .line1 db "  SSSSSS    NNN     NNN    AAAAAAA    KKK    KKK   EEEEEEEEE",13,10, 0
-        .line2 db "SSSSSSSSSS  NNNN    NNN   AAAAAAAAA   KKK   KKK    EEEEEEEEE",13,10, 0
-        .line3 db "SSSS        NNNNN   NNN   AAA   AAA   KKK  KKK     EEE      ",13,10, 0
-        .line4 db " SSSSS      NNN NN  NNN   AAAAAAAAA   KKKKKK       EEEEEEEE ",13,10, 0
-        .line5 db "  SSSSS     NNN  NN NNN   AAAAAAAAA   KKK KKK      EEEEEEEE ",13,10, 0
-        .line6 db "     SSSS   NNN   NNNNN   AAA   AAA   KKK  KKK     EEE      ",13,10, 0
-        .line7 db "SSSSSSSSS   NNN    NNNN   AAA   AAA   KKK   KKK    EEEEEEEEE",13,10, 0
-        .line8 db "  SSSSS     NNN     NNN   AAA   AAA   KKK    KKK   EEEEEEEEE",13,10, 0
-    headline_end:
-
-    headline_table:
-        dq headline.line1, (headline.line2 - headline.line1)
-        dq headline.line2, (headline.line3 - headline.line2)
-        dq headline.line3, (headline.line4 - headline.line3)
-        dq headline.line4, (headline.line5 - headline.line4)
-        dq headline.line5, (headline.line6 - headline.line5)
-        dq headline.line6, (headline.line7 - headline.line6)
-        dq headline.line7, (headline.line8 - headline.line7)
-        dq headline.line8, (headline_end - headline.line8)
-    headline_table_end:
-
-    HEADLINE_TABLE_SIZE equ (headline_table_end - headline_table) / 16
-
-    by:
-    db "by Mario Schanzenbach", 0
-    by_end:
-
-    BY_LENGTH equ by_end - by
-
-    ;;;;;; LEADERBOARD SCREEN ;;;;;;
-    leaderboard:
-        db "LEADERBOARD", 0
-    leaderboard_end:
-
-    LEADERBOARD_SIZE equ leaderboard_end - leaderboard
-
-    ;;;;;; TABLE ;;;;;;
-    pagination_format db "[%d]", 0
+;;;;;; TABLE ;;;;;;
+pagination_format db "[%d]", 0
 
 section .bss
     DESIGNER_PTR resq 1

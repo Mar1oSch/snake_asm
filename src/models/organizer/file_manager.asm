@@ -1,4 +1,4 @@
-%include "../include/organizer/file_manager_struc.inc"
+%include "../include/strucs/organizer/file_manager_struc.inc"
 
 global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_record_by_index, file_manager_find_name, file_manager_update_highscore, file_manager_get_record_length, file_manager_get_num_of_entries, file_manager_get_total_bytes, file_manager_create_table_from_file
 

@@ -1,4 +1,4 @@
-%include "../include/organizer/console_manager_struc.inc"
+%include "../include/strucs/organizer/console_manager_struc.inc"
 
 global console_manager_new, console_manager_destroy, console_manager_clear, console_manager_write_char, console_manager_set_cursor, console_manager_erase, console_manager_write_word, console_manager_set_cursor_to_end, console_manager_get_width_to_center_offset, console_manager_get_height_to_center_offset, console_manager_read
 

@@ -1,7 +1,7 @@
-%include "../include/interface_table_struc.inc"
-%include "../include/position_struc.inc"
-%include "../include/snake/snake_struc.inc"
-%include "../include/snake/unit_struc.inc"
+%include "../include/strucs/interface_table_struc.inc"
+%include "../include/strucs/position_struc.inc"
+%include "../include/strucs/snake/snake_struc.inc"
+%include "../include/strucs/snake/unit_struc.inc"
 
 global snake_new, snake_destroy, get_snake, snake_add_unit, snake_update, snake_get_tail_position, snake_reset
 

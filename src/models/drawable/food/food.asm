@@ -1,5 +1,5 @@
-%include "../include/food/food_struc.inc"
-%include "../include/position_struc.inc"
+%include "../include/strucs/food/food_struc.inc"
+%include "../include/strucs/position_struc.inc"
 global food_new, food_destroy, food_get_char_ptr, food_get_x_position, food_get_y_position, food_draw
 
 section .rodata

@@ -1,4 +1,4 @@
-%include "../include/game/player_struc.inc"
+%include "../include/strucs/game/player_struc.inc"
 
 global player_new, player_destroy, get_player_points, get_player_name_length, get_player, player_update_highscore
 

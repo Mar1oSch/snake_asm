@@ -1,14 +1,14 @@
 global constructor_test
 
-%include "../include/position_struc.inc"
-%include "../include/interface_table_struc.inc"
-%include "../include/game/board_struc.inc"
-%include "../include/game/game_struc.inc"
-%include "../include/game/player_struc.inc"
-%include "../include/food/food_struc.inc"
-%include "../include/snake/snake_struc.inc"
-%include "../include/snake/unit_struc.inc"
-%include "../include/organizer/console_manager_struc.inc"
+%include "../include/strucs/position_struc.inc"
+%include "../include/strucs/interface_table_struc.inc"
+%include "../include/strucs/game/board_struc.inc"
+%include "../include/strucs/game/game_struc.inc"
+%include "../include/strucs/game/player_struc.inc"
+%include "../include/strucs/food/food_struc.inc"
+%include "../include/strucs/snake/snake_struc.inc"
+%include "../include/strucs/snake/unit_struc.inc"
+%include "../include/strucs/organizer/console_manager_struc.inc"
 
 ;;;; THIS TEST IS IMPLEMENTED TO TEST THE CONSTRUCTOR CHAIN FROM:
 

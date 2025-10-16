@@ -1,7 +1,7 @@
 
-%include "../include/interface_table_struc.inc"
-%include "../include/position_struc.inc"
-%include "../include/snake/unit_struc.inc"
+%include "../include/strucs/interface_table_struc.inc"
+%include "../include/strucs/position_struc.inc"
+%include "../include/strucs/snake/unit_struc.inc"
 
 global unit_new, unit_destroy, unit_get_char_ptr, unit_draw, unit_get_x_position, unit_get_y_position, unit_reset
 
