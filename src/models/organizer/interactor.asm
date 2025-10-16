@@ -1,5 +1,6 @@
 %include "../include/organizer/interactor_struc.inc"
 %include "../include/organizer/file_manager_struc.inc"
+%include "../include/organizer/table/table_struc.inc"
 %include "../include/game/game_struc.inc"
 %include "../include/game/player_struc.inc"
 
@@ -131,7 +132,7 @@ section .text
     extern console_manager_read, console_manager_clear
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence, designer_write_table, designer_write_headline
     extern game_new, game_start, game_reset
-    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_single_record, file_manager_get_all_records, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_record_size_struc, file_manager_get_total_bytes
+    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_single_record, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_table_struc, file_manager_get_total_bytes, file_manager_create_table_from_file
     extern player_new, get_player_name_length, get_player
     extern helper_get_digits_of_number, helper_get_digits_in_string, helper_is_input_just_numbers, helper_parse_string_to_number
 
@@ -349,14 +350,9 @@ _create_leaderboard:
     call malloc
     mov [rbp - 8], rax
 
-    call file_manager_get_num_of_entries
+    mov rcx, rax
+    call file_manager_create_table_from_file
     mov [rbp - 16], rax
-
-    call file_manager_get_record_size_struc
-    mov [rbp - 24], rax
-
-    mov rcx, [rbp - 8]
-    call file_manager_get_all_records
 
     call console_manager_clear
 
@@ -364,10 +360,11 @@ _create_leaderboard:
     mov rdx, file_player_headline_length
     call designer_write_headline
 
-    mov rcx, [rbp - 8]
-    mov rdx, 2
-    mov r8, [rbp - 16]
-    mov r9, [rbp - 24]
+    mov rax, [rbp - 16]
+    mov rcx, [rax + table.content_ptr]
+    mov edx, [rax + table.column_count]
+    mov r8d, [rax + table.row_count]
+    mov r9, [rax + table.column_list_ptr]
     call designer_write_table
 
     mov rcx, [rbp - 8]

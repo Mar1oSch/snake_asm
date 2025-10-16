@@ -1,10 +1,19 @@
 %include "../include/organizer/file_manager_struc.inc"
 
-global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_single_record, file_manager_find_name, file_manager_update_highscore, file_manager_get_all_records, file_manager_get_record_length, file_manager_get_record_size_struc, file_manager_get_num_of_entries, file_manager_get_total_bytes
+global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_single_record, file_manager_find_name, file_manager_update_highscore, file_manager_get_record_length, file_manager_get_table_struc, file_manager_get_num_of_entries, file_manager_get_total_bytes, file_manager_create_table_from_file
 
 section .rodata
     leaderboard_file_name db "leaderboard.bin", 0
-    record_size_struc db FILE_NAME_SIZE, FILE_HIGHSCORE_SIZE
+
+    ; If I want to print the table, I ran into the problem, that I need to handle raw numbers and turn them into 
+    ; strings. So I decided to do following: The function expects a structure, holding two bytes for each entry:
+    ; 1.) Size of the String to print.
+    ; 2.) Is the String to write a raw number? If no, it simply holds a 0.
+    ;       If yes, it also holds the number of signs to print. So the parser knows how many digits to parse into a
+    ;       string.
+    table_struc:
+        db FILE_NAME_SIZE, 0 
+        db FILE_HIGHSCORE_SIZE, FILE_HIGHSCORE_SIZE     
 
     ;;;;;; Debugging ;;;;;;
     format db "%16s", 0
@@ -62,6 +71,7 @@ section .text
     extern ReadFile, WriteFile
     extern GetFileSizeEx, SetFilePointerEx
 
+    extern table_manager_create_table, table_manager_add_column, table_manager_add_content
 file_manager_new:
     push rbp
     mov rbp, rsp
@@ -146,30 +156,6 @@ file_manager_get_single_record:
     mov rdx, FILE_RECORD_SIZE
     call _read
 
-    mov rsp, rbp
-    pop rbp
-    ret
-
-file_manager_get_all_records:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    ; Expect pointer to memory, big enough to hold records in RCX.
-    mov [rbp - 8], rcx
-
-    call file_manager_get_total_bytes
-    mov [rbp - 16], rax
-
-    xor rcx, rcx
-    mov rdx, FILE_NAME_OFFSET
-    call _set_pointer
-
-    mov rcx, [rbp - 8]
-    mov rdx, [rbp - 16]
-    call _read
-
-    mov rax, [rbp - 8]
     mov rsp, rbp
     pop rbp
     ret
@@ -277,12 +263,40 @@ file_manager_get_record_length:
     mov rax, FILE_RECORD_SIZE
     ret
 
-file_manager_get_record_size_struc:
-    lea rax, [rel record_size_struc]
+file_manager_get_table_struc:
+    lea rax, [rel table_struc]
     ret
 
+file_manager_create_table_from_file:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
 
+    ; Expect pointer to save table content into in RCX.
+    call _get_all_records
+    mov [rbp - 8], rax
 
+    call file_manager_get_num_of_entries
+    
+    mov rcx, rax
+    call table_manager_create_table
+    mov [rbp - 16], rax
+
+    mov cl, FILE_NAME_SIZE
+    xor rdx, rdx
+    call table_manager_add_column
+
+    mov cl, FILE_HIGHSCORE_SIZE
+    mov dl, 1
+    call table_manager_add_column
+
+    mov rcx, [rbp - 8]
+    call table_manager_add_content
+
+    mov rax, [rbp - 16]
+    mov rsp, rbp
+    pop rbp
+    ret
 
 ;;;;;; PRIVATE FUNCTIONS ;;;;;;
 _set_pointer:
@@ -403,6 +417,32 @@ _get_name:
     mov rsp, rbp
     pop rbp
     ret
+
+_get_all_records:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect pointer to memory, big enough to hold records in RCX.
+    mov [rbp - 8], rcx
+
+    call file_manager_get_total_bytes
+    mov [rbp - 16], rax
+
+    xor rcx, rcx
+    mov rdx, FILE_NAME_OFFSET
+    call _set_pointer
+
+    mov rcx, [rbp - 8]
+    mov rdx, [rbp - 16]
+    call _read
+
+    mov rax, [rbp - 8]
+    mov rsp, rbp
+    pop rbp
+    ret
+
+
 
 _ensure_header_initialized:
     push rbp

@@ -295,7 +295,7 @@ designer_write_table:
     jmp .inner_loop
 
 .handle_number:
-    mov r9, [rbp - 80]
+    mov r9, 4
     jmp .write
 
 .complete:
