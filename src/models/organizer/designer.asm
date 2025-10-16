@@ -198,7 +198,7 @@ designer_write_headline:
 designer_write_table:
     push rbp
     mov rbp, rsp
-    sub rsp, 120
+    sub rsp, 112
 
     ; Save non-volatile regs.
     mov [rbp - 8], r15
@@ -227,36 +227,36 @@ designer_write_table:
     inc rcx                                                             ; Add one column for pagination.
     xor rdx, rdx
     div rcx                                                             ; Divide the width into n parts for each column
-    shr rax, 1
 
-    mov [rbp - 64], ax                                                  ; Save center X of each column_format
-    mov word [rbp - 72], 3                                              ; Starting Y-coordinate of the table.
+    mov [rbp - 56], ax                                                  ; Save starting X-Coordinate of the table.
+    mov word [rbp - 64], 3                                              ; Starting Y-coordinate of the table.
 
 .loop:
     .inner_loop:
-        test r15, r15
-        jz .handle_pagination
 
-        movzx rcx, word [rbp - 64]
+        movzx rcx, word [rbp - 56]
         mov rdx, rcx
-        shl rdx, 1
+        shr rdx, 1
         imul rdx, r15
         add rcx, rdx
         shl rcx, 16
-        mov cx, [rbp - 72]
+        mov cx, [rbp - 64]
+
+        test r15, r15
+        jz .handle_pagination
 
         mov rdx, r13
 
-        mov r8, [rbp - 48]
+        mov r10, [rbp - 48]
         mov r9, r15
         dec r9
         imul r9, column_format_size
-        add r8, r9
-        mov r8d, dword [r8]
-        mov [rbp - 80], r8
+        add r10, r9
+        mov r8d, [r10 + column_format.entry_length]
+        mov [rbp - 72], r8
 
-        cmp r15, 2
-        je .handle_number
+        cmp dword [r10 + column_format.entry_type], 0
+        jne .handle_number
 
         xor r9, r9
 
@@ -264,7 +264,7 @@ designer_write_table:
         call console_manager_write_word
 
     .inner_loop_handle:
-        mov ecx, dword [rbp - 80]
+        mov ecx, dword [rbp - 72]
         add r13, rcx
         cmp r15, [rbp - 32]
         je .loop_handle
@@ -275,14 +275,10 @@ designer_write_table:
     je .complete
     inc r14
     xor r15, r15
-    add word [rbp - 72], 2
+    add word [rbp - 64], 2
     jmp .loop
 
 .handle_pagination:
-    movzx rcx, word [rbp - 64]
-    shr rcx, 1
-    shl rcx, 16
-    mov cx, [rbp - 72]
     mov rdx, r14
     inc rdx
     call _table_pagination
@@ -290,14 +286,14 @@ designer_write_table:
     jmp .inner_loop
 
 .handle_number:
-    mov r9, 4
+    mov r9, r8
     jmp .write
 
 .complete:
     call console_manager_get_width_to_center_offset
     mov rcx, rax
     shl rcx, 16
-    mov cx, word [rbp - 72]
+    mov cx, word [rbp - 64]
     inc cx
     call console_manager_set_cursor
 
