@@ -117,7 +117,7 @@ console_manager_write_char:
 console_manager_write_word:
     push rbp
     mov rbp, rsp
-    sub rsp, 48
+    sub rsp, 64
 
     ; Expect X- and Y-Coordinates in ECX
     ; Expect pointer to word in RDX.
@@ -197,7 +197,7 @@ console_manager_clear:
 console_manager_erase:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     ; Expect Position-X and Position-Y in ECX.
     ; Expect length to clear in RDX.
@@ -228,7 +228,7 @@ console_manager_set_cursor:
 console_manager_set_cursor_to_end:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     mov [rbp - 8], r15
     mov r15, [rel CONSOLE_MANAGER_PTR]
@@ -315,7 +315,7 @@ _cm_get_console_info:
 _cm_set_cursor_position:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 56
 
     ; Expect COORD struct (2 words) in RCX.
     cmp qword [rel CONSOLE_MANAGER_PTR], 0

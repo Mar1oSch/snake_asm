@@ -135,7 +135,7 @@ designer_type_sequence:
 designer_write_headline:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 56
 
     ; Expect pointer to headline in RCX.
     ; Expect length of headline in RDX.
@@ -162,7 +162,7 @@ designer_write_headline:
 designer_write_table:
     push rbp
     mov rbp, rsp
-    sub rsp, 112
+    sub rsp, 120
 
     ; Save non-volatile regs.
     mov [rbp - 8], r15

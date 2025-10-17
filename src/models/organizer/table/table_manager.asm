@@ -1,7 +1,7 @@
 %include "../include/strucs/organizer/table/table_struc.inc"
 %include "../include/strucs/organizer/table/column_format_struc.inc"
 
-global table_manager_create_table, table_manager_add_column, table_manager_add_content
+global table_manager_create_table, table_manager_destroy_table, table_manager_add_column, table_manager_add_content
 section .data
     list_length_counter dd 0
 
@@ -28,6 +28,18 @@ table_manager_create_table:
     mov [rax + table.row_count], ecx
 
     mov dword [rax + table.column_count], 0
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+table_manager_destroy_table:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect pointer to table in RCX.
+    call free
 
     mov rsp, rbp
     pop rbp

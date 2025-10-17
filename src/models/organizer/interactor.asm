@@ -45,7 +45,7 @@ section .text
     extern console_manager_read
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence, designer_write_table, designer_write_headline
     extern game_new, game_start, game_reset
-    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file
+    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file
     extern player_new, get_player_name_length, get_player
     extern helper_get_digits_of_number, helper_get_digits_in_string, helper_is_input_just_numbers, helper_parse_string_to_number
 
@@ -281,6 +281,9 @@ _create_leaderboard:
 
     mov rcx, [rbp - 16]
     call designer_write_table
+
+    mov rcx, [rbp - 16]
+    call file_manager_destroy_table_from_file
 
     mov rcx, [rbp - 8]
     call free

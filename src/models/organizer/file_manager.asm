@@ -1,6 +1,6 @@
 %include "../include/strucs/organizer/file_manager_struc.inc"
 
-global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_record_by_index, file_manager_find_name, file_manager_update_highscore, file_manager_get_record_length, file_manager_get_num_of_entries, file_manager_get_total_bytes, file_manager_create_table_from_file
+global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_record_by_index, file_manager_find_name, file_manager_update_highscore, file_manager_get_record_length, file_manager_get_num_of_entries, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file
 
 section .rodata
     leaderboard_file_name db "leaderboard.bin", 0  
@@ -61,7 +61,9 @@ section .text
     extern ReadFile, WriteFile
     extern GetFileSizeEx, SetFilePointerEx
 
-    extern table_manager_create_table, table_manager_add_column, table_manager_add_content
+    extern table_manager_create_table, table_manager_add_column, table_manager_add_content, table_manager_destroy_table
+    extern helper_merge_sort_list
+
 file_manager_new:
     push rbp
     mov rbp, rsp
@@ -203,7 +205,7 @@ file_manager_find_name:
 file_manager_update_highscore:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     ; Expect highscore in RCX.
     ; Expect player offset in RDX.
@@ -256,17 +258,25 @@ file_manager_get_record_length:
 file_manager_create_table_from_file:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 56
 
     ; Expect pointer to save table content into in RCX.
     call _get_all_records
     mov [rbp - 8], rax
 
     call file_manager_get_num_of_entries
-    
-    mov rcx, rax
-    call table_manager_create_table
     mov [rbp - 16], rax
+
+    mov rcx, [rbp - 8]
+    mov rdx, rax
+    mov r8, FILE_RECORD_SIZE
+    mov r9, FILE_HIGHSCORE_OFFSET
+    mov qword [rsp + 32], FILE_HIGHSCORE_SIZE
+    call helper_merge_sort_list
+
+    mov rcx, [rbp - 16]
+    call table_manager_create_table
+    mov [rbp - 24], rax
 
     mov ecx, FILE_NAME_SIZE
     xor rdx, rdx
@@ -279,16 +289,31 @@ file_manager_create_table_from_file:
     mov rcx, [rbp - 8]
     call table_manager_add_content
 
-    mov rax, [rbp - 16]
+    mov rax, [rbp - 24]
     mov rsp, rbp
     pop rbp
     ret
+
+file_manager_destroy_table_from_file:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect pointer to table in RCX.
+    call table_manager_destroy_table
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+
+
 
 ;;;;;; PRIVATE FUNCTIONS ;;;;;;
 _set_pointer:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     ; Expect index in RCX.
     ; Expect Offset in RDX.
@@ -365,7 +390,7 @@ _read:
 _write:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     ; Expect pointer to string to write in RCX.
     ; Expect amount of bytes to write in RDX.
@@ -385,7 +410,7 @@ _write:
 _get_name:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     ; Expect pointer to buffer to save name into in RCX.
     ; Expect index of desired record in RDX
@@ -407,7 +432,7 @@ _get_name:
 _get_all_records:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 56
 
     ; Expect pointer to memory, big enough to hold records in RCX.
     mov [rbp - 8], rcx
@@ -428,12 +453,10 @@ _get_all_records:
     pop rbp
     ret
 
-
-
 _ensure_header_initialized:
     push rbp
     mov rbp, rsp
-    sub rsp, 72
+    sub rsp, 48
 
     ; Save non volatile registers.
     mov [rbp - 8], r15
@@ -484,3 +507,5 @@ _ensure_header_initialized:
     mov rsp, rbp
     pop rbp
     ret
+
+
