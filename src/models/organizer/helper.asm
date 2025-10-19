@@ -148,7 +148,7 @@ helper_merge_sort_list:
     mov [rbp - 16], rdi
 
     ; Expect pointer to list in RCX.
-    ; Expect amount of records in RDX.
+    ; Expect amount of list records in RDX.
     ; Expect record length in R8.
     ; Expect offset of value to compare in R9.
     ; Expect size of compared value on stack.
@@ -163,8 +163,8 @@ helper_merge_sort_list:
     sub rdx, rax                                ; Length of second list.
 
     ; Save Length of lists.
-    mov [rbp - 56], rax
-    mov [rbp - 64], rdx
+    mov [rbp - 56], rdx
+    mov [rbp - 64], rax
 
 .create_first_list:
     ; Create first list:
@@ -248,8 +248,7 @@ helper_merge_sort_list:
 .base_case:
     mov rax, rcx
     mov rsp, rbp
-    pop rbp
-    ret
+    jmp .complete
 
 ;;;;;; PRIVATE FUNCTIONS ;;;;;;
 _get_digits_in_string:
@@ -314,6 +313,9 @@ _merge:
     mov [rbp - 104], r10
     mov r10, [rbp + 72]
     mov [rbp - 112], r10
+
+    cmp qword [rbp + 48], 0
+    je .right_list_empty
 
     xor r8, r8
     xor r10, r10
@@ -436,3 +438,13 @@ _merge:
     mov rsp, rbp
     pop rbp
     ret
+
+.right_list_empty:
+    mov rdi, [rbp - 56]
+    mov rsi, [rbp - 64]
+    mov rcx, [rbp - 72]
+    rep movsb
+
+    mov rcx, [rbp - 72]
+    sub rdi, rcx
+    jmp .complete
