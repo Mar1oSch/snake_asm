@@ -25,7 +25,7 @@ section .text
 
     extern malloc_failed, object_not_created
 
-    extern helper_parse_number_to_string
+    extern helper_parse_saved_number_to_written_number
 
     extern GetStdHandle
     extern SetConsoleCursorPosition
@@ -134,8 +134,7 @@ console_manager_write_word:
 
     mov rcx, [rbp - 8]
     mov rdx, [rbp - 24]
-
-    call helper_parse_number_to_string
+    call helper_parse_saved_number_to_written_number
     mov [rbp - 8], rax
 
 .write:

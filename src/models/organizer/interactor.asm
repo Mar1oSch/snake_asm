@@ -47,7 +47,7 @@ section .text
     extern game_new, game_start, game_reset
     extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file
     extern player_new, get_player_name_length, get_player
-    extern helper_get_digits_of_number, helper_get_digits_in_string, helper_is_input_just_numbers, helper_parse_string_to_number
+    extern helper_get_digits_of_number, helper_get_digits_in_string, helper_is_input_just_numbers, helper_parse_string_to_int
 
 interactor_new:
     push rbp
@@ -320,7 +320,7 @@ _get_player_index:
 
     mov rcx, [rbp - 24]
     mov rdx, [rbp - 16]
-    call helper_parse_string_to_number
+    call helper_parse_string_to_int
     mov [rbp - 32], rax
 
 .complete:

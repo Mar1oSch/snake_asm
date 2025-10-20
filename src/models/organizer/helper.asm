@@ -1,4 +1,4 @@
-global helper_get_digits_of_number, helper_parse_number_to_string, helper_is_input_just_numbers, helper_parse_string_to_number, helper_merge_sort_list
+global helper_get_digits_of_number, helper_parse_saved_number_to_written_number, helper_is_input_just_numbers, helper_parse_string_to_int, helper_merge_sort_list
 section .data
     convert_number db "0000", 0
 
@@ -70,10 +70,13 @@ helper_is_input_just_numbers:
     pop rbp
     ret
 
-helper_parse_number_to_string:
+helper_parse_saved_number_to_written_number:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
+
+    ; Save non-volatile regs.
+    mov [rbp - 8], rbx
 
     ; Expect pointer to number (dword) in RCX.
     ; Expect number of digits to parse in RDX.
@@ -92,11 +95,15 @@ helper_parse_number_to_string:
 
     lea rax, [rel convert_number]
 
+.complete:
+    ; Restore non-volatile regs.
+    mov rbx, [rbp - 8]
+
     mov rsp, rbp
     pop rbp
     ret
 
-helper_parse_string_to_number:
+helper_parse_string_to_int:
     push rbp
     mov rbp, rsp
     sub rsp, 48
@@ -115,12 +122,13 @@ helper_parse_string_to_number:
 .loop:
     movzx rax, byte [r8]
     sub rax, "0"                                        ; sub rcx, 48
-    mov rdx, rcx
-    dec rdx
+    mov r11, rcx
+    dec r11
     .inner_loop:
-        test rdx, rdx
+        test r11, r11
         jz .loop_handle
         mul r9
+        dec r11
         jmp .inner_loop
 .loop_handle:
     add r10, rax
@@ -204,12 +212,13 @@ helper_merge_sort_list:
     mov rcx, [rbp - 56]
     imul rcx, [rbp - 32]
     add rsi, rcx
+
     mov rcx, [rbp - 64]
     imul rcx, [rbp - 32]
     cld
     rep movsb
 
-    mov rcx, [rbp - 56]
+    mov rcx, [rbp - 64]
     imul rcx, [rbp - 32]
     sub rdi, rcx
     mov [rbp - 80], rdi
@@ -314,105 +323,109 @@ _merge:
     mov r10, [rbp + 72]
     mov [rbp - 112], r10
 
-    cmp qword [rbp + 48], 0
-    je .right_list_empty
-
     xor r8, r8
-    xor r10, r10
+    mov [rbp - 120], r8
+    mov [rbp - 128], r8
 
     ; Save pointer to Targetlist in RDI.
     mov rdi, rcx
-    ; Save pointer to left list into R13.
-    mov r13, rdx
-    ; Save pointer to right list into R14.
-    mov r14, r9
     ; Save record size into R15.
     mov r15, [rbp - 96]
     ; Save offset into RBX.
     mov rbx, [rbp - 104]
 
+
 .loop:
+    ; Save pointer to left list into R13.
+    mov r13, [rbp - 64]
+    ; Save pointer to right list into R14.
+    mov r14, [rbp - 80]
+
+    mov r8, [rbp - 120]
     cmp r8, [rbp - 72]
     je .add_right_rest
-    cmp r10, [rbp - 88]
+    mov r8, [rbp - 128]
+    cmp r8, [rbp - 88]
     je .add_left_rest
 
     ; Compare values of both lists:
-    mov rcx, [rbp - 112]
     xor rax, rax
     xor rdx, rdx
     .comparison_loop:
         ; Left list:
+        mov r8, [rbp - 120]
         mov r11, r8
         imul r11, r15
         add r11, rbx
-        add r11, rcx
-        dec r11
-        mov al, byte [r13 + r11]
-        ror rax, 1
+        add r13, r11
+        mov rcx, r13
+        mov rdx, [rbp - 112]
+        call helper_parse_saved_number_to_written_number
+        mov rcx, rax
+        mov rdx, [rbp - 112]
+        call helper_parse_string_to_int
+        mov [rbp - 136], rax
         ; Right list:
-        mov r11, r10
+        mov r8, [rbp - 128]
+        mov r11, r8
         imul r11, r15
         add r11, rbx
-        add r11, rcx
-        dec r11
-        mov dl, byte [r14 + r11]
-        ror rdx, 1
-        loop .comparison_loop
-        cmp rax, rdx
-        jb .right_bigger
+        add r14, r11
+        mov rcx, r14
+        mov rdx, [rbp - 112]
+        call helper_parse_saved_number_to_written_number
+        mov rcx, rax
+        mov rdx, [rbp - 112]
+        call helper_parse_string_to_int
+        cmp rax, [rbp - 136]
+        ja .right_bigger
     .left_bigger:
         mov rcx, r15
-        mov r11, r8
-        imul r11, r15
-        add r13, r11
+        mov r11, [rbp - 120]
+        sub r13, rbx
         mov rsi, r13
         rep movsb
-        inc r8
+        inc qword [rbp - 120]
         jmp .loop
     .right_bigger:
         mov rcx, r15
-        mov r11, r10
-        imul r11, r15
-        add r14, r11
+        mov r11, [rbp - 128]
+        sub r14, rbx
         mov rsi, r14
         rep movsb
-        inc r10
+        inc qword [rbp - 128]
         jmp .loop
 
 .add_right_rest:
-    mov r11, [rbp - 88]
-    sub r11, r10
-    jz .complete
+    mov r11, [rbp - 128]
+    mov r14, [rbp - 80]
+    imul r11, r15
+    add r14, r11
     .add_right_rest_loop:
         mov rcx, r15
-        mov r11, r10
-        imul r11, r15
-        add r14, r11
         mov rsi, r14
         rep movsb
-        test r11, r11
+        inc qword [rbp - 128]
+        mov r11, [rbp - 128]
+        cmp r11, [rbp - 88]
         je .complete
-        dec r11
-        inc r10
+        add r14, r15
         jmp .add_right_rest_loop
-        jmp .complete
 
 .add_left_rest:
-    mov r11, [rbp - 72]
-    sub r11, r8
-    jz .complete
+    mov r11, [rbp - 120]
+    mov r13, [rbp - 64]
+    imul r11, r15
+    add r13, r11
     .add_left_rest_loop:
         mov rcx, r15
-        mov r11, r8
-        imul r11, r15
-        add r13, r11
         mov rsi, r13
         rep movsb
-        test r11, r11
+        inc qword [rbp - 120]
+        mov r11, [rbp - 120]
+        cmp r11, [rbp - 72]
         je .complete
-        dec r11
-        inc r8
+        add r13, r15
         jmp .add_left_rest_loop
 
 .complete:
@@ -425,7 +438,7 @@ _merge:
     add rcx, [rbp - 88]
     imul rcx, r15
     sub rdi, rcx
-    mov rax, rdi
+    mov rax, [rbp - 56]
 
     ; Restore non-volatile regs.
     mov rsi, [rbp - 8]
@@ -438,13 +451,3 @@ _merge:
     mov rsp, rbp
     pop rbp
     ret
-
-.right_list_empty:
-    mov rdi, [rbp - 56]
-    mov rsi, [rbp - 64]
-    mov rcx, [rbp - 72]
-    rep movsb
-
-    mov rcx, [rbp - 72]
-    sub rdi, rcx
-    jmp .complete

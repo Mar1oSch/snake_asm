@@ -219,6 +219,8 @@ file_manager_update_highscore:
     mov rdx, FILE_HIGHSCORE_SIZE
     call _write
 
+    call _update_leaderboard_in_file
+
     mov rsp, rbp
     pop rbp
     ret
@@ -267,14 +269,7 @@ file_manager_create_table_from_file:
     call file_manager_get_num_of_entries
     mov [rbp - 16], rax
 
-    mov rcx, [rbp - 8]
-    mov rdx, rax
-    mov r8, FILE_RECORD_SIZE
-    mov r9, FILE_HIGHSCORE_OFFSET
-    mov qword [rsp + 32], FILE_HIGHSCORE_SIZE
-    call helper_merge_sort_list
-
-    mov rcx, [rbp - 16]
+    mov rcx, rax
     call table_manager_create_table
     mov [rbp - 24], rax
 
@@ -449,6 +444,47 @@ _get_all_records:
     call _read
 
     mov rax, [rbp - 8]
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_update_leaderboard_in_file:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 72
+
+    call file_manager_get_total_bytes
+    mov [rbp - 8], rax
+
+    mov rcx, rax
+    call malloc
+    mov [rbp - 16], rax
+
+    mov rcx, rax
+    call _get_all_records
+    mov [rbp - 24], rax
+
+    call file_manager_get_num_of_entries
+
+    mov rcx, [rbp - 24]
+    mov rdx, rax
+    mov r8, FILE_RECORD_SIZE
+    mov r9, FILE_HIGHSCORE_OFFSET
+    mov qword [rsp + 32], FILE_HIGHSCORE_SIZE
+    call helper_merge_sort_list
+    mov rax, [rbp - 24]
+
+    xor rcx, rcx
+    xor rdx, rdx
+    call _set_pointer
+
+    mov rcx, [rbp - 24]
+    mov rdx, [rbp - 8]
+    call _write
+
+    mov rcx, [rbp - 16]
+    call free
+
     mov rsp, rbp
     pop rbp
     ret
