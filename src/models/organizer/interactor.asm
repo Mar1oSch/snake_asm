@@ -46,7 +46,7 @@ section .text
     extern game_new, game_start, game_reset
     extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file
     extern player_new, get_player_name_length, get_player
-    extern helper_get_digits_of_number, helper_get_digits_in_string, helper_is_input_just_numbers, helper_parse_string_to_int
+    extern helper_get_digits_of_number, helper_get_digits_in_string, helper_is_input_just_numbers, helper_parse_string_to_int, helper_parse_saved_number_to_written_number
     extern options_new
 
 interactor_new:
@@ -345,8 +345,16 @@ _create_player_from_index:
     lea rcx, [rel player_from_file_struc]
     call file_manager_get_record_by_index
 
+    lea rcx, [rel player_from_file_struc + 16]
+    mov rdx, 4
+    call helper_parse_saved_number_to_written_number
+    
+    mov rcx, rax
+    mov rdx, 4
+    call helper_parse_string_to_int
+
     lea rcx, [rel player_from_file_struc]
-    mov edx, [rel player_from_file_struc + 16]
+    mov rdx, rax
     call player_new
 
     mov rsp, rbp

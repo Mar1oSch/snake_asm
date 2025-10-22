@@ -76,15 +76,31 @@ level_creation_table_size equ (level_creation_table_end - level_creation_table) 
 ;;;;;; GAME OVER ;;;;;;
 after_game:
     .string1 db "The ride was too bumpy for you I guess.."    
-    .string2 db "But you played well! Do you want to play again?"
-    .string3 db "[Y]es / [N]o"
+    .string2 db "But you played well!"
+    .string3 db "What do you want to do next? These are your options:"
     .string4 db 0
+    .string5 db "[1]: Replay Game     "
+    .string6 db "[2]: Change Player   "
+    .string7 db "[3]: Change Level    "
+    .string8 db "[4]: Change Both     "
+    .string9 db "[5]: Show Leaderboard"
+    .string10 db "[6]: Exit Game       "
+    .string11 db 0
+    .string12 db 0
 after_game_end:
 
 after_game_table:
     dq after_game.string1, (after_game.string2 - after_game.string1)
     dq after_game.string2, (after_game.string3 - after_game.string2)
     dq after_game.string3, (after_game.string4 - after_game.string3)
-    dq after_game.string4, (after_game_end - after_game.string4)
+    dq after_game.string4, (after_game.string5 - after_game.string4)
+    dq after_game.string5, (after_game.string6 - after_game.string5)
+    dq after_game.string6, (after_game.string7 - after_game.string6)
+    dq after_game.string7, (after_game.string8 - after_game.string7)
+    dq after_game.string8, (after_game.string9 - after_game.string8)
+    dq after_game.string9, (after_game.string10 - after_game.string9)
+    dq after_game.string10, (after_game.string11 - after_game.string10)
+    dq after_game.string11, (after_game.string12 - after_game.string11)
+    dq after_game.string12, (after_game_end - after_game.string12)
 after_game_table_end:
 after_game_table_size equ (after_game_table_end - after_game_table) /16
