@@ -30,7 +30,6 @@ section .bss
     INTERACTOR_PTR resq 1
     INTERACTOR_PLAYER_NAME resb PLAYER_NAME_LENGTH
     INTERACTOR_YES_NO resq 1
-    INTERACTOR_LVL resq 1
 
     player_from_file_struc:
         .name resb PLAYER_NAME_LENGTH
@@ -48,6 +47,7 @@ section .text
     extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file
     extern player_new, get_player_name_length, get_player
     extern helper_get_digits_of_number, helper_get_digits_in_string, helper_is_input_just_numbers, helper_parse_string_to_int
+    extern options_new
 
 interactor_new:
     push rbp
@@ -113,16 +113,19 @@ interactor_create_game:
     mov [rbp - 8], rax
 
     call _create_level
+    mov rdx, rax
+    mov rcx, [rbp - 8]
+    call options_new
+    mov [rbp - 8], rax
 
     xor rcx, rcx
     mov cx, DEFAULT_BOARD_WIDTH                   ; Moving width into CX  (So: ECX = 0, width)
     shl rcx, 16                                   ; Shifting rcx 16 bits left (So : ECX = width, 0)
     mov cx, DEFAULT_BOARD_HEIGHT                  ; Moving height into CX (So: ECX = width, height)
 
-    mov rdx, [rel INTERACTOR_LVL]
+    mov rdx, [rbp - 8]
+    mov r8, [rel INTERACTOR_PTR]
 
-    mov r8, [rbp - 8]
-    mov r9, [rel INTERACTOR_PTR]
     call game_new
 
     mov rcx, [rel INTERACTOR_PTR]
@@ -385,16 +388,18 @@ _create_level:
     call designer_type_sequence
 
 .loop:              
-    lea rcx, [rel INTERACTOR_LVL]
+    lea rcx, [rbp - 8]
     mov rdx, 1
     lea r8, [rbp - 8]
     call console_manager_read
-    cmp qword [rel INTERACTOR_LVL], "1"
+    cmp byte [rbp - 8], "1"
     jb .loop
-    cmp qword [rel INTERACTOR_LVL], "9"
+    cmp byte [rbp - 8], "9"
     ja .loop
 
-    sub qword [rel INTERACTOR_LVL], 48                              ; ASCII-Convert: 48 = "0", 49 = "1", 50 = "2", ...
+    movzx rax, byte [rbp - 8]
+    sub rax, 48                              ; ASCII-Convert: 48 = "0", 49 = "1", 50 = "2", ...
+
     mov rsp, rbp
     pop rbp
     ret

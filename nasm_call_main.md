@@ -9,10 +9,11 @@ nasm -f win64 .\models\drawable\drawable_vtable.asm -o .\models\drawable\drawabl
 nasm -f win64 .\models\drawable\position.asm -o .\models\drawable\position.obj;
 nasm -f win64 .\models\game\board\board.asm -o .\models\game\board\board.obj;
 nasm -f win64 .\models\game\player\player.asm -o .\models\game\player\player.obj;
+nasm -f win64 .\models\game\options\options.asm -o .\models\game\options\options.obj;
 nasm -f win64 .\models\game\game.asm -o .\models\game\game.obj;
 nasm -f win64 .\models\organizer\console_manager.asm -o .\models\organizer\console_manager.obj
 nasm -f win64 .\models\organizer\file_manager.asm -o .\models\organizer\file_manager.obj
-nasm -f win64 .\models\organizer\designer.asm -o .\models\organizer\designer.obj                                                                                                                                                                                                                                    
+nasm -f win64 .\models\organizer\designer.asm -o .\models\organizer\designer.obj
 nasm -f win64 .\models\organizer\interactor.asm -o .\models\organizer\interactor.obj
 nasm -f win64 .\models\organizer\helper.asm -o .\models\organizer\helper.obj
 nasm -f win64 .\models\interface_table.asm -o .\models\interface_table.obj

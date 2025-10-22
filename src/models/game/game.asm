@@ -7,6 +7,7 @@
 %include "../include/strucs/game/game_struc.inc"
 %include "../include/strucs/game/board_struc.inc"
 %include "../include/strucs/game/player_struc.inc"
+%include "../include/strucs/game/options_struc.inc"
 %include "../include/strucs/food/food_struc.inc"
 %include "../include/strucs/position_struc.inc"
 %include "../include/strucs/snake/unit_struc.inc"
@@ -53,19 +54,16 @@ game_new:
     sub rsp, 56
 
     ; Expect width and height for the board in ECX.
-    ; Expect lvl in EDX.
-    ; Expect player pointer in R8.
-    ; Expect interactor pointer in R9.
+    ; Expect options_ptr in RDX.
+    ; Expect interactor pointer in R8.
     cmp qword [rel GAME_PTR], 0
     jne .complete
-    mov [rbp - 8], edx
-    mov [rbp - 16], r8
+    mov [rbp - 8], rdx
 
-    mov rdx, [r9 + interactor.designer_ptr]
+    mov rdx, [r8 + interactor.designer_ptr]
     mov rdx, [rdx + designer.console_manager_ptr]
     call board_new
-    mov [rbp - 24], rax
-
+    mov [rbp - 16], rax
 
     mov rcx, game_size
     call malloc
@@ -73,14 +71,11 @@ game_new:
     jz _g_malloc_failed
     mov [rel GAME_PTR], rax
 
-    mov rcx, [rbp - 24]
+    mov rcx, [rbp - 16]
     mov [rax + game.board_ptr], rcx
 
-    mov rcx, [rbp - 16]
-    mov [rax + game.player_ptr], rcx
-
-    mov ecx, [rbp - 8]
-    mov [rax + game.lvl], ecx
+    mov rcx, [rbp - 8]
+    mov [rax + game.options_ptr], rcx
 
     mov dword [rax + game.points], 0
 .complete:
@@ -477,7 +472,8 @@ _add_points:
     je _g_object_failed
 
     mov rcx, [rel GAME_PTR]
-    mov r8d, [rcx + game.lvl]
+    mov r8, [rcx + game.options_ptr]
+    mov r8d, [r8 + options.lvl]
 
     add [rcx + game.points], r8d
 
@@ -526,7 +522,8 @@ _print_player:
     mov cx, [r10 + board.height]
     add cx, [rbp - 16]
     inc cx
-    mov rdx, [r9 + game.player_ptr]
+    mov rdx, [r9 + game.options_ptr]
+    mov rdx, [rdx + options.player_ptr]
     mov rdx, [rdx + player.name]
     xor r9, r9
     call console_manager_write_word
@@ -557,7 +554,8 @@ _print_level:
 
     lea rcx, [rel lvl_format]
     mov rdx, [rel GAME_PTR]
-    mov edx, [rdx + game.lvl]
+    mov rdx, [rdx + game.options_ptr]
+    mov edx, [rdx + options.lvl]
     call printf
 
     mov rsp, rbp
@@ -618,7 +616,8 @@ _print_highscore:
 
     lea rcx, [rel highscore_format]
     mov rdx, [rel GAME_PTR]
-    mov rdx, [rdx + game.player_ptr]
+    mov rdx, [rdx + game.options_ptr]
+    mov rdx, [rdx + options.player_ptr]
     mov edx, [rdx + player.highscore]
     call printf
 
@@ -631,7 +630,8 @@ _get_delay:
     mov rbp, rsp
 
     mov rax, [rel GAME_PTR]
-    mov eax, [rax + game.lvl]
+    mov rax, [rax + game.options_ptr]
+    mov eax, [rax + options.lvl]
 
     cmp rax, 9
     ja  .invalid
@@ -801,7 +801,8 @@ _update_highscore:
 
     mov rdx, [rel GAME_PTR]
     mov ecx, [rdx + game.points]
-    mov r8, [rdx + game.player_ptr]
+    mov r8, [rdx + game.options_ptr]
+    mov r8, [r8 + options.player_ptr]
     mov r8d, [r8 + player.highscore]
     cmp ecx, r8d
     jbe .complete
@@ -809,13 +810,15 @@ _update_highscore:
     call player_update_highscore
 
     mov rcx, [rel GAME_PTR]
-    mov rcx, [rcx + game.player_ptr]
+    mov rcx, [rcx + game.options_ptr]
+    mov rcx, [rcx + options.player_ptr]
     mov rcx, [rcx + player.name]
     call file_manager_find_name
 
     mov rdx, rax
     mov rcx, [rel GAME_PTR]
-    mov rcx, [rcx + game.player_ptr]
+    mov rcx, [rcx + game.options_ptr]
+    mov rcx, [rcx + options.player_ptr]
     mov ecx, dword [rcx + player.highscore]
     call file_manager_update_highscore
 

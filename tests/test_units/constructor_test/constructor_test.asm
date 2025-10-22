@@ -107,14 +107,14 @@ constructor_test:
 
     mov rax, [rbp - 8]
     lea rcx, [rel game_player]
-    mov rdx, [rax + game.player_ptr]
+    mov rdx, [rax + options.player_ptr]
     call printf
 
     ;###################################################;
     ;#                    Test PLAYER                  #;
     ;###################################################;
     mov rax, [rbp - 8]
-    mov rax, [rax + game.player_ptr]
+    mov rax, [rax + options.player_ptr]
     mov [rbp - 16], rax
 
     lea rcx, [rel player_pointer]
