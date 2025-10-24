@@ -116,9 +116,14 @@ game_reset:
     mov rbp, rsp
     sub rsp, 48
 
+    ; Expect options_ptr in RCX.
+    mov [rbp - 8], rcx
+
     call board_reset
     mov rcx, [rel GAME_PTR]
     mov [rcx + game.board_ptr], rax
+    mov rax, [rbp - 8]
+    mov [rcx + game.options_ptr], rcx
     mov dword [rcx + game.points], 0
     call game_start
 

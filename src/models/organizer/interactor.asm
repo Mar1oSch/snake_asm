@@ -41,7 +41,7 @@ section .text
     extern printf
     extern Sleep
 
-    extern console_manager_read
+    extern console_manager_get_literal_input, console_manager_get_numeral_input
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence, designer_write_table, designer_write_headline
     extern game_new, game_start, game_reset
     extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file
@@ -58,20 +58,26 @@ interactor_new:
     jne .complete
 
     ; Save non-volatile regs.
-    mov [rbp - 8], r15
+    mov [rbp - 8], rbx
 
     mov rcx, interactor_size
     call malloc
     mov [rel INTERACTOR_PTR], rax
 
     call designer_new
-    mov r15, [rel INTERACTOR_PTR]
-    mov [r15 + interactor.designer_ptr], rax
+    mov rbx, [rel INTERACTOR_PTR]
+    mov [rbx + interactor.designer_ptr], rax
 
     call file_manager_new
-    mov [r15 + interactor.file_manager_ptr], rax
+    mov [rbx + interactor.file_manager_ptr], rax
+
+    call file_manager_create_table_from_file
+    mov [rbx + interactor.table_ptr], rax
 
 .complete:
+    ; Restore non-volatile regs.
+    mov rbx, [rbp - 8]
+
     mov rax, [rel INTERACTOR_PTR]
     mov rsp, rbp
     pop rbp
@@ -179,10 +185,6 @@ _introduction:
     call designer_type_sequence
 
 .complete:
-    ; lea rcx, [rel recieved_char]
-    ; mov rdx, rax
-    ; call printf
-
     mov rsp, rbp
     pop rbp
     ret
@@ -219,6 +221,7 @@ _create_player_from_file:
     mov [rbp - 8], rax
 
 .loop:
+    mov rcx, [rbp - 8]
     call _get_player_index
     cmp rax, [rbp - 8]
     ja .loop
@@ -267,29 +270,15 @@ _create_leaderboard:
     mov rbp, rsp
     sub rsp, 64
 
-    call file_manager_get_total_bytes
-    mov rcx, rax
-    call malloc
-    mov [rbp - 8], rax
-
-    mov rcx, rax
-    call file_manager_create_table_from_file
-    mov [rbp - 16], rax
-
     call designer_clear
 
     lea rcx, [rel file_player_headline]
     mov rdx, file_player_headline_length
     call designer_write_headline
 
-    mov rcx, [rbp - 16]
+    mov rcx, [rel INTERACTOR_PTR]
+    mov rcx, [rcx + interactor.table_ptr]
     call designer_write_table
-
-    mov rcx, [rbp - 16]
-    call file_manager_destroy_table_from_file
-
-    mov rcx, [rbp - 8]
-    call free
 
     mov rsp, rbp
     pop rbp
@@ -313,17 +302,9 @@ _get_player_index:
 .loop:
     mov rcx, [rbp - 24]
     mov rdx, [rbp - 16]
-    call console_manager_read
-
-    mov rcx, [rbp - 24]
-    mov rdx, [rbp - 16]
-    call helper_is_input_just_numbers
-    test rax, rax
-    jz .loop
-
-    mov rcx, [rbp - 24]
-    mov rdx, [rbp - 16]
-    call helper_parse_string_to_int
+    call console_manager_get_numeral_input
+    cmp rax, [rbp - 8]
+    ja .loop
     mov [rbp - 32], rax
 
 .complete:
@@ -369,8 +350,7 @@ _create_player_name:
 .loop:
     lea rcx, [rel INTERACTOR_PLAYER_NAME]
     mov rdx, 15
-    lea r8, [rbp - 8]
-    call console_manager_read
+    call console_manager_get_literal_input
     call _clear_player_name
 
     lea rcx, [rel INTERACTOR_PLAYER_NAME]
@@ -398,15 +378,9 @@ _create_level:
 .loop:              
     lea rcx, [rbp - 8]
     mov rdx, 1
-    lea r8, [rbp - 8]
-    call console_manager_read
-    cmp byte [rbp - 8], "1"
-    jb .loop
-    cmp byte [rbp - 8], "9"
+    call console_manager_get_numeral_input
+    cmp rax, 9
     ja .loop
-
-    movzx rax, byte [rbp - 8]
-    sub rax, 48                              ; ASCII-Convert: 48 = "0", 49 = "1", 50 = "2", ...
 
     mov rsp, rbp
     pop rbp
@@ -425,8 +399,6 @@ _after_game_dialogue:
     mov r8, 0
     call designer_type_sequence
 
-    call _get_yes_no
-
     mov rsp, rbp
     pop rbp
     ret
@@ -440,7 +412,7 @@ _get_yes_no:
     lea rcx, [rel INTERACTOR_YES_NO]
     mov rdx, 1
     lea r8, [rbp - 8]
-    call console_manager_read
+    call console_manager_get_literal_input
 .afterwards:
     mov al, [rel INTERACTOR_YES_NO]
     and al, 0xDF

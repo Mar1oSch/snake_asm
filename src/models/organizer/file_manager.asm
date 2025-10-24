@@ -262,16 +262,18 @@ file_manager_create_table_from_file:
     mov rbp, rsp
     sub rsp, 56
 
-    ; Expect pointer to save table content into in RCX.
+    call file_manager_get_total_bytes
+    mov rcx, rax
+    call malloc
+    mov rcx, rax
     call _get_all_records
     mov [rbp - 8], rax
 
     call file_manager_get_num_of_entries
-    mov [rbp - 16], rax
 
     mov rcx, rax
     call table_manager_create_table
-    mov [rbp - 24], rax
+    mov [rbp - 16], rax
 
     mov ecx, FILE_NAME_SIZE
     xor rdx, rdx
@@ -284,7 +286,7 @@ file_manager_create_table_from_file:
     mov rcx, [rbp - 8]
     call table_manager_add_content
 
-    mov rax, [rbp - 24]
+    mov rax, [rbp - 16]
     mov rsp, rbp
     pop rbp
     ret

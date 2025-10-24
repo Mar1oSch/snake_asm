@@ -39,6 +39,7 @@ options_destroy:
 
     mov rcx, [rel OPTIONS_PTR]
     call free
+    mov qword [rel OPTIONS_PTR], 0
 
     mov rsp, rbp
     pop rbp

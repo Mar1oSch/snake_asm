@@ -1,6 +1,6 @@
 %include "../include/strucs/organizer/console_manager_struc.inc"
 
-global console_manager_new, console_manager_destroy, console_manager_clear, console_manager_write_char, console_manager_set_cursor, console_manager_erase, console_manager_write_word, console_manager_set_cursor_to_end, console_manager_get_width_to_center_offset, console_manager_get_height_to_center_offset, console_manager_read
+global console_manager_new, console_manager_destroy, console_manager_clear, console_manager_write_char, console_manager_set_cursor, console_manager_erase, console_manager_write_word, console_manager_set_cursor_to_end, console_manager_get_width_to_center_offset, console_manager_get_height_to_center_offset, console_manager_get_numeral_input, console_manager_get_literal_input
 
 section .rodata
     erase_char db " "
@@ -25,7 +25,7 @@ section .text
 
     extern malloc_failed, object_not_created
 
-    extern helper_parse_saved_number_to_written_number
+    extern helper_parse_saved_number_to_written_number, helper_is_input_just_numbers, helper_parse_string_to_int
 
     extern GetStdHandle
     extern SetConsoleCursorPosition
@@ -146,7 +146,7 @@ console_manager_write_word:
     pop rbp
     ret
 
-console_manager_read:
+console_manager_get_numeral_input:
     push rbp
     mov rbp, rsp
     sub rsp, 64
@@ -156,26 +156,34 @@ console_manager_read:
     mov [rbp - 8], rcx
     mov [rbp - 16], rdx
 
-    mov r8, rdx
-    mov rdx, [rbp - 8]
-    mov rcx, [rel CONSOLE_MANAGER_PTR]
-    mov rcx, [rcx + console_manager.input_handle]
-    lea r9, [rbp - 24]
-    call ReadConsoleA
-
-    mov eax, [rbp - 24]
-    cmp rax, [rbp - 16]
-    jb .complete
-
-    mov rdx, [rbp - 16]
-    dec rdx
+.loop:
     mov rcx, [rbp - 8]
-    cmp byte [rcx + rdx], 0
-    je .complete
-    cmp byte [rcx + rdx], 10
-    je .complete
+    mov rdx, [rbp - 16]
+    call _cm_read
 
-    call _cm_clear_buffer
+    mov rcx, [rbp - 8]
+    mov edx, [rbp - 16]
+    call helper_is_input_just_numbers
+    test rax, rax
+    jz .loop
+
+    mov rcx, [rbp - 8]
+    mov rdx, [rbp - 16]
+    call helper_parse_string_to_int
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+console_manager_get_literal_input:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect pointer to save string to in RCX.
+    ; Expect number of chars to read in RDX.
+    call _cm_read
 
 .complete:
     mov rsp, rbp
@@ -367,6 +375,42 @@ _cm_write:
     xor rax, rax
     call WriteConsoleA
 
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_cm_read:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect pointer to save read bytes into in RCX.
+    ; Expect number of bytes to read in RDX.
+    mov [rbp - 8], rcx
+    mov [rbp - 16], rdx
+
+    mov r8, rdx
+    mov rdx, rcx
+    mov rcx, [rel CONSOLE_MANAGER_PTR]
+    mov rcx, [rcx + console_manager.input_handle]
+    lea r9, [rbp - 24]
+    call ReadConsoleA
+
+    mov eax, [rbp - 24]
+    cmp rax, [rbp - 16]
+    jb .complete
+
+    mov rdx, [rbp - 16]
+    dec rdx
+    mov rcx, [rbp - 8]
+    cmp byte [rcx + rdx], 0
+    je .complete
+    cmp byte [rcx + rdx], 10
+    je .complete
+
+    call _cm_clear_buffer
+
+.complete:
     mov rsp, rbp
     pop rbp
     ret
