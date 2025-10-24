@@ -64,15 +64,6 @@ console_manager_new:
     mov rdx, [rcx + 10]
     mov [r15 + console_manager.window_size], rdx
 
-; .debugging:
-;     lea rcx, [rel window_size_string]
-;     movzx rdx, word [r15 + console_manager.window_size]
-;     movzx r8, word [r15 + console_manager.window_size + 2]
-;     movzx r9, word [r15 + console_manager.window_size + 4]
-;     movzx r10, word [r15 + console_manager.window_size + 6]
-;     mov [rsp + 32], r10
-;     call printf
-
 .complete:
     mov rax, r15
     mov r15, [rbp - 8]
@@ -151,24 +142,22 @@ console_manager_get_numeral_input:
     mov rbp, rsp
     sub rsp, 64
 
-    ; Expect pointer to save string to in RCX.
-    ; Expect number of chars to read in RDX.
+    ; Expect number of chars to read in RCX.
     mov [rbp - 8], rcx
-    mov [rbp - 16], rdx
 
 .loop:
-    mov rcx, [rbp - 8]
-    mov rdx, [rbp - 16]
+    lea rcx, [rbp - 16]
+    mov rdx, [rbp - 8]
     call _cm_read
 
-    mov rcx, [rbp - 8]
-    mov edx, [rbp - 16]
+    lea rcx, [rbp - 16]
+    mov edx, [rbp - 8]
     call helper_is_input_just_numbers
     test rax, rax
     jz .loop
 
-    mov rcx, [rbp - 8]
-    mov rdx, [rbp - 16]
+    lea rcx, [rbp - 16]
+    mov rdx, [rbp - 8]
     call helper_parse_string_to_int
 
 .complete:

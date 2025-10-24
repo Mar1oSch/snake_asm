@@ -12,7 +12,6 @@ section .rodata
 
 section .text
     extern malloc, free
-    extern printf
 
     extern position_new, position_destroy
     extern interface_table_new, interface_table_destroy

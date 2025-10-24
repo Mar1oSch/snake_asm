@@ -2,9 +2,6 @@
 
 global options_new, options_destroy
 
-section .bss
-    OPTIONS_PTR resq 1
-
 section .text
     extern malloc, free
 
@@ -21,8 +18,6 @@ options_new:
     mov rcx, options_size
     call malloc
 
-    mov [rel OPTIONS_PTR], rax
-
     mov rcx, [rbp - 8]
     mov [rax + options.player_ptr], rcx
     mov ecx, [rbp - 16]
@@ -37,9 +32,8 @@ options_destroy:
     mov rbp, rsp
     sub rsp, 40
 
-    mov rcx, [rel OPTIONS_PTR]
+    ; Expect pointer to options object in RCX.
     call free
-    mov qword [rel OPTIONS_PTR], 0
 
     mov rsp, rbp
     pop rbp

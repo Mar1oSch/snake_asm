@@ -16,9 +16,11 @@
 global game_new, game_destroy, game_start, game_reset
 
 section .rodata
-    lvl_format db "Lvl: %02d", 0
-    highscore_format db "Best: %04d", 0
-    points_format db " %04d", 0
+    lvl_format db "Lvl:", 0
+    lvl_length equ $ - lvl_format
+
+    best_format db "Best:", 0
+    best_length equ $ - best_format  
 
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "game_new", 0
@@ -35,8 +37,8 @@ section .text
     extern malloc
     extern free
     extern Sleep
-    extern printf
     extern GetAsyncKeyState
+    extern printf
 
     extern player_update_highscore, get_player_name_length
     extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset, board_draw_food
@@ -44,6 +46,7 @@ section .text
     extern console_manager_set_cursor, console_manager_set_cursor_to_end, console_manager_write_word
     extern file_manager_update_highscore, file_manager_find_name
     extern designer_type_sequence
+    extern helper_change_position, helper_parse_int_to_string
 
     extern malloc_failed, object_not_created
 
@@ -123,7 +126,7 @@ game_reset:
     mov rcx, [rel GAME_PTR]
     mov [rcx + game.board_ptr], rax
     mov rax, [rbp - 8]
-    mov [rcx + game.options_ptr], rcx
+    mov [rcx + game.options_ptr], rax
     mov dword [rcx + game.points], 0
     call game_start
 
@@ -497,9 +500,9 @@ _build_scoreboard:
     je _g_object_failed
 
     call _print_points
-    call _print_highscore
     call _print_level
     call _print_player
+    call _print_highscore
 
     mov rsp, rbp
     pop rbp
@@ -540,7 +543,7 @@ _print_player:
 _print_level:
     push rbp
     mov rbp, rsp
-    sub rsp, 56
+    sub rsp, 72
 
     call get_board_width_offset
     mov [rbp - 8], ax
@@ -555,13 +558,37 @@ _print_level:
     shl rcx, 16
     mov cx, [rbp - 16]
     dec cx
-    call console_manager_set_cursor
+    mov [rbp - 24], ecx
+    lea rdx, [rel lvl_format]
+    mov r8, lvl_length
+    xor r9, r9
+    call console_manager_write_word
 
-    lea rcx, [rel lvl_format]
+    mov ecx, [rbp - 24]
+    mov rdx, lvl_length
+    xor r8, r8
+    call helper_change_position
+    mov [rbp - 24], eax
+
+    mov rcx, 2
+    call malloc
+    mov [rbp - 32], rax
+
+    mov rcx, rax
     mov rdx, [rel GAME_PTR]
     mov rdx, [rdx + game.options_ptr]
     mov edx, [rdx + options.lvl]
-    call printf
+    mov r8, 2
+    call helper_parse_int_to_string
+
+    mov ecx, [rbp - 24]
+    mov rdx, rax
+    mov r8, 2
+    xor r9, r9
+    call console_manager_write_word
+
+    mov rcx, [rbp - 32]
+    call free
 
     mov rsp, rbp
     pop rbp
@@ -570,7 +597,7 @@ _print_level:
 _print_points:
     push rbp
     mov rbp, rsp
-    sub rsp, 56
+    sub rsp, 64
 
     call get_board_width_offset
     mov [rbp - 8], ax
@@ -578,21 +605,32 @@ _print_points:
     call get_board_height_offset
     mov [rbp - 16], ax
 
+    mov rcx, 4
+    call malloc 
+    mov [rbp - 24], rax
+
+    mov rcx, rax
+    mov rdx, [rel GAME_PTR]
+    mov edx, [rdx + game.points]
+    mov r8, 4
+    call helper_parse_int_to_string
+
     mov r8, [rel GAME_PTR]
     mov r8, [r8 + game.board_ptr]
     movzx rcx, word [r8 + board.width]
     add cx, [rbp - 8]
-    sub cx, 4
+    sub cx, 3
     shl rcx, 16
     mov cx, [r8 + board.height]
     add cx, [rbp - 16]
     inc cx
-    call console_manager_set_cursor
+    mov rdx, rax
+    mov r8, 4
+    xor r9, r9
+    call console_manager_write_word
 
-    lea rcx, [rel points_format]
-    mov rdx, [rel GAME_PTR]
-    mov edx, [rdx + game.points]
-    call printf
+    mov rcx, [rbp - 24]
+    call free
 
     mov rsp, rbp
     pop rbp
@@ -601,13 +639,25 @@ _print_points:
 _print_highscore:
     push rbp
     mov rbp, rsp
-    sub rsp, 56
+    sub rsp, 72
 
     call get_board_width_offset
     mov [rbp - 8], ax
 
     call get_board_height_offset
     mov [rbp - 16], ax
+
+    mov rcx, 4
+    call malloc 
+    mov [rbp - 24], rax
+
+    mov rcx, rax
+    mov rdx, [rel GAME_PTR]
+    mov rdx, [rdx + game.options_ptr]
+    mov rdx, [rdx + options.player_ptr]
+    mov edx, [rdx + player.highscore]
+    mov r8, 4
+    call helper_parse_int_to_string
 
     mov r8, [rel GAME_PTR]
     mov r8, [r8 + game.board_ptr]
@@ -617,14 +667,25 @@ _print_highscore:
     shl rcx, 16
     mov cx, [rbp - 16]
     dec cx
-    call console_manager_set_cursor
+    mov [rbp - 32], ecx
+    lea rdx, [rel best_format]
+    mov r8, best_length
+    xor r9, r9
+    call console_manager_write_word
 
-    lea rcx, [rel highscore_format]
-    mov rdx, [rel GAME_PTR]
-    mov rdx, [rdx + game.options_ptr]
-    mov rdx, [rdx + options.player_ptr]
-    mov edx, [rdx + player.highscore]
-    call printf
+    mov ecx, [rbp - 32]
+    mov rdx, best_length
+    xor r8, r8
+    call helper_change_position
+
+    mov ecx, eax
+    mov rdx, [rbp - 24]
+    mov r8, 4
+    xor r9, r9
+    call console_manager_write_word
+
+    mov rcx, [rbp - 24]
+    call free
 
     mov rsp, rbp
     pop rbp

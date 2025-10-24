@@ -7,7 +7,6 @@ section .text
     global main
     extern interactor_new, interactor_create_game, interactor_setup, interactor_start_game, interactor_replay_game
     extern game_setup, game_start
-    extern printf
 
 main:
     push rbp

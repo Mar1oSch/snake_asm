@@ -4,13 +4,15 @@ introduction:
     .string2 db "Is this the first time you are entering this dangerous territory?"
     .string3 db "[Y]es / [N]o"
     .string4 db 0
+    .string5 db 0
 introduction_end:
 
 intro_table:
     dq introduction.string1, (introduction.string2 - introduction.string1)
     dq introduction.string2, (introduction.string3 - introduction.string2)
     dq introduction.string3, (introduction.string4 - introduction.string3)
-    dq introduction.string4, (introduction_end - introduction.string4)
+    dq introduction.string4, (introduction.string5 - introduction.string4)
+    dq introduction.string5, (introduction_end - introduction.string5)
 intro_table_end:
 intro_table_size equ (intro_table_end - intro_table) /16
 
@@ -20,32 +22,19 @@ new_player:
     .string2 db "What is your name, adventurer?"
     .string3 db "(Max 15 signs)"
     .string4 db 0
+    .string5 db 0
 new_player_end:
 
 new_player_table:
     dq new_player.string1, (new_player.string2 - new_player.string1)
     dq new_player.string2, (new_player.string3 - new_player.string2)
     dq new_player.string3, (new_player.string4 - new_player.string3)
-    dq new_player.string4, (new_player_end - new_player.string4)
+    dq new_player.string3, (new_player.string5 - new_player.string4)
+    dq new_player.string4, (new_player_end - new_player.string5)
 new_player_table_end:
 new_player_table_size equ (new_player_table_end - new_player_table) /16
 
 ;;;;;; FILE PLAYER CREATION ;;;;;;
-file_player:
-    .string1 db "Welcome back then."
-    .string2 db "What is your name?"
-    .string3 db "(Max 15 signs)"
-    .string4 db 0
-file_player_end:
-
-file_player_table:
-    dq file_player.string1, (file_player.string2 - file_player.string1)
-    dq file_player.string2, (file_player.string3 - file_player.string2)
-    dq file_player.string3, (file_player.string4 - file_player.string3)
-    dq file_player.string4, (file_player_end - file_player.string4)
-file_player_table_end:
-file_player_table_size equ (file_player_table_end - file_player_table) /16
-
 file_player_headline:
     db "Who are you?"
 file_player_headline_end:
@@ -60,6 +49,7 @@ level_creation:
     .string5 db 0
     .string6 db "[1] [2] [3] [4] [5] [6] [7] [8] [9]"
     .string7 db 0
+    .string8 db 0
 level_creation_end:
 
 level_creation_table:
@@ -69,7 +59,8 @@ level_creation_table:
     dq level_creation.string4, (level_creation.string5 - level_creation.string4)
     dq level_creation.string5, (level_creation.string6 - level_creation.string5)
     dq level_creation.string6, (level_creation.string7 - level_creation.string6)
-    dq level_creation.string7, (level_creation_end - level_creation.string7)
+    dq level_creation.string7, (level_creation.string8 - level_creation.string7)
+    dq level_creation.string8, (level_creation_end - level_creation.string8)
 level_creation_table_end:
 level_creation_table_size equ (level_creation_table_end - level_creation_table) /16
 
@@ -104,3 +95,23 @@ after_game_table:
     dq after_game.string12, (after_game_end - after_game.string12)
 after_game_table_end:
 after_game_table_size equ (after_game_table_end - after_game_table) /16
+
+
+;;;;;; LEVEL CHANGE ;;;;;;
+;;;;;; LEVEL CREATION ;;;;;;
+level_change:
+    .string1 db "Which level do you want to play?"
+    .string2 db 0
+    .string3 db "[1] [2] [3] [4] [5] [6] [7] [8] [9]"
+    .string4 db 0
+    .string5 db 0
+level_change_end:
+
+level_change_table:
+    dq level_change.string1, (level_change.string2 - level_change.string1)
+    dq level_change.string2, (level_change.string3 - level_change.string2)
+    dq level_change.string3, (level_change.string4 - level_change.string3)
+    dq level_change.string4, (level_change.string5 - level_change.string4)
+    dq level_change.string5, (level_change_end - level_change.string5)
+level_change_table_end:
+level_change_table_size equ (level_change_table_end - level_change_table) /16

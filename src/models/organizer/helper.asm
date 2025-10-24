@@ -1,4 +1,4 @@
-global helper_get_digits_of_number, helper_parse_saved_number_to_written_number, helper_is_input_just_numbers, helper_parse_string_to_int, helper_merge_sort_list
+global helper_get_digits_of_number, helper_parse_saved_number_to_written_number, helper_is_input_just_numbers, helper_parse_string_to_int, helper_parse_int_to_string, helper_merge_sort_list, helper_change_position
 section .data
     convert_number db "0000", 0
 
@@ -12,11 +12,11 @@ helper_get_digits_of_number:
 
     ; Expect number in RCX.
     mov rax, rcx
-    mov rbx, 10
+    mov r8, 10
     xor rcx, rcx
 .loop:
     xor rdx, rdx
-    div rbx
+    div r8
     test rax, rax
     jz .last_step
     inc rcx
@@ -41,16 +41,17 @@ helper_is_input_just_numbers:
     ; Expect pointer to string in RCX.
     ; Expect number of digits to parse in RDX.
     mov [rbp - 8], rdx
+
     mov rax, rcx
     mov rcx, rdx
 
 .loop:
-    mov bl, [rax]
-    cmp bl, 13
+    mov dl, [rax]
+    cmp dl, 13
     je .check_rcx
-    cmp bl, "0"
+    cmp dl, "0"
     jb .wrong
-    cmp bl, "9"
+    cmp dl, "9"
     ja .wrong
     inc rax
     loop .loop
@@ -66,6 +67,38 @@ helper_is_input_just_numbers:
     xor rax, rax
 
 .complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+helper_parse_int_to_string:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect pointer to save number to in RCX.
+    ; Expect number in RDX.
+    ; Expect number of digits to write in R8.
+    mov rdi, rcx
+    mov rax, rdx
+    mov rcx, r8
+
+    mov r9, 10
+    add rdi, rcx
+    dec rdi
+
+.loop:
+    xor rdx, rdx
+    div r9 
+    add dl, "0"
+    mov [rdi], dl
+    dec rdi
+    loop .loop
+
+.complete:
+    mov rax, rdi
+    inc rax
+
     mov rsp, rbp
     pop rbp
     ret
@@ -258,6 +291,24 @@ helper_merge_sort_list:
     mov rax, rcx
     mov rsp, rbp
     jmp .complete
+
+helper_change_position:
+    push rbp
+    mov rbp, rsp
+
+    ; Expect position in ECX.
+    ; Expect new X-Value (word) in DX.
+    ; Expect new Y-Value (word) in R8W.
+    add cx, r8w
+    ror rcx, 16
+    add cx, dx
+    rol rcx, 16
+
+    mov eax, ecx
+
+    mov rsp, rbp
+    pop rbp
+    ret
 
 ;;;;;; PRIVATE FUNCTIONS ;;;;;;
 _get_digits_in_string:

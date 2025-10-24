@@ -11,7 +11,8 @@ global designer_new, designer_destroy, designer_start_screen, designer_clear, de
 
 section .rodata
 ;;;;;; TABLE ;;;;;;
-pagination_format db "[%d]", 0
+opened_brace db "["
+closed_brace db "]"
 
 section .bss
     DESIGNER_PTR resq 1
@@ -20,9 +21,9 @@ section .text
     extern malloc, free
     extern Sleep
 
-    extern printf
-
     extern console_manager_new, console_manager_write_word, console_manager_clear, console_manager_set_cursor_to_end, console_manager_write_char, console_manager_get_width_to_center_offset, console_manager_set_cursor
+
+    extern helper_parse_int_to_string, helper_get_digits_of_number, helper_change_position
 
 designer_new:
     push rbp
@@ -316,17 +317,52 @@ _show_name:
 _table_pagination:
     push rbp
     mov rbp, rsp
-    sub rsp, 48
+    sub rsp, 72
 
     ; Expect X- and Y- Coordinates in ECX.
     ; Expect count in RDX.
-    mov [rbp - 8], rdx
+    mov [rbp - 8], ecx
+    mov [rbp - 16], rdx
 
-    call console_manager_set_cursor
+    lea rdx, [rel opened_brace]
+    call console_manager_write_char
 
-    lea rcx, [rel pagination_format]
-    mov rdx, [rbp - 8]
-    call printf
+    mov rcx, [rbp - 16]
+    call helper_get_digits_of_number
+    mov [rbp - 24], rax
+
+    mov rcx, rax
+    call malloc
+
+    mov rcx, rax
+    mov rdx, [rbp - 16]
+    mov r8, [rbp - 24]
+    call helper_parse_int_to_string
+    mov [rbp - 32], rax
+
+    mov ecx, [rbp - 8]
+    mov rdx, 1
+    xor r8, r8
+    call helper_change_position
+    mov [rbp - 8], eax
+
+    mov ecx, eax
+    mov rdx, [rbp - 32]
+    mov r8, [rbp - 24]
+    xor r9, r9
+    call console_manager_write_word
+
+    mov ecx, [rbp - 8]
+    mov rdx, [rbp - 24]
+    xor r8, r8
+    call helper_change_position
+
+    mov ecx, eax
+    lea rdx, [rel closed_brace]
+    call console_manager_write_char
+
+    mov rcx, [rbp - 32]
+    call free
 
     mov rsp, rbp
     pop rbp

@@ -7,6 +7,7 @@
 %include "../include/strucs/organizer/table/table_struc.inc"
 %include "../include/strucs/game/game_struc.inc"
 %include "../include/strucs/game/player_struc.inc"
+%include "../include/strucs/game/options_struc.inc"
 
 global interactor_new, interactor_setup, interactor_create_game, interactor_start_game, interactor_destroy, interactor_replay_game
 
@@ -38,7 +39,6 @@ section .bss
 
 section .text
     extern malloc, free
-    extern printf
     extern Sleep
 
     extern console_manager_get_literal_input, console_manager_get_numeral_input
@@ -47,7 +47,7 @@ section .text
     extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file
     extern player_new, get_player_name_length, get_player
     extern helper_get_digits_of_number, helper_get_digits_in_string, helper_is_input_just_numbers, helper_parse_string_to_int, helper_parse_saved_number_to_written_number
-    extern options_new
+    extern options_new, options_destroy
 
 interactor_new:
     push rbp
@@ -158,9 +158,14 @@ interactor_replay_game:
     sub rsp, 40
 
 .loop:
-    call _after_game_dialogue
+    call _show_options_table
+    mov rcx, [rel INTERACTOR_PTR]
+    mov rcx, [rcx + interactor.game_ptr]
+    mov rcx, [rcx + game.options_ptr]
+    call _handle_options
     test rax, rax
     jz .complete
+    mov rcx, rax
     call game_reset
     jmp .loop
 
@@ -215,7 +220,7 @@ _create_player_from_file:
     mov rbp, rsp
     sub rsp, 40
 
-    call _create_leaderboard
+    call _show_leaderboard
 
     call file_manager_get_num_of_entries
     mov [rbp - 8], rax
@@ -265,7 +270,7 @@ _create_new_player:
     pop rbp
     ret
 
-_create_leaderboard:
+_show_leaderboard:
     push rbp
     mov rbp, rsp
     sub rsp, 64
@@ -295,23 +300,15 @@ _get_player_index:
     call helper_get_digits_of_number
     mov [rbp - 16], rax
 
-    mov rcx, rax
-    call malloc
-    mov [rbp - 24], rax
-
 .loop:
-    mov rcx, [rbp - 24]
-    mov rdx, [rbp - 16]
+    mov rcx, [rbp - 16]
     call console_manager_get_numeral_input
     cmp rax, [rbp - 8]
     ja .loop
-    mov [rbp - 32], rax
+    mov [rbp - 24], rax
 
 .complete:
-    mov rcx, [rbp - 24]
-    call free
-
-    mov rax, [rbp - 32]
+    mov rax, [rbp - 24]
     mov rsp, rbp
     pop rbp
     ret
@@ -376,8 +373,7 @@ _create_level:
     call designer_type_sequence
 
 .loop:              
-    lea rcx, [rbp - 8]
-    mov rdx, 1
+    mov rcx, 1
     call console_manager_get_numeral_input
     cmp rax, 9
     ja .loop
@@ -386,7 +382,30 @@ _create_level:
     pop rbp
     ret
 
-_after_game_dialogue:
+_change_level:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    call designer_clear
+
+    lea rcx, [rel level_change_table]
+    mov rdx, level_change_table_size
+    xor r8, r8
+    call designer_type_sequence
+
+.loop:
+    mov rcx, 1
+    call console_manager_get_numeral_input
+    cmp rax, 9
+    ja .loop
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_show_options_table:
     push rbp
     mov rbp, rsp
     sub rsp, 40
@@ -396,8 +415,79 @@ _after_game_dialogue:
 
     lea rcx, [rel after_game_table]
     mov rdx, after_game_table_size
-    mov r8, 0
+    xor r8, r8
     call designer_type_sequence
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_handle_options:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 48
+
+    ; Save non-volatile regs.
+    mov [rbp - 8], rbx
+
+    ; Expect pointer to old options in RCX.
+    mov [rbp - 16], rcx
+
+    mov rbx, rcx
+.loop:
+    mov rcx, 1
+    call console_manager_get_numeral_input
+    cmp rax, 6
+    ja .loop
+
+    lea rdx, [rel .options_table]
+    dec rax
+    mov rax, [rdx + rax * 8]
+    jmp rax
+
+.options_table:
+    dq .handle_replay
+    dq .handle_change_player
+    dq .handle_change_level
+    dq .handle_change_both
+    dq .handle_show_leaderboard
+    dq .handle_exit
+
+.handle_replay:
+    mov rax, [rbp - 16]
+    jmp .complete
+
+.handle_change_player:
+    mov rax, 1
+    jmp .complete
+
+.handle_change_level:
+    call _change_level
+    mov rcx, [rbx + options.player_ptr]
+    mov rdx, rax
+    call options_new
+    mov [rbp - 24], rax
+
+    mov rcx, [rbp - 16]
+    call options_destroy
+
+    mov rax, [rbp - 24]
+    jmp .complete
+
+.handle_change_both:
+    mov rax, 1
+    jmp .complete
+
+.handle_show_leaderboard:
+    mov rax, 1
+    jmp .loop
+
+.handle_exit:
+    xor rax, rax
+
+.complete:
+    ; Restore non volatile regs.
+    mov rbx, [rbp - 8]
 
     mov rsp, rbp
     pop rbp
