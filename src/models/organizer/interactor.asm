@@ -45,7 +45,7 @@ section .text
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence, designer_write_table, designer_write_headline
     extern game_new, game_start, game_reset
     extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file
-    extern player_new, get_player_name_length, get_player
+    extern player_new, player_destroy, get_player_name_length, get_player
     extern helper_get_digits_of_number, helper_get_digits_in_string, helper_is_input_just_numbers, helper_parse_string_to_int, helper_parse_saved_number_to_written_number
     extern options_new, options_destroy
 
@@ -208,6 +208,44 @@ _create_player:
     jmp .complete
 
 .create_new_player:
+    call _create_new_player
+
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_change_player:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    call player_destroy
+
+    call designer_clear
+
+    lea rcx, [rel player_change_table]
+    mov rdx, player_change_table_size
+    xor r8, r8
+    call designer_type_sequence
+
+.loop:
+    lea rcx, [rbp - 8]
+    mov rdx, 1
+    call console_manager_get_literal_input
+    mov al, [rbp - 8]
+    and al, 0xDF
+    cmp al, "N"
+    je .change_new_player
+    cmp al, "E"
+    je .change_existing_player
+    jmp .loop
+
+.change_existing_player:
+    call _create_player_from_file
+    jmp .complete
+
+.change_new_player:
     call _create_new_player
 
 .complete:
@@ -458,7 +496,16 @@ _handle_options:
     jmp .complete
 
 .handle_change_player:
-    mov rax, 1
+    call _change_player
+    mov rcx, rax
+    mov edx, [rbx + options.lvl]
+    call options_new
+    mov [rbp - 24], rax
+
+    mov rcx, [rbp - 16]
+    call options_destroy
+
+    mov rax, [rbp - 24]
     jmp .complete
 
 .handle_change_level:
@@ -475,7 +522,21 @@ _handle_options:
     jmp .complete
 
 .handle_change_both:
-    mov rax, 1
+    call _change_player
+    mov [rbp - 24], rax
+
+    call _change_level
+    mov rdx, rax
+
+    mov rcx, [rbp - 24]
+    mov rdx, rax
+    call options_new
+    mov [rbp - 24], rax
+
+    mov rcx, [rbp - 16]
+    call options_destroy
+
+    mov rax, [rbp - 24]
     jmp .complete
 
 .handle_show_leaderboard:

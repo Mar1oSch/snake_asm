@@ -700,7 +700,7 @@ _get_delay:
     mov eax, [rax + options.lvl]
 
     cmp rax, 9
-    ja  .invalid
+    ja .invalid
 
     lea rdx, [rel .delay_table]
 

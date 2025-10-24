@@ -83,6 +83,7 @@ player_destroy:
     sub rsp, 40
 
     call free
+    mov qword [rel PLAYER_PTR], 0
 
     mov rsp, rbp
     pop rbp

@@ -98,7 +98,6 @@ after_game_table_size equ (after_game_table_end - after_game_table) /16
 
 
 ;;;;;; LEVEL CHANGE ;;;;;;
-;;;;;; LEVEL CREATION ;;;;;;
 level_change:
     .string1 db "Which level do you want to play?"
     .string2 db 0
@@ -115,3 +114,21 @@ level_change_table:
     dq level_change.string5, (level_change_end - level_change.string5)
 level_change_table_end:
 level_change_table_size equ (level_change_table_end - level_change_table) /16
+
+;;;;;; PLAYER CHANGE ;;;;;;
+player_change:
+    .string1 db "Change to a(n):"
+    .string2 db 0
+    .string3 db "[N]ew Player / [E]xisting Player"
+    .string4 db 0
+    .string5 db 0
+player_change_end:
+
+player_change_table:
+    dq player_change.string1, (player_change.string2 - player_change.string1)
+    dq player_change.string2, (player_change.string3 - player_change.string2)
+    dq player_change.string3, (player_change.string4 - player_change.string3)
+    dq player_change.string4, (player_change.string5 - player_change.string4)
+    dq player_change.string5, (player_change_end - player_change.string5)
+player_change_table_end:
+player_change_table_size equ (player_change_table_end - player_change_table) /16
