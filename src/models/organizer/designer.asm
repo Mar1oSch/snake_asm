@@ -163,7 +163,7 @@ designer_write_headline:
 designer_write_table:
     push rbp
     mov rbp, rsp
-    sub rsp, 120
+    sub rsp, 112
 
     ; Save non-volatile regs.
     mov [rbp - 8], r15
@@ -317,7 +317,7 @@ _show_name:
 _table_pagination:
     push rbp
     mov rbp, rsp
-    sub rsp, 72
+    sub rsp, 80
 
     ; Expect X- and Y- Coordinates in ECX.
     ; Expect count in RDX.

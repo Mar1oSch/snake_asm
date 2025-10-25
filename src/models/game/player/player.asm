@@ -77,11 +77,11 @@ player_update_highscore:
     ret
 
 player_destroy:
-    ; Expect pointer to player object in RCX
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
+    mov rcx, [rel PLAYER_PTR]
     call free
     mov qword [rel PLAYER_PTR], 0
 
