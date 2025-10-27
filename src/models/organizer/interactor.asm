@@ -44,7 +44,7 @@ section .text
     extern console_manager_get_literal_input, console_manager_get_numeral_input
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence, designer_write_table, designer_write_headline
     extern game_new, game_start, game_reset
-    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file
+    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file, file_manager_update_table_content
     extern player_new, player_destroy, get_player_name_length, get_player
     extern helper_get_digits_of_number, helper_get_digits_in_string, helper_is_input_just_numbers, helper_parse_string_to_int, helper_parse_saved_number_to_written_number
     extern options_new, options_destroy
@@ -52,7 +52,7 @@ section .text
 interactor_new:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     cmp qword [rel INTERACTOR_PTR], 0
     jne .complete
@@ -90,6 +90,7 @@ interactor_destroy:
 
     mov rcx, [rel INTERACTOR_PTR]
     call free
+    mov qword [rel INTERACTOR_PTR], 0
 
     mov rsp, rbp
     pop rbp
@@ -158,7 +159,6 @@ interactor_replay_game:
     sub rsp, 40
 
 .loop:
-    call _show_options_table
     mov rcx, [rel INTERACTOR_PTR]
     mov rcx, [rcx + interactor.game_ptr]
     mov rcx, [rcx + game.options_ptr]
@@ -218,7 +218,7 @@ _create_player:
 _change_player:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     call player_destroy
 
@@ -256,7 +256,13 @@ _change_player:
 _create_player_from_file:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
+
+    call designer_clear
+
+    lea rcx, [rel file_player_headline]
+    mov rdx, file_player_headline_length
+    call designer_write_headline
 
     call _show_leaderboard
 
@@ -282,7 +288,7 @@ _create_player_from_file:
 _create_new_player:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     ; Clear console before writing new sequence.
     call designer_clear
@@ -311,16 +317,16 @@ _create_new_player:
 _show_leaderboard:
     push rbp
     mov rbp, rsp
-    sub rsp, 64
-
-    call designer_clear
-
-    lea rcx, [rel file_player_headline]
-    mov rdx, file_player_headline_length
-    call designer_write_headline
+    sub rsp, 40
 
     mov rcx, [rel INTERACTOR_PTR]
     mov rcx, [rcx + interactor.table_ptr]
+    mov rcx, [rcx + table.content_ptr]
+    call file_manager_update_table_content
+
+    mov rcx, [rel INTERACTOR_PTR]
+    mov rcx, [rcx + interactor.table_ptr]
+    mov [rcx + table.content_ptr], rax
     call designer_write_table
 
     mov rsp, rbp
@@ -330,7 +336,7 @@ _show_leaderboard:
 _get_player_index:
     push rbp
     mov rbp, rsp
-    sub rsp, 72
+    sub rsp, 64
 
     ; Expect num of entries in RCX.
     mov [rbp - 8], rcx
@@ -343,6 +349,8 @@ _get_player_index:
     call console_manager_get_numeral_input
     cmp rax, [rbp - 8]
     ja .loop
+    cmp rax, 1
+    jb .loop
     mov [rbp - 24], rax
 
 .complete:
@@ -415,6 +423,8 @@ _create_level:
     call console_manager_get_numeral_input
     cmp rax, 9
     ja .loop
+    cmp rax, 1
+    jb .loop
 
     mov rsp, rbp
     pop rbp
@@ -437,6 +447,8 @@ _change_level:
     call console_manager_get_numeral_input
     cmp rax, 9
     ja .loop
+    cmp rax, 1
+    jb .loop
 
 .complete:
     mov rsp, rbp
@@ -463,7 +475,7 @@ _show_options_table:
 _handle_options:
     push rbp
     mov rbp, rsp
-    sub rsp, 48
+    sub rsp, 72
 
     ; Save non-volatile regs.
     mov [rbp - 8], rbx
@@ -473,6 +485,10 @@ _handle_options:
 
     mov rbx, rcx
 .loop:
+    call designer_clear
+
+    call _show_options_table
+
     mov rcx, 1
     call console_manager_get_numeral_input
     cmp rax, 6
@@ -540,7 +556,18 @@ _handle_options:
     jmp .complete
 
 .handle_show_leaderboard:
-    mov rax, 1
+    call designer_clear
+
+    lea rcx, [rel leaderboard_headline]
+    mov rdx, leaderboard_headline_length
+    call designer_write_headline
+
+    call _show_leaderboard
+
+    lea rcx, [rbp - 32]
+    mov rdx, 1
+    call console_manager_get_literal_input
+
     jmp .loop
 
 .handle_exit:
@@ -562,7 +589,6 @@ _get_yes_no:
 .loop:
     lea rcx, [rel INTERACTOR_YES_NO]
     mov rdx, 1
-    lea r8, [rbp - 8]
     call console_manager_get_literal_input
 .afterwards:
     mov al, [rel INTERACTOR_YES_NO]

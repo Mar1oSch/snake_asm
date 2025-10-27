@@ -31,6 +31,7 @@ section .text
     extern SetConsoleCursorPosition
     extern WriteConsoleA, ReadConsoleA
     extern GetConsoleScreenBufferInfo, GetNumberOfConsoleInputEvents
+    extern SetConsoleScreenBufferSize
     extern FillConsoleOutputCharacterA
 
 ;;;;;; PUBLIC METHODS ;;;;;;

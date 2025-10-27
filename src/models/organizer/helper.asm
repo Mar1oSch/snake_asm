@@ -8,7 +8,6 @@ section .text
 helper_get_digits_of_number:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
 
     ; Expect number in RCX.
     mov rax, rcx
@@ -76,6 +75,9 @@ helper_parse_int_to_string:
     mov rbp, rsp
     sub rsp, 40
 
+    ; Save non-volatile regs.
+    mov [rbp - 8], rdi
+
     ; Expect pointer to save number to in RCX.
     ; Expect number in RDX.
     ; Expect number of digits to write in R8.
@@ -96,8 +98,10 @@ helper_parse_int_to_string:
     loop .loop
 
 .complete:
-    mov rax, rdi
-    inc rax
+    lea rax, [rdi + 1]
+
+    ; Restore non-volatile regs.
+    mov rdi, [rbp - 8]
 
     mov rsp, rbp
     pop rbp

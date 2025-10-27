@@ -474,7 +474,7 @@ _check_food_collission:
 _add_points:
     push rbp
     mov rbp, rsp
-    sub rsp, 48
+    sub rsp, 40
 
     cmp qword [rel GAME_PTR], 0
     je _g_object_failed
@@ -494,7 +494,7 @@ _add_points:
 _build_scoreboard:
     push rbp
     mov rbp, rsp
-    sub rsp, 48
+    sub rsp, 40
 
     cmp qword [rel GAME_PTR], 0
     je _g_object_failed

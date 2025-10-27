@@ -1,6 +1,6 @@
 %include "../include/strucs/organizer/file_manager_struc.inc"
 
-global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_record_by_index, file_manager_find_name, file_manager_update_highscore, file_manager_get_record_length, file_manager_get_num_of_entries, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file
+global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_record_by_index, file_manager_find_name, file_manager_update_highscore, file_manager_get_record_length, file_manager_get_num_of_entries, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file, file_manager_update_table_content
 
 section .rodata
     leaderboard_file_name db "leaderboard.bin", 0  
@@ -56,7 +56,7 @@ section .bss
     FILE_MANAGER_BYTES_WRITTEN resd 1
 
 section .text
-    extern malloc, free
+    extern malloc, realloc, free
     extern CreateFileA, CloseHandle
     extern ReadFile, WriteFile
     extern GetFileSizeEx, SetFilePointerEx
@@ -100,6 +100,7 @@ file_manager_destroy:
 
     mov rcx, [rel FILE_MANAGER_PTR]
     call free
+    mov qword [rel FILE_MANAGER_PTR], 0
 
     mov rsp, rbp
     pop rbp
@@ -108,7 +109,7 @@ file_manager_destroy:
 file_manager_add_leaderboard_record:
     push rbp
     mov rbp, rsp
-    sub rsp, 72
+    sub rsp, 56
 
     ; Expect pointer to player_name in RCX.
     ; Expect highscore in RDX.
@@ -121,11 +122,11 @@ file_manager_add_leaderboard_record:
 
     mov rcx, [rbp - 8]
     mov rdx, FILE_NAME_SIZE
-    call _write
+    call _fm_write
 
     lea rcx, [rbp - 16]
     mov rdx, FILE_HIGHSCORE_SIZE
-    call _write
+    call _fm_write
 
     mov rsp, rbp
     pop rbp
@@ -134,7 +135,7 @@ file_manager_add_leaderboard_record:
 file_manager_get_record_by_index:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     ; Expect buffer to player_struc in RCX.
     ; Expect index of player in file in RDX.
@@ -146,7 +147,7 @@ file_manager_get_record_by_index:
 
     mov rcx, [rbp - 8]
     mov rdx, FILE_RECORD_SIZE
-    call _read
+    call _fm_read
 
     mov rsp, rbp
     pop rbp
@@ -157,7 +158,7 @@ file_manager_get_record_by_index:
 file_manager_find_name:
     push rbp
     mov rbp, rsp
-    sub rsp, 80
+    sub rsp, 72
 
     ; Save non-volatile registers.
     mov [rbp - 8], rsi
@@ -217,7 +218,7 @@ file_manager_update_highscore:
 
     lea rcx, [rbp - 8]
     mov rdx, FILE_HIGHSCORE_SIZE
-    call _write
+    call _fm_write
 
     call _update_leaderboard_in_file
 
@@ -287,6 +288,31 @@ file_manager_create_table_from_file:
     call table_manager_add_content
 
     mov rax, [rbp - 16]
+    mov rsp, rbp
+    pop rbp
+    ret
+
+file_manager_update_table_content:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 48
+
+    ; Expect pointer to table_content in RCX.
+    mov [rbp - 8], rcx
+
+    call file_manager_get_total_bytes
+    mov rdx, rax
+    mov rcx, [rbp - 8]
+    call realloc
+    mov [rbp - 8], rax
+
+    call _update_leaderboard_in_file
+
+    mov rcx, [rbp - 8]
+    call _get_all_records
+
+    mov rax, [rbp - 8]
+
     mov rsp, rbp
     pop rbp
     ret
@@ -364,7 +390,7 @@ _set_pointer_start:
     pop rbp
     ret
 
-_read:
+_fm_read:
     push rbp
     mov rbp, rsp
     sub rsp, 48
@@ -384,7 +410,7 @@ _read:
     pop rbp
     ret
 
-_write:
+_fm_write:
     push rbp
     mov rbp, rsp
     sub rsp, 48
@@ -419,7 +445,7 @@ _get_name:
 
     mov rcx, [rbp - 8]
     mov rdx, FILE_NAME_SIZE
-    call _read
+    call _fm_read
 
     mov rax, [rbp - 8]
     mov rsp, rbp
@@ -443,7 +469,7 @@ _get_all_records:
 
     mov rcx, [rbp - 8]
     mov rdx, [rbp - 16]
-    call _read
+    call _fm_read
 
     mov rax, [rbp - 8]
     mov rsp, rbp
@@ -482,7 +508,7 @@ _update_leaderboard_in_file:
 
     mov rcx, [rbp - 24]
     mov rdx, [rbp - 8]
-    call _write
+    call _fm_write
 
     mov rcx, [rbp - 16]
     call free
@@ -516,7 +542,7 @@ _ensure_header_initialized:
 
     lea rcx, [rel FILE_MANAGER_HEADER]
     mov rdx, HEADER_SIZE
-    call _read
+    call _fm_read
     test eax, eax
     jz .init_header
 
@@ -536,7 +562,7 @@ _ensure_header_initialized:
 
     lea rcx, [rel header_template]
     mov rdx, HEADER_SIZE
-    call _write
+    call _fm_write
 
     xor rax, rax
 

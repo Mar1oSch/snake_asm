@@ -55,6 +55,7 @@ designer_destroy:
 
     mov rcx, [rel DESIGNER_PTR]
     call free
+    mov qword [rel DESIGNER_PTR], 0
 
     mov rsp, rbp
     pop rbp
@@ -88,7 +89,7 @@ designer_clear:
 designer_type_sequence:
     push rbp
     mov rbp, rsp
-    sub rsp, 48
+    sub rsp, 80
 
     ; Save non-volatile regs.
     mov [rbp - 8], r15
@@ -291,7 +292,7 @@ _show_headline:
 _show_name:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 48
 
     ; Save non-volatile regs.
     mov [rbp - 8], r15
@@ -317,7 +318,7 @@ _show_name:
 _table_pagination:
     push rbp
     mov rbp, rsp
-    sub rsp, 80
+    sub rsp, 72
 
     ; Expect X- and Y- Coordinates in ECX.
     ; Expect count in RDX.
@@ -331,12 +332,8 @@ _table_pagination:
     call helper_get_digits_of_number
     mov [rbp - 24], rax
 
-    mov rcx, rax
-    call malloc
-
-    mov rcx, rax
-    mov rdx, [rbp - 16]
-    mov r8, [rbp - 24]
+    mov rcx, [rbp - 16]
+    mov rdx, [rbp - 24]
     call helper_parse_int_to_string
     mov [rbp - 32], rax
 

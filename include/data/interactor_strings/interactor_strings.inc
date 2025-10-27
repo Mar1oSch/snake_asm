@@ -29,8 +29,8 @@ new_player_table:
     dq new_player.string1, (new_player.string2 - new_player.string1)
     dq new_player.string2, (new_player.string3 - new_player.string2)
     dq new_player.string3, (new_player.string4 - new_player.string3)
-    dq new_player.string3, (new_player.string5 - new_player.string4)
-    dq new_player.string4, (new_player_end - new_player.string5)
+    dq new_player.string4, (new_player.string5 - new_player.string4)
+    dq new_player.string5, (new_player_end - new_player.string5)
 new_player_table_end:
 new_player_table_size equ (new_player_table_end - new_player_table) /16
 
@@ -132,3 +132,10 @@ player_change_table:
     dq player_change.string5, (player_change_end - player_change.string5)
 player_change_table_end:
 player_change_table_size equ (player_change_table_end - player_change_table) /16
+
+;;;;;; SHOW LEADERBOARD ;;;;;;
+leaderboard_headline:
+    db "SNAKE LEGENDS"
+leaderboard_headline_end:
+
+leaderboard_headline_length equ leaderboard_headline_end - leaderboard_headline
