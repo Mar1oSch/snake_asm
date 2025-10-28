@@ -44,7 +44,7 @@ section .text
     extern console_manager_get_literal_input, console_manager_get_numeral_input
     extern designer_new, designer_start_screen, designer_clear, designer_type_sequence, designer_write_table, designer_write_headline
     extern game_new, game_start, game_reset
-    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file, file_manager_update_table_content
+    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file, file_manager_update_table
     extern player_new, player_destroy, get_player_name_length, get_player
     extern helper_get_digits_of_number, helper_get_digits_in_string, helper_is_input_just_numbers, helper_parse_string_to_int, helper_parse_saved_number_to_written_number
     extern options_new, options_destroy
@@ -199,6 +199,10 @@ _create_player:
     mov rbp, rsp
     sub rsp, 40
 
+    call file_manager_get_num_of_entries
+    test rax, rax
+    jz .create_new_player
+
     call _get_yes_no
     test rax, rax
     jnz .create_new_player
@@ -321,12 +325,9 @@ _show_leaderboard:
 
     mov rcx, [rel INTERACTOR_PTR]
     mov rcx, [rcx + interactor.table_ptr]
-    mov rcx, [rcx + table.content_ptr]
-    call file_manager_update_table_content
+    call file_manager_update_table
 
-    mov rcx, [rel INTERACTOR_PTR]
-    mov rcx, [rcx + interactor.table_ptr]
-    mov [rcx + table.content_ptr], rax
+    mov rcx, rax
     call designer_write_table
 
     mov rsp, rbp

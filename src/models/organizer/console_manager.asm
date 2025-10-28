@@ -1,6 +1,6 @@
 %include "../include/strucs/organizer/console_manager_struc.inc"
 
-global console_manager_new, console_manager_destroy, console_manager_clear, console_manager_write_char, console_manager_set_cursor, console_manager_erase, console_manager_write_word, console_manager_set_cursor_to_end, console_manager_get_width_to_center_offset, console_manager_get_height_to_center_offset, console_manager_get_numeral_input, console_manager_get_literal_input
+global console_manager_new, console_manager_destroy, console_manager_clear, console_manager_write_char, console_manager_set_cursor, console_manager_erase, console_manager_write_word, console_manager_set_cursor_to_end, console_manager_get_width_to_center_offset, console_manager_get_height_to_center_offset, console_manager_get_numeral_input, console_manager_get_literal_input, console_manager_set_buffer_size, console_manager_write_number
 
 section .rodata
     erase_char db " "
@@ -25,7 +25,8 @@ section .text
 
     extern malloc_failed, object_not_created
 
-    extern helper_parse_saved_number_to_written_number, helper_is_input_just_numbers, helper_parse_string_to_int
+    extern helper_parse_saved_number_to_written_number, helper_is_input_just_numbers, helper_parse_string_to_int, helper_parse_int_to_string
+    extern file_manager_get_num_of_entries
 
     extern GetStdHandle
     extern SetConsoleCursorPosition
@@ -138,6 +139,39 @@ console_manager_write_word:
     pop rbp
     ret
 
+console_manager_write_number:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 80
+
+    ; Expect X- and Y- Coordinates in ECX.
+    ; Expect number in RDX.
+    ; Expect digits to write in R8.
+    mov [rbp - 8], rdx
+    mov [rbp - 16], r8
+
+    call _cm_set_cursor_position
+
+    mov rcx, [rbp - 8]
+    call malloc
+    mov [rbp - 24], rax
+
+    mov rcx, rax
+    mov rdx, [rbp - 8]
+    mov r8, [rbp - 16]
+    call helper_parse_int_to_string
+
+    mov rcx, rax
+    mov rdx, [rbp - 16]
+    call _cm_write
+
+    ; mov rcx, [rbp - 24]
+    ; call free
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
 console_manager_get_numeral_input:
     push rbp
     mov rbp, rsp
@@ -227,7 +261,9 @@ console_manager_set_cursor_to_end:
     mov rbp, rsp
     sub rsp, 48
 
+    ; Save non-volatile regs.
     mov [rbp - 8], r15
+
     mov r15, [rel CONSOLE_MANAGER_PTR]
     movzx rcx, word [r15 + console_manager.window_size + 4]
     sub cx, 2
@@ -236,6 +272,41 @@ console_manager_set_cursor_to_end:
     sub cx, 2
     call _cm_set_cursor_position
 
+.complete:
+    ; Restore non-volatile regs.
+    mov r15, [rbp - 8]
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+console_manager_set_buffer_size:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 56
+
+    ; Expect height and width of new buffer size in ECX.
+    mov [rbp - 8], cx                   ; Save height of new buffer size.
+    shr rcx, 16
+    mov [rbp - 16], cx                  ; Save width of new buffer size.
+
+    call _cm_get_console_info
+
+    mov rcx, [rel CONSOLE_MANAGER_PTR]
+    mov dx, [rcx + console_manager.window_size + 4]
+    inc dx
+    add [rbp - 16], dx
+    mov dx, [rcx + console_manager.window_size + 6]
+    inc dx
+    add [rbp - 8], dx
+
+    mov rcx, [rcx + console_manager.output_handle]
+    movzx rdx, word [rbp - 8]
+    shl rdx, 16
+    mov dx, [rbp - 16]
+    call SetConsoleScreenBufferSize
+
+.complete:
     mov rsp, rbp
     pop rbp
     ret
@@ -265,17 +336,10 @@ _cm_empty_console:
 
     mov rdx, [rel CONSOLE_MANAGER_PTR]
 
-
-    mov cx, word [rel _console_screen_buffer_info]
-    mov word[rbp- 8], cx
-    mov cx, word [rel _console_screen_buffer_info + 2]
-    mov word[rbp - 16], cx
-
     mov rcx, [rdx + console_manager.output_handle]
     mov rdx, " "
-    movzx r8, word [rbp - 8]
-    movzx r9, word [rbp - 16]
-    imul r8, r9
+    movzx r8, word [rel _console_screen_buffer_info]
+    imul r8w, word [rel _console_screen_buffer_info + 2]
     xor r9, r9
     lea r10, [rel CHAR_PTR]
     mov qword [rsp + 32], r10
@@ -302,8 +366,9 @@ _cm_get_console_info:
 
 .complete:
     mov rcx, [rel CONSOLE_MANAGER_PTR]
-    xor rax, rax
-    mov eax, dword [rcx + console_manager.window_size + 4]
+    lea rax, [rel _console_screen_buffer_info]
+    mov rdx, [rax + 10]
+    mov [rcx + console_manager.window_size], rdx
 
     mov rsp, rbp
     pop rbp
@@ -355,7 +420,7 @@ _cm_write:
     cmp qword [rel CONSOLE_MANAGER_PTR], 0
     je _cm_object_failed
 
-    ; Expect pointer to char in RCX.
+    ; Expect pointer to string in RCX.
     ; Expect number of chars to write in RDX.
     mov r8, rdx
     mov rdx, rcx

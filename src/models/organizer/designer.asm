@@ -21,7 +21,7 @@ section .text
     extern malloc, free
     extern Sleep
 
-    extern console_manager_new, console_manager_write_word, console_manager_clear, console_manager_set_cursor_to_end, console_manager_write_char, console_manager_get_width_to_center_offset, console_manager_set_cursor
+    extern console_manager_new, console_manager_write_word, console_manager_clear, console_manager_set_cursor_to_end, console_manager_write_char, console_manager_get_width_to_center_offset, console_manager_set_cursor, console_manager_set_buffer_size, console_manager_write_number
 
     extern helper_parse_int_to_string, helper_get_digits_of_number, helper_change_position
 
@@ -164,7 +164,7 @@ designer_write_headline:
 designer_write_table:
     push rbp
     mov rbp, rsp
-    sub rsp, 112
+    sub rsp, 120
 
     ; Save non-volatile regs.
     mov [rbp - 8], r15
@@ -179,10 +179,10 @@ designer_write_table:
     ; Expect DWORD Struc (Length of Entry, Type of Entry) per Column in R9.
     mov r13, [rcx + table.content_ptr]                                                      ; Save table-pointer in R13.
     mov edx, [rcx + table.column_count]
-    mov [rbp - 32], rdx
-    mov r8d, [rcx + table.row_count]
-    mov [rbp - 40], r8
-    dec qword [rbp - 40]
+    mov [rbp - 32], edx
+    mov edx, [rcx + table.row_count]
+    mov [rbp - 40], edx
+    dec dword [rbp - 40]
     mov r9, [rcx + table.column_format_ptr]
     mov [rbp - 48], r9
 
@@ -196,6 +196,12 @@ designer_write_table:
 
     mov [rbp - 56], ax                                                  ; Save starting X-Coordinate of the table.
     mov word [rbp - 64], 3                                              ; Starting Y-coordinate of the table.
+
+    ; Setting up correct buffer size, so the table is scrollable.
+    xor rcx, rcx
+    mov ecx, [rbp - 40]
+    shl ecx, 1
+    call console_manager_set_buffer_size
 
 .loop:
     .inner_loop:
@@ -306,7 +312,7 @@ _show_name:
     sub cx, 3
     lea rdx, [rel by]
     mov r8, BY_LENGTH
-    xor r9, r9
+    xor r9, r9 
     call console_manager_write_word
 
 .complete:
@@ -318,7 +324,7 @@ _show_name:
 _table_pagination:
     push rbp
     mov rbp, rsp
-    sub rsp, 72
+    sub rsp, 64
 
     ; Expect X- and Y- Coordinates in ECX.
     ; Expect count in RDX.
@@ -332,11 +338,6 @@ _table_pagination:
     call helper_get_digits_of_number
     mov [rbp - 24], rax
 
-    mov rcx, [rbp - 16]
-    mov rdx, [rbp - 24]
-    call helper_parse_int_to_string
-    mov [rbp - 32], rax
-
     mov ecx, [rbp - 8]
     mov rdx, 1
     xor r8, r8
@@ -344,10 +345,9 @@ _table_pagination:
     mov [rbp - 8], eax
 
     mov ecx, eax
-    mov rdx, [rbp - 32]
+    mov rdx, [rbp - 16]
     mov r8, [rbp - 24]
-    xor r9, r9
-    call console_manager_write_word
+    call console_manager_write_number
 
     mov ecx, [rbp - 8]
     mov rdx, [rbp - 24]
@@ -357,9 +357,6 @@ _table_pagination:
     mov ecx, eax
     lea rdx, [rel closed_brace]
     call console_manager_write_char
-
-    mov rcx, [rbp - 32]
-    call free
 
     mov rsp, rbp
     pop rbp

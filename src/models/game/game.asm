@@ -43,7 +43,7 @@ section .text
     extern player_update_highscore, get_player_name_length
     extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset, board_draw_food
     extern snake_add_unit
-    extern console_manager_set_cursor, console_manager_set_cursor_to_end, console_manager_write_word
+    extern console_manager_set_cursor, console_manager_set_cursor_to_end, console_manager_write_word, console_manager_write_number
     extern file_manager_update_highscore, file_manager_find_name
     extern designer_type_sequence
     extern helper_change_position, helper_parse_int_to_string
@@ -533,7 +533,7 @@ _print_player:
     mov rdx, [r9 + game.options_ptr]
     mov rdx, [rdx + options.player_ptr]
     mov rdx, [rdx + player.name]
-    xor r9, r9
+    xor r9, r9 
     call console_manager_write_word
 
     mov rsp, rbp
@@ -568,27 +568,13 @@ _print_level:
     mov rdx, lvl_length
     xor r8, r8
     call helper_change_position
-    mov [rbp - 24], eax
 
-    mov rcx, 2
-    call malloc
-    mov [rbp - 32], rax
-
-    mov rcx, rax
+    mov ecx, eax
     mov rdx, [rel GAME_PTR]
     mov rdx, [rdx + game.options_ptr]
     mov edx, [rdx + options.lvl]
     mov r8, 2
-    call helper_parse_int_to_string
-
-    mov ecx, [rbp - 24]
-    mov rdx, rax
-    mov r8, 2
-    xor r9, r9
-    call console_manager_write_word
-
-    mov rcx, [rbp - 32]
-    call free
+    call console_manager_write_number
 
     mov rsp, rbp
     pop rbp
@@ -605,18 +591,8 @@ _print_points:
     call get_board_height_offset
     mov [rbp - 16], ax
 
-    mov rcx, 4
-    call malloc 
-    mov [rbp - 24], rax
-
-    mov rcx, rax
-    mov rdx, [rel GAME_PTR]
-    mov edx, [rdx + game.points]
-    mov r8, 4
-    call helper_parse_int_to_string
-
-    mov r8, [rel GAME_PTR]
-    mov r8, [r8 + game.board_ptr]
+    mov r9, [rel GAME_PTR]
+    mov r8, [r9 + game.board_ptr]
     movzx rcx, word [r8 + board.width]
     add cx, [rbp - 8]
     sub cx, 3
@@ -624,13 +600,9 @@ _print_points:
     mov cx, [r8 + board.height]
     add cx, [rbp - 16]
     inc cx
-    mov rdx, rax
+    mov edx, [r9 + game.points]
     mov r8, 4
-    xor r9, r9
-    call console_manager_write_word
-
-    mov rcx, [rbp - 24]
-    call free
+    call console_manager_write_number
 
     mov rsp, rbp
     pop rbp
@@ -647,18 +619,6 @@ _print_highscore:
     call get_board_height_offset
     mov [rbp - 16], ax
 
-    mov rcx, 4
-    call malloc 
-    mov [rbp - 24], rax
-
-    mov rcx, rax
-    mov rdx, [rel GAME_PTR]
-    mov rdx, [rdx + game.options_ptr]
-    mov rdx, [rdx + options.player_ptr]
-    mov edx, [rdx + player.highscore]
-    mov r8, 4
-    call helper_parse_int_to_string
-
     mov r8, [rel GAME_PTR]
     mov r8, [r8 + game.board_ptr]
     movzx rcx, word [r8 + board.width]
@@ -673,19 +633,19 @@ _print_highscore:
     xor r9, r9
     call console_manager_write_word
 
+
     mov ecx, [rbp - 32]
     mov rdx, best_length
     xor r8, r8
     call helper_change_position
 
     mov ecx, eax
-    mov rdx, [rbp - 24]
+    mov rdx, [rel GAME_PTR]
+    mov rdx, [rdx + game.options_ptr]
+    mov rdx, [rdx + options.player_ptr]
+    mov edx, [rdx + player.highscore]
     mov r8, 4
-    xor r9, r9
-    call console_manager_write_word
-
-    mov rcx, [rbp - 24]
-    call free
+    call console_manager_write_number
 
     mov rsp, rbp
     pop rbp

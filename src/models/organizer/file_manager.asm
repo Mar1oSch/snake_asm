@@ -1,6 +1,7 @@
 %include "../include/strucs/organizer/file_manager_struc.inc"
+%include "../include/strucs/organizer/table/table_struc.inc"
 
-global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_record_by_index, file_manager_find_name, file_manager_update_highscore, file_manager_get_record_length, file_manager_get_num_of_entries, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file, file_manager_update_table_content
+global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_record_by_index, file_manager_find_name, file_manager_update_highscore, file_manager_get_record_length, file_manager_get_num_of_entries, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file, file_manager_update_table
 
 section .rodata
     leaderboard_file_name db "leaderboard.bin", 0  
@@ -245,6 +246,8 @@ file_manager_get_num_of_entries:
     mov rbp, rsp
     sub rsp, 40
 
+    call _ensure_header_initialized
+
     call file_manager_get_total_bytes
     mov rcx, FILE_RECORD_SIZE
     xor rdx, rdx
@@ -292,26 +295,39 @@ file_manager_create_table_from_file:
     pop rbp
     ret
 
-file_manager_update_table_content:
+file_manager_update_table:
     push rbp
     mov rbp, rsp
     sub rsp, 48
 
-    ; Expect pointer to table_content in RCX.
+    ; Expect pointer to table in RCX.
     mov [rbp - 8], rcx
 
+
+.update_row_count:
+    call file_manager_get_num_of_entries
+    mov rcx, [rbp - 8]
+    mov edx, [rcx + table.row_count]
+    cmp rax, rdx
+    jbe .update_content
+    mov [rcx + table.row_count], eax
+
+.update_content:
     call file_manager_get_total_bytes
     mov rdx, rax
     mov rcx, [rbp - 8]
+    mov rcx, [rcx + table.content_ptr]
     call realloc
-    mov [rbp - 8], rax
+    mov [rbp - 16], rax
 
     call _update_leaderboard_in_file
 
-    mov rcx, [rbp - 8]
+    mov rcx, [rbp - 16]
     call _get_all_records
 
     mov rax, [rbp - 8]
+    mov rcx, [rbp - 16]
+    mov [rax + table.content_ptr], rcx
 
     mov rsp, rbp
     pop rbp
