@@ -156,11 +156,11 @@ _update_snake:
     mov rbp, rsp
     sub rsp, 72
 
-    ; Expect direction in RCX
+    ; Expect direction in CL
     cmp qword [rel GAME_PTR], 0
     je _g_object_failed
 
-    mov [rbp - 8], rcx                      ; Save first direction.
+    mov [rbp - 8], cl                      ; Save first direction.
     mov rcx, [rel GAME_PTR]
     mov rcx, [rcx + game.board_ptr]
     mov rcx, [rcx + board.snake_ptr]
@@ -171,8 +171,8 @@ _update_snake:
 
 .loop:
     mov rcx, [rbp - 16]
-    mov rdx, [rbp - 8]
-    mov r8, [rcx + unit.direction]
+    movzx rdx, byte [rbp - 8]
+    movzx r8, byte [rcx + unit.direction]
     mov [rbp - 32], r8
     call _update_unit
     mov rcx, [rbp - 16]
@@ -182,7 +182,7 @@ _update_snake:
     mov rcx, [rcx + unit.next_unit_ptr]
     mov [rbp - 16], rcx
     mov r8, [rbp - 32]
-    mov [rbp - 8], r8
+    mov byte [rbp - 8], r8b
     jmp .loop
 
 .complete:
@@ -196,14 +196,14 @@ _update_unit:
     sub rsp, 40
 
     ; Expect pointer to unit object in RCX.
-    ; Expect direction in RDX.
+    ; Expect direction in DL.
     mov [rbp - 8], rcx
-    mov [rbp - 16], rdx
+    mov [rbp - 16], dl
 
     call _update_unit_position
 
     mov rcx, [rbp - 8]
-    mov rdx, [rbp - 16]
+    mov dl, [rbp - 16]
     call _update_unit_direction
 
     mov rsp, rbp
@@ -217,7 +217,7 @@ _update_unit_position:
 
     ; Expect pointer to unit in RCX.
     mov rdx, [rcx + unit.position_ptr]
-    mov r8, [rcx + unit.direction]
+    movzx r8, byte [rcx + unit.direction]
 
     cmp r8, 0
     je .left
@@ -249,8 +249,8 @@ _update_unit_position:
 
 _update_unit_direction:
     ; Expect pointer to unit object in RCX.
-    ; Expect new direction in RDX.
-    mov [rcx + unit.direction], rdx
+    ; Expect new direction in DL.
+    mov [rcx + unit.direction], dl
     ret
 
 _get_direction_change:
@@ -905,7 +905,7 @@ _u_direction_error:
     mov [rbp - 8], rcx
     lea rcx, [rel direction_error]
     mov rdx, [rbp - 8]
-    mov rdx, [rdx + unit.direction]
+    movzx rdx, byte [rdx + unit.direction]
     call printf
 
     mov rsp, rbp

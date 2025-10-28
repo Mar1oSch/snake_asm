@@ -267,7 +267,7 @@ constructor_test:
 
     mov rax, [rbp - 8]
     lea rcx, [rel unit_direction]
-    mov rdx, [rax + unit.direction]
+    movzx rdx, byte [rax + unit.direction]
     call printf
 
     mov rax, [rbp - 8]

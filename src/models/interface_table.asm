@@ -17,7 +17,7 @@ interface_table_new:
 
     ; Expect pointer to vtable_drawable in RCX.
     ; 0 if there is none.
-    mov qword [rbp - 8], rcx
+    mov [rbp - 8], rcx
 
     mov rcx, interface_table_size
     call malloc
@@ -25,7 +25,7 @@ interface_table_new:
     jz .failed
 
     mov rcx, [rbp - 8]
-    mov qword [rax + interface_table.vtable_drawable_ptr], rcx
+    mov [rax + interface_table.vtable_drawable_ptr], rcx
 
     mov rsp, rbp
     pop rbp

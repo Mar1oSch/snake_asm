@@ -6,7 +6,6 @@
 global snake_new, snake_destroy, get_snake, snake_add_unit, snake_update, snake_get_tail_position, snake_reset
 
 section .rodata
-    HEAD_CHAR equ "@"
     STARTING_LENGTH equ 8
 
     constructor_name db "snake_new", 0
@@ -17,7 +16,7 @@ section .bss
 section .text
     extern malloc
     extern free
-    extern unit_new, unit_update, unit_reset
+    extern unit_new, unit_update, unit_destroy
     extern malloc_failed, object_not_created
     extern DRAWABLE_VTABLE_DRAW_OFFSET
 
@@ -33,7 +32,7 @@ snake_new:
     ; Expect X- and Y-Coordinates in ECX.
     ; Expect direction in RDX.
     ; Use them to create the head of the snake.
-    mov r8, HEAD_CHAR
+    mov r8, 1
     call unit_new
     mov qword [rbp - 8], rax
 
@@ -77,6 +76,7 @@ snake_destroy:
 
     mov rcx, [rel SNAKE_PTR]
     call free
+    mov qword [rel SNAKE_PTR], 0
 
     mov rsp, rbp
     pop rbp
@@ -96,7 +96,7 @@ snake_reset:
 
 .loop:
     mov rcx, r15
-    call unit_reset
+    call unit_destroy
 
 .loop_handle:
     cmp r15, [rbp - 16]
@@ -143,7 +143,7 @@ snake_add_unit:
 
     mov rcx, [rel SNAKE_PTR]
     mov rcx, [rcx + snake.tail_ptr]
-    mov rdx, [rcx + unit.direction]
+    movzx rdx, byte [rcx + unit.direction]
     mov rcx, [rcx + unit.position_ptr]
     movzx rax, word [rcx + position.x]
     mov [rbp - 8], ax
