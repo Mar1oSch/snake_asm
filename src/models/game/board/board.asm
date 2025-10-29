@@ -1,3 +1,4 @@
+; Strucs:
 %include "../include/strucs/interface_table_struc.inc"
 %include "../include/strucs/position_struc.inc"
 %include "../include/strucs/game/board_struc.inc"
@@ -5,24 +6,37 @@
 %include "../include/strucs/snake/snake_struc.inc"
 %include "../include/strucs/snake/unit_struc.inc"
 
-global board_new, board_destroy, board_draw, board_setup, board_move_snake, get_board, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset, board_draw_food
+; The board is both: active and passive. 
+; Active in case of drawing the content: Drawing food, creating new food and position it inside the board, drawing the snake.
+; Passive in that way, that it is getting told by the game, when it should draw the snake, when it should create new food, when the old food gets destroyed and so on.
+
+global board_new, board_setup, board_move_snake, board_create_new_food, board_draw_food, board_reset, get_board_width_offset, get_board_height_offset
+
+;;;;;; CONSTANTS ;;;;;;
+STARTING_DIRECTION equ 2
 
 section .rodata
+    fence_char db "#"
 
+    ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "board_new", 0
 
-    fence_char db "#"
-    STARTING_DIRECTION equ 2
-
 section .data
+    ; FILETIME structure to capture information from "GetSystemTimeAsFileTime", which collects the system time as nano seconds and saves it into the structure.
+    ; I use it to create pseudoe random positions for the food creation.
     filetime_struct dd 0, 0
 
 section .bss
+    ; Memory space for the created board pointer.
+    ; Since there is always just one board in the game, I decided to create a kind of a singleton.
+    ; If this BOARD_PTR is 0, the constructor will create a new board object.
+    ; If it is not 0, it simply is going to return this pointer.
+    ; This pointer is also used, to reference the object in the destructor and other functions.
+    ; So it is not needed to pass a pointer to the object itself as function parameter.
     BOARD_PTR resq 1
 
 section .text
-    extern malloc
-    extern free
+    extern malloc, free
     extern Sleep
     extern GetSystemTimeAsFileTime
 
@@ -30,10 +44,12 @@ section .text
     extern console_manager_new, console_manager_write_char, console_manager_set_cursor, console_manager_set_cursor_to_end, console_manager_erase, console_manager_get_height_to_center_offset, console_manager_get_width_to_center_offset
     extern food_new, food_destroy
     extern designer_clear
+
     extern malloc_failed, object_not_created
     extern DRAWABLE_VTABLE_X_POSITION_OFFSET, DRAWABLE_VTABLE_Y_POSITION_OFFSET, DRAWABLE_VTABLE_CHAR_PTR_OFFSET
 
 ;;;;;; PUBLIC METHODS ;;;;;;
+
 board_new:
     push rbp
     mov rbp, rsp
@@ -115,10 +131,6 @@ board_setup:
     mov rbp, rsp
     sub rsp, 40
 
-    mov r8, [rel BOARD_PTR]
-    mov cx, [r8 + board.height]
-    shl rcx, 16
-    mov cx, [r8 + board.width]
     call designer_clear
 
     call _draw_fence
@@ -146,6 +158,7 @@ board_reset:
     mov rdx, [r8 + board.console_manager_ptr]
     mov [rbp - 16], rdx
 
+    sub rsp, 32
     call board_destroy
     call snake_reset
 
@@ -200,13 +213,6 @@ board_create_new_food:
 
     mov rsp, rbp
     pop rbp
-    ret
-
-get_board:
-    cmp qword [rel BOARD_PTR], 0
-    je _b_object_failed
-
-    mov rax, [rel BOARD_PTR]
     ret
 
 get_board_width_offset:
@@ -571,6 +577,7 @@ _check_food_position_with_snake:
 
 
 ;;;;;; ERROR HANDLING ;;;;;;
+
 _b_object_failed:
     lea rcx, [rel constructor_name]
     call object_not_created
