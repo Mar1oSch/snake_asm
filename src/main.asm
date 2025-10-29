@@ -11,7 +11,7 @@ section .text
 main:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 32
 
     call interactor_new
     call interactor_setup

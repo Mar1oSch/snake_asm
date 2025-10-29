@@ -1,59 +1,104 @@
+; Strucs:
 %include "../include/strucs/position_struc.inc"
+
+; The position object each drawable holds. 
+; It defines the X-coordinate and Y-coordinate of the drawable.
 
 global position_new, position_destroy
 
 section .rodata
+    ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "position_new", 0
 
 section .text
-    extern malloc
-    extern free
+    extern malloc, free
+
     extern malloc_failed
 
+;;;;;; PUBLIC FUNCTIONS ;;;;;;
+
+; The position is getting created. 
+; The constructor just needs to know, which X- and Y-coordinates the position is constituted of. 
 position_new:
+.set_up:
+    ; Set up stack frame without local variables.
     push rbp
     mov rbp, rsp
-    sub rsp, 44
 
-    ; Expect X- and Y-Position in ECX
-    mov word [rbp - 8], cx             ; Save Y-Position onto stack. (ECX = x, y)
-    shr rcx, 16                        ; Shift RCX right by 16 bits. (ECX = 0, x) 
-    mov word [rbp - 16], cx             ; Save X-Position onto stack. (ECX = 0, x)
+    ; Expect X- and Y-coordinates in ECX.
+    ; Save ECX into the shadow space.
+    mov [rbp + 16], ecx             
 
+    ; Reserve 32 bytes shadow space for function calls.
+    sub rsp, 32
+
+.create_object:
+    ; Creating the position, containing space for:
+    ; * - X-coordinate. (2 bytes)
+    ; * - Y-coordinate. (2 bytes)
     mov rcx, position_size
     call malloc
+    ; Pointer to position object is stored in RAX now.
+    ; Check if return of malloc is 0 (if it is, it failed).
+    ; If it failed, it will get printed into the console.
     test rax, rax
-    jz .failed
+    jz _p_malloc_failed
 
-    xor rcx, rcx
-    xor rdx, rdx
-
-    mov cx, word [rbp - 16]
+.set_up_object:
+    ; Load the X- and Y-coordinates from the shadow space.
+    mov ecx, [rbp + 16]
+    ; Save them into the X- and Y-fields of the object.
+    mov word [rax + position.y], cx
+    shr ecx, 16
     mov word [rax + position.x], cx
-    mov dx, word [rbp - 8]
-    mov word [rax + position.y], dx
 
-    mov rsp, rbp
-    pop rbp
-    ret
-
-.failed:
-    lea rcx, [rel constructor_name]
-    mov rdx, rax
-    call malloc_failed
-
+.complete:
+    ; Restore old stack frame and return from constructor.
+    ; Return pointer to position object in RAX.
     mov rsp, rbp
     pop rbp
     ret
 
 position_destroy:
+.set_up:
+    ; Set up stack frame without local variables.
     push rbp
     mov rbp, rsp
-    sub rsp, 40
 
-    ; Expect pointer to POSITION-OBJECT in RCX
+    ; Reserve 32 bytes shadow space for function call.
+    sub rsp, 32
+
+.destroy_object:
+    ; Expect pointer to position object in RCX
     call free
 
+.complete:
+    ; Restore old stack frame and return from destructor.
+    mov rsp, rbp
+    pop rbp
+    ret
+
+
+
+
+;;;;;; DEBUGGING ;;;;;;
+
+_p_malloc_failed:
+.set_up:
+    ; Setting up stack frame without local variables.
+    push rbp
+    mov rbp, rsp
+
+    ; Reserve 32 bytes shadow space for function calls.
+    sub rsp, 32
+
+.debug:
+    lea rcx, [rel constructor_name]
+    mov rdx, rax
+    call malloc_failed
+
+.complete:
+    ; Restore old stack frame and leave debugging function.
     mov rsp, rbp
     pop rbp
     ret

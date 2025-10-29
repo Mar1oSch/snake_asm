@@ -6,12 +6,12 @@
 ; It is purely passive and its usage is getting handled by the board and the game.
 ; That's why it needs to get to know its position when it is constructed.
 
-global food_new, food_destroy, food_get_char_ptr, food_get_x_position, food_get_y_position, food_draw
+global food_new, food_destroy, food_get_char_ptr, food_get_x_position, food_get_y_position
+
+;;;;;; CONSTANTS ;;;;;;
+FOOD_CHAR equ "*"
 
 section .rodata
-    ;;;;;; CONSTANTS ;;;;;;
-    FOOD_CHAR equ "*"
-
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "food_new", 0
 
@@ -61,9 +61,9 @@ food_new:
 
 .create_object:
     ; Creating the food itself, containing space for:
-    ; - A pointer to the position object created earlier. (8 bytes)
-    ; - A pointer to the interface table object created earlier. (8 bytes)
-    ; - The char it is represented by on the board. (1 byte)
+    ; * A pointer to the position object created earlier. (8 bytes)
+    ; * A pointer to the interface table object created earlier. (8 bytes)
+    ; * The char it is represented by on the board. (1 byte)
     mov rcx, food_size
     call malloc
     ; Pointer to food object is stored in RAX now.
@@ -86,18 +86,19 @@ food_new:
 
 .complete:
     ; Restore old stack frame and leave the constructor.
+    ; Return the food pointer in RAX.
     mov rsp, rbp
     pop rbp
     ret
 
 food_destroy:
 .set_up:
-    ; Setting up the stack frame:
-    ; 8 bytes for local variables.
-    ; 8 bytes to keep stack 16 byte algined.
+    ; Setting up the stack frame without local variables.
     push rbp
     mov rbp, rsp
-    sub rsp, 16
+
+    ; Create 32 bytes shadow space for function call.
+    sub rsp, 32
 
     ; Expect pointer to the food object in RCX.
     ; Save first argument into shadow space (RBP + 16).
@@ -119,7 +120,7 @@ food_destroy:
     call free
 
 .complete:
-    ; Restore old stack frame and leave the function.
+    ; Restore old stack frame and leave the destructor.
     mov rsp, rbp
     pop rbp
     ret
@@ -130,23 +131,26 @@ food_destroy:
 ;;;;;; DRAWABLE  INTERFACE ;;;;;;
 
 ; Here I wrote three getters belonging to the drawable interface:
-; 1. : Get the pointer to the Character, representing the drawable on the board.
-; 2. : Get the X-Coordinate of the Drawable.
-; 3. : Get the Y-Coordinate of the Drawable.
+; * 1. : Get the pointer to the Character, representing the drawable on the board.
+; * 2. : Get the X-Coordinate of the Drawable.
+; * 3. : Get the Y-Coordinate of the Drawable.
 
 food_get_char_ptr:
-    ; Expect pointer to food object in RCX
+    ; Expect pointer to food object in RCX.
+    ; Return pointer to food char in RAX.
     lea rax, [rcx + food.char]
     ret
 
 food_get_x_position:
-    ; Expect pointer to food object in RCX
+    ; Expect pointer to food object in RCX.
+    ; Return X-Position in RAX.
     mov rax, [rcx + food.position_ptr]
     movzx rax, word [rax + position.x]
     ret
 
 food_get_y_position:
-    ; Expect pointer to food object in RCX
+    ; Expect pointer to food object in RCX.
+    ; Return Y-Position in RAX.
     mov rax, [rcx + food.position_ptr]
     movzx rax, word [rax + position.y]
     ret
@@ -161,14 +165,16 @@ _f_malloc_failed:
     push rbp
     mov rbp, rsp
 
+    ; Reserve shadow space for function call:
+    sub rsp, 32
+
 .debug:
     lea rcx, [rel constructor_name]
     mov rdx, rax
-    ; Reserve shadow space for function call:
-    sub rsp, 32
     call malloc_failed
 
 .complete:
+    ; Restore old stack frame and return to caller.
     mov rsp, rbp
     pop rbp
     ret

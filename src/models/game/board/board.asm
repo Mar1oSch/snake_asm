@@ -8,8 +8,11 @@
 global board_new, board_destroy, board_draw, board_setup, board_move_snake, get_board, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset, board_draw_food
 
 section .rodata
+
     constructor_name db "board_new", 0
+
     fence_char db "#"
+    STARTING_DIRECTION equ 2
 
 section .data
     filetime_struct dd 0, 0
@@ -66,7 +69,7 @@ board_new:
     shl rcx, 16
     mov cx, word [rax + board.height]
     shr cx, 1
-    mov rdx, 2
+    mov dl, STARTING_DIRECTION
     call snake_new
 
     mov r8, [rel BOARD_PTR]
