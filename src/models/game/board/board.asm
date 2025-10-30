@@ -499,7 +499,7 @@ _draw_snake:
     .set_up_loop_base:
         ; I am setting up the base for the drawing loop:
         ; * - RBX is going to be the tail pointer. After every iteration, I will check, if the tail is reached.
-        ; * - R12 is the active tail getting drawn.
+        ; * - R12 is the active unit getting drawn.
         ; * - R13 will hold the X- and Y-positions of the DRAWABLE.
         ; * - R14 will hold the X- and Y-offsets of the board.
         ; * - R15 will hold the pointer to the DRAWABLE interface vtable.
@@ -528,30 +528,54 @@ _draw_snake:
         mov r15, [r15 + interface_table.vtable_drawable_ptr]
 
     .draw_snake_loop:
-        mov rcx, r10                                            ; Move pointer to unit to RCX.
-        call [r11 + DRAWABLE_VTABLE_X_POSITION_OFFSET]
-        add ax, [rbp - 32]
-        mov word [rbp - 48], ax                                 ; Save X-Position.
-        mov rcx, r10                                            ; Move pointer to unit to RCX.
-        call [r11 + DRAWABLE_VTABLE_Y_POSITION_OFFSET]
-        add ax, [rbp - 40]
-        mov word [rbp - 56], ax                                 ; Save Y-Position.
-        mov rcx, r10                                            ; Move pointer to unit to RCX.
-        call [r11 + DRAWABLE_VTABLE_CHAR_PTR_OFFSET]
-        mov rdx, rax                                            ; Load pointer to char into RDX.
-        mov cx, [rbp - 48]                                      ; Move X-Position into CX (ECX = 0, X)
-        shl rcx, 16                                             ; Shift ECX 16 bits to the left. (ECX = X, 0)
-        mov cx, [rbp - 56]                                      ; Move Y-Position into CX (ECX = X, Y)
-        call console_manager_write_char
-        mov r10, [rbp - 8]
-        cmp r10, [rbp - 16]
+        .get_x:
+            ; Getting the X-position of the DRAWABLE, add the X-offset and move it into R13W.
+            mov rcx, r12                                           
+            call [r15 + DRAWABLE_VTABLE_X_POSITION_OFFSET]
+            ror r14d, 16
+            add ax, r14w
+            mov r13w, ax
+
+        .get_y:
+            ; Getting the Y-position of the DRAWABLE, add the Y-offset, and move it into R13W, after R13 has been shifted to the left 16 bits.
+            mov rcx, r12                                            ; Move pointer to unit to RCX.
+            call [r15 + DRAWABLE_VTABLE_Y_POSITION_OFFSET]
+            rol r14d, 16
+            add ax, r14w
+            shl r13d, 16
+            mov r13w, ax 
+        
+        .get_char:
+            ; Now it's time to get the pointer to the character representing the DRAWABLE on the board. 
+            mov rcx, r12                                           
+            call [r15 + DRAWABLE_VTABLE_CHAR_PTR_OFFSET]
+
+        .draw_char: 
+            ; Finally the character is get drawn into the board.
+            ; * - ECX holds the X- and Y-position.
+            ; * - RDX holds the pointer to the char.
+            mov ecx, r13d                                    
+            mov rdx, rax  
+            call console_manager_write_char
+        
+    .draw_snake_loop_handle:
+        ; At first it gets checked, if R12 ist the tail now.
+        ; If it is, the function is done.
+        ; If not, R12 is the next unit in the list now and the next iteration starts.
+        cmp r12, rbx
         je .complete
-        mov r10, [r10 + unit.next_unit_ptr]
-        mov r11, [rbp - 24]
-        mov [rbp - 8], r10
+        mov r12, [r12 + unit.next_unit_ptr]
         jmp .draw_snake_loop
 
     .complete:
+        ; Restore non volateile regs.
+        mov r15, [rbp - 40]
+        mov r14, [rbp - 32]
+        mov r13, [rbp - 24]
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
+
+        ; Restore old stack frame and return to caller.
         mov rsp, rbp
         pop rbp
         ret
