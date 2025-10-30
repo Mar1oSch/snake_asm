@@ -188,7 +188,7 @@ unit_get_y_position:
 
 
 
-;;;;;; PRIVATE FUNCTIONS ;;;;;;
+;;;;;; PRIVATE METHODS ;;;;;;
 
 _handle_char:
     ; Expect: 
@@ -216,7 +216,7 @@ _u_malloc_failed:
         push rbp
         mov rbp, rsp
 
-        ; Reserve 32 bytes shadow space for function call.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
     .debug:

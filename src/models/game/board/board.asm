@@ -72,7 +72,7 @@ board_new:
         mov [rbp + 16], ecx
         mov [rbp + 24], rdx
 
-        ; Reserve 32 bytes shadow space for function calls.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
     .create_object:
@@ -152,8 +152,12 @@ board_setup:
         push rbp
         mov rbp, rsp
 
-        ; Reserve 32 bytes shadow space for function calls.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
+
+        ; If board is not created yet, print a debug message.
+        cmp qword [rel lcl_board_ptr], 0
+        je _b_object_failed
 
     .clear_screen:
         ; Let the designer clear the console screen.
@@ -192,14 +196,14 @@ board_reset:
         mov rbp, rsp
         sub rsp, 32
 
-        ; If unit is not created yet, print a debug message.
+        ; If board is not created yet, print a debug message.
         cmp qword [rel lcl_board_ptr], 0
         je _b_object_failed
 
         ; Save non volatile regs.
         mov [rbp - 8], rbx
 
-        ; Reserve 32 bytes shadow space for function calls.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
         ; Make RBX the base (containing lcl_board_ptr).
@@ -254,11 +258,11 @@ board_move_snake:
         push rbp
         mov rbp, rsp
 
-        ; If unit is not created yet, print a debug message.
+        ; If board is not created yet, print a debug message.
         cmp qword [rel lcl_board_ptr], 0
         je _b_object_failed
 
-        ; Reserve 32 bytes shadow space for function calls.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
     .move_snake:
@@ -282,7 +286,7 @@ board_create_new_food:
         mov rbp, rsp
         sub rsp, 16
 
-        ; If unit is not created yet, print a debug message.
+        ; If board is not created yet, print a debug message.
         cmp qword [rel lcl_board_ptr], 0
         je _b_object_failed
 
@@ -350,7 +354,7 @@ get_board_x_offset:
         ; Save non volatile regs.
         mov [rbp - 8], rbx
 
-        ; Reserve 32 bytes shadow space for function calls.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
     .get_half_board_width:
@@ -390,7 +394,7 @@ get_board_y_offset:
         ; Save non volatile regs.
         mov [rbp - 8], rbx
 
-        ; Reserve 32 bytes shadow space for function calls.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
     .get_half_board_height:
@@ -425,7 +429,7 @@ board_draw_food:
         push rbp
         mov rbp, rsp
 
-        ; Reserve 32 bytes shadow space for function call.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
     .draw:
@@ -442,16 +446,17 @@ board_draw_food:
 
 ;;;;;; PRIVATE METHODS ;;;;;;
 
+; Private destructor. The board_reset method is the public method to handle the board release.
 _board_destroy:
 .set_up:
     ; Setting up the stack frame without local variables.
     push rbp
     mov rbp, rsp
 
-    ; Reserve 32 bytes shadow space for function call.
+    ; Reserve 32 bytes shadow space for called functions.
     sub rsp, 32
 
-    ; If unit is not created yet, print a debug message.
+    ; If board is not created yet, print a debug message.
     cmp qword [rel lcl_board_ptr], 0
     je _b_object_failed
 
@@ -467,62 +472,89 @@ _board_destroy:
     pop rbp
     ret
 
-
+; The actual function to draw the snake on the board. It loops down from head to tail and uses the DRAWABLE getters to finally draw the snake on the board.
 _draw_snake:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 104
+    .set_up:
+        ; Set up stack frame:
+        ; 40 bytes local variables.
+        ; 8 bytes to keep stack 16 byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 48
 
-    cmp qword [rel lcl_board_ptr], 0
-    je _b_object_failed
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+        
+        ; If board is not created yet, print a debug message.
+        cmp qword [rel lcl_board_ptr], 0
+        je _b_object_failed
 
-    mov r9, [rel lcl_board_ptr]
-    mov r9, [r9 + board.snake_ptr]                          ; Get snake_ptr into R9.
+        ; Save non volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
+        mov [rbp - 24], r13
+        mov [rbp - 32], r14
+        mov [rbp - 40], r15
 
-    mov r10, [r9 + snake.head_ptr]
-    mov [rbp - 8], r10                                      ; Save head of snake.
+    .set_up_loop_base:
+        ; I am setting up the base for the drawing loop:
+        ; * - RBX is going to be the tail pointer. After every iteration, I will check, if the tail is reached.
+        ; * - R12 is the active tail getting drawn.
+        ; * - R13 will hold the X- and Y-positions of the DRAWABLE.
+        ; * - R14 will hold the X- and Y-offsets of the board.
+        ; * - R15 will hold the pointer to the DRAWABLE interface vtable.
 
-    mov r9, [r9 + snake.tail_ptr]                           
-    mov [rbp - 16], r9                                      ; Save tail of snake.
+        ; Setting up RBX as base. First it will store the snake pointer.
+        mov rbx, [rel lcl_board_ptr]
+        mov rbx, [rbx + board.snake_ptr]                          
 
-    mov r11, [r10 + unit.interface_table_ptr]
-    mov r11, [r11 + interface_table.vtable_drawable_ptr]    ; Get the drawable-interface into R11
-    mov [rbp - 24], r11                                     ; Save interface relation.
+        ; Load the first unit (snakes head) into R12.
+        mov r12, [rbx + snake.head_ptr]
 
-    call get_board_x_offset
-    mov [rbp - 32], ax
+        ; Moving the last unit (snakes tail) into RBX now.
+        mov rbx, [rbx + snake.tail_ptr]                           
 
-    call get_board_y_offset
-    mov [rbp - 40], ax
+        ; Saving the X- and Y-offsets into R14.
+        ; R14D looks like that: 
+        ; * [X-offset, Y-offset]
+        call get_board_x_offset
+        mov r14w, ax
+        shl r14d, 16
+        call get_board_y_offset
+        mov r14w, ax
 
-.loop:
-    mov rcx, r10                                            ; Move pointer to unit to RCX.
-    call [r11 + DRAWABLE_VTABLE_X_POSITION_OFFSET]
-    add ax, [rbp - 32]
-    mov word [rbp - 48], ax                                 ; Save X-Position.
-    mov rcx, r10                                            ; Move pointer to unit to RCX.
-    call [r11 + DRAWABLE_VTABLE_Y_POSITION_OFFSET]
-    add ax, [rbp - 40]
-    mov word [rbp - 56], ax                                 ; Save Y-Position.
-    mov rcx, r10                                            ; Move pointer to unit to RCX.
-    call [r11 + DRAWABLE_VTABLE_CHAR_PTR_OFFSET]
-    mov rdx, rax                                            ; Load pointer to char into RDX.
-    mov cx, [rbp - 48]                                      ; Move X-Position into CX (ECX = 0, X)
-    shl rcx, 16                                             ; Shift ECX 16 bits to the left. (ECX = X, 0)
-    mov cx, [rbp - 56]                                      ; Move Y-Position into CX (ECX = X, Y)
-    call console_manager_write_char
-    mov r10, [rbp - 8]
-    cmp r10, [rbp - 16]
-    je .complete
-    mov r10, [r10 + unit.next_unit_ptr]
-    mov r11, [rbp - 24]
-    mov [rbp - 8], r10
-    jmp .loop
+        ; R15 holds DRAWABLE interface vtable now.
+        mov r15, [r12 + unit.interface_table_ptr]
+        mov r15, [r15 + interface_table.vtable_drawable_ptr]
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+    .draw_snake_loop:
+        mov rcx, r10                                            ; Move pointer to unit to RCX.
+        call [r11 + DRAWABLE_VTABLE_X_POSITION_OFFSET]
+        add ax, [rbp - 32]
+        mov word [rbp - 48], ax                                 ; Save X-Position.
+        mov rcx, r10                                            ; Move pointer to unit to RCX.
+        call [r11 + DRAWABLE_VTABLE_Y_POSITION_OFFSET]
+        add ax, [rbp - 40]
+        mov word [rbp - 56], ax                                 ; Save Y-Position.
+        mov rcx, r10                                            ; Move pointer to unit to RCX.
+        call [r11 + DRAWABLE_VTABLE_CHAR_PTR_OFFSET]
+        mov rdx, rax                                            ; Load pointer to char into RDX.
+        mov cx, [rbp - 48]                                      ; Move X-Position into CX (ECX = 0, X)
+        shl rcx, 16                                             ; Shift ECX 16 bits to the left. (ECX = X, 0)
+        mov cx, [rbp - 56]                                      ; Move Y-Position into CX (ECX = X, Y)
+        call console_manager_write_char
+        mov r10, [rbp - 8]
+        cmp r10, [rbp - 16]
+        je .complete
+        mov r10, [r10 + unit.next_unit_ptr]
+        mov r11, [rbp - 24]
+        mov [rbp - 8], r10
+        jmp .draw_snake_loop
+
+    .complete:
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _draw_fence:
     push rbp

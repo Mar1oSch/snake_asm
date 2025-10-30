@@ -348,7 +348,7 @@ file_manager_destroy_table_from_file:
 
 
 
-;;;;;; PRIVATE FUNCTIONS ;;;;;;
+;;;;;; PRIVATE METHODS ;;;;;;
 _set_pointer:
     push rbp
     mov rbp, rsp

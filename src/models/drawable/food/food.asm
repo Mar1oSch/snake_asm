@@ -41,7 +41,7 @@ food_new:
 
         ; Expect X- and Y-Coordinates in ECX
 
-        ; Setting up 32 bytes shadow space for called functions.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
     .create_dependend_objects:
@@ -97,7 +97,7 @@ food_destroy:
         push rbp
         mov rbp, rsp
 
-        ; Create 32 bytes shadow space for function call.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
         ; Expect pointer to the food object in RCX.

@@ -176,7 +176,7 @@ interactor_replay_game:
     ret
 
 
-;;;;;; PRIVATE FUNCTIONS ;;;;;;
+;;;;;; PRIVATE METHODS ;;;;;;
 _introduction:
     push rbp
     mov rbp, rsp

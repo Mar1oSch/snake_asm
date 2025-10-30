@@ -303,14 +303,14 @@ snake_add_unit:
 
 
 
-;;;;;; PRIVATE FUNCTIONS ;;;;;;
+;;;;;; PRIVATE METHODS ;;;;;;
 _snake_destroy:
     .set_up:
         ; Setting up the stack frame without local variables.
         push rbp
         mov rbp, rsp
 
-        ; Reserve 32 bytes shadow space for function call.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
         ; If unit is not created yet, print a debug message.
@@ -340,7 +340,7 @@ _s_malloc_failed:
         push rbp
         mov rbp, rsp
 
-        ; Reserve 32 bytes shadow space for function calls.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
     .debug:
@@ -360,7 +360,7 @@ _s_object_failed:
         push rbp
         mov rbp, rsp
 
-        ; Reserve 32 bytes shadow space for function calls.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
     .debug:

@@ -15,7 +15,7 @@ section .text
 
     extern malloc_failed
 
-;;;;;; PUBLIC FUNCTIONS ;;;;;;
+;;;;;; PUBLIC METHODS ;;;;;;
 
 ; The position is getting created. 
 ; The constructor just needs to know, which X- and Y-coordinates the position is constituted of. 
@@ -29,7 +29,7 @@ position_new:
         ; Save ECX into the shadow space.
         mov [rbp + 16], ecx             
 
-        ; Reserve 32 bytes shadow space for function calls.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
     .create_object:
@@ -65,7 +65,7 @@ position_destroy:
         push rbp
         mov rbp, rsp
 
-        ; Reserve 32 bytes shadow space for function call.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
     .destroy_object:
@@ -89,7 +89,7 @@ _p_malloc_failed:
         push rbp
         mov rbp, rsp
 
-        ; Reserve 32 bytes shadow space for function calls.
+        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
     .debug:

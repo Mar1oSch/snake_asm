@@ -314,7 +314,7 @@ helper_change_position:
     pop rbp
     ret
 
-;;;;;; PRIVATE FUNCTIONS ;;;;;;
+;;;;;; PRIVATE METHODS ;;;;;;
 _get_digits_in_string:
     push rbp
     mov rbp, rsp
