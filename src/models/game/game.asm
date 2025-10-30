@@ -41,9 +41,9 @@ section .text
     extern printf
 
     extern player_update_highscore, get_player_name_length
-    extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset, get_board_width_offset, get_board_height_offset, board_draw_food
+    extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset, get_board_x_offset, get_board_y_offset, board_draw_food
     extern snake_add_unit
-    extern console_manager_set_cursor, console_manager_set_cursor_to_end, console_manager_write_word, console_manager_write_number
+    extern console_manager_set_cursor_to_end, console_manager_write_word, console_manager_write_number
     extern file_manager_update_highscore, file_manager_find_name
     extern designer_type_sequence
     extern helper_change_position, helper_parse_int_to_string
@@ -122,6 +122,7 @@ game_reset:
     ; Expect options_ptr in RCX.
     mov [rbp - 8], rcx
 
+    sub rsp, 32
     call board_reset
     mov rcx, [rel GAME_PTR]
     mov [rcx + game.board_ptr], rax
@@ -513,10 +514,10 @@ _print_player:
     mov rbp, rsp
     sub rsp, 56
 
-    call get_board_width_offset
+    call get_board_x_offset
     mov [rbp - 8], ax
 
-    call get_board_height_offset
+    call get_board_y_offset
     mov [rbp - 16], ax
 
     call get_player_name_length
@@ -545,10 +546,10 @@ _print_level:
     mov rbp, rsp
     sub rsp, 72
 
-    call get_board_width_offset
+    call get_board_x_offset
     mov [rbp - 8], ax
 
-    call get_board_height_offset
+    call get_board_y_offset
     mov [rbp - 16], ax
 
     mov r8, [rel GAME_PTR]
@@ -585,10 +586,10 @@ _print_points:
     mov rbp, rsp
     sub rsp, 64
 
-    call get_board_width_offset
+    call get_board_x_offset
     mov [rbp - 8], ax
 
-    call get_board_height_offset
+    call get_board_y_offset
     mov [rbp - 16], ax
 
     mov r9, [rel GAME_PTR]
@@ -613,10 +614,10 @@ _print_highscore:
     mov rbp, rsp
     sub rsp, 72
 
-    call get_board_width_offset
+    call get_board_x_offset
     mov [rbp - 8], ax
 
-    call get_board_height_offset
+    call get_board_y_offset
     mov [rbp - 16], ax
 
     mov r8, [rel GAME_PTR]

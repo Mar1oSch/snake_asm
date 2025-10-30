@@ -159,6 +159,7 @@ interactor_replay_game:
     sub rsp, 40
 
 .loop:
+    sub rsp, 32
     mov rcx, [rel INTERACTOR_PTR]
     mov rcx, [rcx + interactor.game_ptr]
     mov rcx, [rcx + game.options_ptr]
