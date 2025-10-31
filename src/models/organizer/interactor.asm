@@ -576,7 +576,7 @@ _handle_options:
     xor rax, rax
 
 .complete:
-    ; Restore non volatile regs.
+    ; Restore non-volatile regs.
     mov rbx, [rbp - 8]
 
     mov rsp, rbp

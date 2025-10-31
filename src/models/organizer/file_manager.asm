@@ -538,7 +538,7 @@ _ensure_header_initialized:
     mov rbp, rsp
     sub rsp, 48
 
-    ; Save non volatile registers.
+    ; Save non-volatile registers.
     mov [rbp - 8], r15
 
     mov r15, [rel FILE_MANAGER_PTR]

@@ -188,7 +188,7 @@ helper_merge_sort_list:
     cmp rdx, 1
     jbe .base_case
 
-    ; Save non volatile regs.
+    ; Save non-volatile regs.
     mov [rbp - 8], rsi
     mov [rbp - 16], rdi
 
@@ -349,7 +349,7 @@ _merge:
     mov rbp, rsp
     sub rsp, 200
 
-    ; Save non volatile regs.
+    ; Save non-volatile regs.
     mov [rbp - 8], rsi
     mov [rbp - 16], rdi
     mov [rbp - 24], r13

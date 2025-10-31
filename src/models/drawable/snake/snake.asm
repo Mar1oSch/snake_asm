@@ -60,7 +60,7 @@ snake_new:
         cmp qword [rel lcl_snake_ptr], 0
         jne .complete
 
-        ; Save non volatile regs.
+        ; Save non-volatile regs.
         ; First local variable.
         mov [rbp - 8], r12
 
@@ -104,7 +104,7 @@ snake_new:
         mov qword [rax + snake.length], 1
 
     .set_up_list:
-        ; Use the non volatile R12 register as counter for the loop:
+        ; Use the R12 register as counter for the loop:
         ; It is initialized as STARTING_LENGTH - 1, because one unit already was created.
         mov r12, STARTING_LENGTH - 1
 
@@ -178,7 +178,7 @@ snake_reset:
         ; All units are released. Release snake itself now.
         call _snake_destroy
 
-        ; Restore non volatile regs.
+        ; Restore non-volatile regs.
         mov rbx, [rbp - 8]
 
         ; Restore old stack frame and leave destructor.
@@ -271,7 +271,7 @@ snake_add_unit:
         inc qword [rbx + snake.length]
 
     .complete:
-        ; Restore non volatile regs.
+        ; Restore non-volatile regs.
         mov r12, [rbp - 16]
         mov rbx, [rbp - 8]
 

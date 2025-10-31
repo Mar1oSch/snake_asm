@@ -24,7 +24,7 @@ section .rodata
 section .data
     ; FILETIME structure to capture information from "GetSystemTimeAsFileTime", which collects the system time as nano seconds and saves it into the structure.
     ; I use it to create pseudoe random positions for the food creation.
-    filetime_struct dd 0, 0
+    lcl_filetime_struc dd 0, 0
 
 section .bss
     ; Memory space for the created board pointer.
@@ -64,7 +64,7 @@ board_new:
         cmp qword [rel lcl_board_ptr], 0
         jne .complete
 
-        ; Save non volatile regs.
+        ; Save non-volatile regs.
         mov [rbp - 8], rbx
 
         ; Expect width and height in ECX
@@ -132,7 +132,7 @@ board_new:
         mov [rbx + board.food_ptr], rax
 
     .complete:
-        ; Restore non volatile regs.
+        ; Restore non-volatile regs.
         mov rbx, [rbp - 8]
 
         ; Use the pointer to the board object as return value of this constructor.
@@ -194,7 +194,7 @@ board_reset:
         cmp qword [rel lcl_board_ptr], 0
         je _b_object_failed
 
-        ; Save non volatile regs.
+        ; Save non-volatile regs.
         mov [rbp - 8], rbx
 
         ; Reserve 32 bytes shadow space for called functions.
@@ -286,7 +286,7 @@ board_create_new_food:
         cmp qword [rel lcl_board_ptr], 0
         je _b_object_failed
 
-        ; Save non volatile regs.
+        ; Save non-volatile regs.
         mov [rbp - 8], rbx
 
         ; Reserve 32 bytes shado space for function calls.
@@ -304,20 +304,20 @@ board_create_new_food:
         ; Here a position object with randomized X- and Y-coordinates is created.
         call _create_random_position
         ; Second local variable:
-        ; * Position pointer
-        mov [rbp - 16], rax
+        ; * Position
+        mov [rbp - 16], eax
 
         ; Check if food would be placed on the snake. If yes, loop again.
         ; ! Here I would like to find a better solution. The bigger the snake gets and the less possible fields on the board are free, the chance to create a valid random position decreases a lot. There must be a better way. For example: create a list of possible positions and let the board randomly choose one. If the snake is updated, the position it moved to disapperas from the list, while the just freed position gets into the list again. 
         ; TODO: Find different randomization algorithm.
-        mov rcx, rax
+        mov ecx, eax
         call _control_food_and_snake_position
         test rax, rax
         jz .randomize_new_position_loop
 
     .create_new_food:
         ; Use the position to create the food object.
-        mov rcx, [rbp - 16]
+        mov ecx, [rbp - 16]
         call food_new
 
     .set_up_board:
@@ -329,7 +329,7 @@ board_create_new_food:
         call _draw_food
 
     .complete:
-        ; Restore non volatile regs.
+        ; Restore non-volatile regs.
         mov rbx, [rbp - 8]
 
         ; Restore old stack frame and return to caller.
@@ -347,7 +347,7 @@ get_board_x_offset:
         mov rbp, rsp
         sub rsp, 16
 
-        ; Save non volatile regs.
+        ; Save non-volatile regs.
         mov [rbp - 8], rbx
 
         ; Reserve 32 bytes shadow space for called functions.
@@ -368,7 +368,7 @@ get_board_x_offset:
         sub ax, bx
 
     .complete:
-        ; Restore non volatile regs.
+        ; Restore non-volatile regs.
         mov rbx, [rbp - 8]
 
         ; Return the value as quadword.
@@ -387,7 +387,7 @@ get_board_y_offset:
         mov rbp, rsp
         sub rsp, 16
 
-        ; Save non volatile regs.
+        ; Save non-volatile regs.
         mov [rbp - 8], rbx
 
         ; Reserve 32 bytes shadow space for called functions.
@@ -408,7 +408,7 @@ get_board_y_offset:
         sub ax, bx
 
     .complete:
-        ; Restore non volatile regs.
+        ; Restore non-volatile regs.
         mov rbx, [rbp - 8]
 
         ; Return the value as quadword.
@@ -489,7 +489,7 @@ _draw_snake:
         cmp qword [rel lcl_board_ptr], 0
         je _b_object_failed
 
-        ; Save non volatile regs.
+        ; Save non-volatile regs.
         mov [rbp - 8], rbx
         mov [rbp - 16], r12
         mov [rbp - 24], r13
@@ -527,7 +527,7 @@ _draw_snake:
         mov r15, [r12 + unit.interface_table_ptr]
         mov r15, [r15 + interface_table.vtable_drawable_ptr]
 
-    .draw_snake_loop:
+    .draw_loop:
         .get_x:
             ; Getting the X-position of the DRAWABLE, add the X-offset and move it into R13W.
             mov rcx, r12                                           
@@ -558,14 +558,14 @@ _draw_snake:
             mov rdx, rax  
             call console_manager_write_char
         
-    .draw_snake_loop_handle:
+    .draw_loop_handle:
         ; At first it gets checked, if R12 ist the tail now.
         ; If it is, the function is done.
         ; If not, R12 is the next unit in the list now and the next iteration starts.
         cmp r12, rbx
         je .complete
         mov r12, [r12 + unit.next_unit_ptr]
-        jmp .draw_snake_loop
+        jmp .draw_loop
 
     .complete:
         ; Restore non volateile regs.
@@ -597,7 +597,7 @@ _draw_fence:
         cmp qword [rel lcl_board_ptr], 0
         je _b_object_failed
 
-        ; Save non volatile regs.
+        ; Save non-volatile regs.
         mov [rbp - 8], rbx
         mov [rbp - 16], r12
         mov [rbp - 24], r13
@@ -743,7 +743,7 @@ _draw_food:
         cmp qword [rel lcl_board_ptr], 0
         je _b_object_failed
 
-        ; Save non volatile regs.
+        ; Save non-volatile regs.
         mov [rbp - 8], rbx
         mov [rbp - 16], r12
         mov [rbp - 24], r13
@@ -757,7 +757,7 @@ _draw_food:
         mov r12, [r12 + interface_table.vtable_drawable_ptr]
 
         ; R13 will hold final position [X-position, Y-position].
-    .get_x_position:
+    .get_x:
         ; Get X-position of DRAWABLE.
         mov rcx, rbx
         call [r12 + DRAWABLE_VTABLE_X_POSITION_OFFSET]
@@ -767,7 +767,7 @@ _draw_food:
         call get_board_x_offset
         add r13w, ax 
 
-    .get_y_position:
+    .get_y:
         ; Get Y-position of DRAWABLE.
         mov rcx, rbx
         call [r12 + DRAWABLE_VTABLE_Y_POSITION_OFFSET]
@@ -796,7 +796,7 @@ _draw_food:
         call console_manager_write_char
 
     .complete:
-        ; Restore non volatile regs.
+        ; Restore non-volatile regs.
         mov [rbp - 24], r13
         mov [rbp - 16], r12
         mov [rbp - 8], rbx
@@ -807,83 +807,132 @@ _draw_food:
         ret
 
 ; If the snake is moving, the former tail has to be erased, since it would stay there the whole time. This function is responsible for that.
-; ! At the moment I am deleting the actual tail of the snake, which should not be the case. I need to find a way better solution for that. Idea: Save the position of the snake before it is getting updated. Erase that position after the update and then save it again.
-; TODO: Find better solution for erasing the former tail.
 _erase_snake_unit:
     .set_up:
-
+        ; Set up stack frame:
+        ; 8 bytes for local variables.
+        ; 8 bytes to keep stack 16 byte aligned.
         push rbp
         mov rbp, rsp
-        sub rsp, 56
+        sub rsp, 16
 
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+        
+        ; If board is not created yet, print a debug message.
         cmp qword [rel lcl_board_ptr], 0
         je _b_object_failed
 
         ; Expect position of old tail in ECX.
         mov [rbp + 16], ecx
 
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+
+    .get_x_offset:
+        ; Getting the board.x_offset to add it to the position of the X-coordinate passed in ECX.
         call get_board_x_offset
-        mov [rbp - 8], ax
+        mov bx, ax
 
+    .get_y_offset:
+        ; Getting the board.y_offset to add it to the position of the Y-coordinate passed in ECX.
         call get_board_y_offset
-        mov [rbp - 16], ax
+        shl ebx, 16
+        mov bx, ax
 
+    .erase_old_tail:
+        ; Now I am preparing the coordinates to pass them into the "console_manager_erase" method.
+        ; At first the Y-coordinate is handled, and the board.y_offset is added to the Y-coordinate in CX.
         mov ecx, [rbp + 16]
-        ror ecx, 16
-        add cx, [rbp - 8]
+        add cx, bx
+
+        ; Moving the bits of the regs into the right place for next operation.
         rol ecx, 16
-        add cx, [rbp - 16]
+        shr ebx, 16
+
+        ; Adding the board.x_offset to the X-coordinate.
+        add cx, bx
+
+        ; Moving the bits into the right place for passing the parameter.
+        ror ecx, 16
+
+        ; Letting the function erase exactly one char.
         mov rdx, 1
         call console_manager_erase
 
     .complete:
+        ; Restore non-volatile regs.
+        mov rbx, [rbp - 8]
+
+        ; Restore old stack frame and return to caller.
         mov rsp, rbp
         pop rbp
         ret
 
+; The idea was to create a PRNG to let the board create new food on random positions. Therefore I am getting the SystemTime as FileTime, store it in lcl_filetime_struc and use these values to create x- and y-coordinates of the food.
+; ! To get a valid food-position, it needs to be checked, that the food is not placed on a position already occupied by the snake itself. Therefore I am creating that position, checking it with the snake, and if it is colliding with the snake, I do it all over again. 
+; ! That is far off being efficient. Especially if the snake is really big, and not many empty positions on the board are left anymore. Want to find a better solution for that.
 _create_random_position:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame:
+        ; 16 bytes for local variables.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
 
-    cmp qword [rel lcl_board_ptr], 0
-    je _b_object_failed
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+        
+        ; If board is not created yet, print a debug message.
+        cmp qword [rel lcl_board_ptr], 0
+        je _b_object_failed
 
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
 
-    lea rcx, [rel filetime_struct]
-    call GetSystemTimeAsFileTime
+        ; Make RBX pointing to board object.
+        mov rbx, [rel lcl_board_ptr]
 
-    xor rax, rax
-    mov rax, [rel filetime_struct]
-    ror rax, 32
-    mov rcx, [rel lcl_board_ptr]
+    .get_system_time_as_file_time:
+        lea rcx, [rel lcl_filetime_struc]
+        call GetSystemTimeAsFileTime
 
-.calculate_x:
-    movzx r8, word [rcx + board.width]
-    xor rdx, rdx
-    div r8
+        ; Prepare RAX for calculating value.
+        mov rax, [rel lcl_filetime_struc]
+        ror rax, 16
 
+    .calculate_x:
+        ; Div RAX by board.width and save remainder in R12W.
+        xor rdx, rdx
+        mov r8w, [rbx + board.width]
+        div r8w
+        mov r12w, dx
 
-.calculate_y:
-    mov word [rbp - 8], dx
-    xor rax, rax
-    mov rax, [rel filetime_struct]
-    rol rax, 32
-    movzx r8, word [rcx + board.height]
-    xor rdx, rdx
-    div r8
+    .calculate_y:
+        ; Prepare RAX for calculation.
+        mov rax, [rel lcl_filetime_struc]
+        rol rax, 16
 
+        ; Div RAX by board.height and save remainder in R12W (after preparing the reg).
+        xor rdx, rdx
+        mov r8w, [rbx + board.height]
+        div r8w
+        shl r12d, 16
+        mov r12w, dx
 
-.complete:
-    mov word [rbp - 16], dx
+    .complete:
+        ; Return calculated position in EAX.
+        mov eax, r12d
 
-    movzx rax, word [rbp - 8]
-    shl rax, 16
-    mov ax, word [rbp - 16]
+        ; Restore non-volatile regs.
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _control_food_and_snake_position:
     push rbp
