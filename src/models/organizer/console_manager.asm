@@ -1,6 +1,6 @@
 %include "../include/strucs/organizer/console_manager_struc.inc"
 
-global console_manager_new, console_manager_destroy, console_manager_clear, console_manager_write_char, console_manager_set_cursor, console_manager_erase, console_manager_write_word, console_manager_set_cursor_to_end, console_manager_get_width_to_center_offset, console_manager_get_height_to_center_offset, console_manager_get_numeral_input, console_manager_get_literal_input, console_manager_set_buffer_size, console_manager_write_number
+global console_manager_new, console_manager_destroy, console_manager_clear, console_manager_write_char, console_manager_set_cursor, console_manager_erase, console_manager_write_word, console_manager_set_cursor_to_end, console_manager_get_width_to_center_offset, console_manager_get_height_to_center_offset, console_manager_get_numeral_input, console_manager_get_literal_input, console_manager_set_buffer_size, console_manager_write_number, console_manager_repeat_char
 
 section .rodata
     erase_char db " "
@@ -18,7 +18,7 @@ section .data
 
 section .bss
     CONSOLE_MANAGER_PTR resq 1
-    CHAR_PTR resq 1
+    lcl_chars_written resq 1
 
 section .text
     extern malloc, free
@@ -102,6 +102,20 @@ console_manager_write_char:
     mov rcx, [rbp - 8]
     mov rdx, 1
     call _cm_write
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+console_manager_repeat_char:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect char to write in CL.
+    ; Expect number of repetitions in EDX.
+    ; Expect starting coordinates in R8D
+    call _cm_write_char_multiple_times
 
     mov rsp, rbp
     pop rbp
@@ -334,18 +348,42 @@ _cm_empty_console:
     cmp qword [rel CONSOLE_MANAGER_PTR], 0
     je _cm_object_failed
 
-    mov rdx, [rel CONSOLE_MANAGER_PTR]
+    call _cm_get_console_info
 
-    mov rcx, [rdx + console_manager.output_handle]
-    mov rdx, " "
-    movzx r8, word [rel _console_screen_buffer_info]
-    imul r8w, word [rel _console_screen_buffer_info + 2]
-    xor r9, r9
-    lea r10, [rel CHAR_PTR]
-    mov qword [rsp + 32], r10
-    call FillConsoleOutputCharacterA
+    mov cl, " "
+    movzx edx, word [rel _console_screen_buffer_info]
+    imul dx, word [rel _console_screen_buffer_info + 2]
+    xor r8, r8
+    call _cm_write_char_multiple_times
 
     call _cm_set_cursor_start
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_cm_write_char_multiple_times:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 56
+
+    cmp qword [rel CONSOLE_MANAGER_PTR], 0
+    je _cm_object_failed
+
+    ; Expect char to write in CL.
+    ; Expect number of repetitions in EDX.
+    ; Expect starting coordinates in R8D
+    mov r9w, r8w
+    shl r9d, 16
+    shr r8d, 16
+    mov r9w, r8w
+    mov r8d, edx
+    mov dl, cl
+    mov rcx, [rel CONSOLE_MANAGER_PTR]
+    mov rcx, [rcx + console_manager.output_handle]
+    lea r10, [rel lcl_chars_written]
+    mov qword [rsp + 32], r10
+    call FillConsoleOutputCharacterA
 
     mov rsp, rbp
     pop rbp

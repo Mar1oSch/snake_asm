@@ -40,8 +40,8 @@ section .text
     extern Sleep
     extern GetSystemTimeAsFileTime
 
-    extern snake_new, snake_update, snake_get_tail_position, snake_reset
-    extern console_manager_write_char, console_manager_set_cursor_to_end, console_manager_erase, console_manager_get_height_to_center_offset, console_manager_get_width_to_center_offset
+    extern snake_new, snake_update, snake_reset
+    extern console_manager_write_char, console_manager_set_cursor_to_end, console_manager_erase, console_manager_repeat_char, console_manager_get_height_to_center_offset, console_manager_get_width_to_center_offset
     extern food_new, food_destroy
     extern designer_clear
 
@@ -104,10 +104,8 @@ board_new:
         ; Use the first parameter to define size of created board.
         mov ecx, [rbp + 16]
         mov [rbx + board.height], cx
-        add word [rbx + board.height], 2
         ror ecx, 16
         mov [rbx + board.width], cx
-        add word [rbx + board.width], 2
 
     .create_snake:
         ; Create snake and let its head start in the center of the board.
@@ -172,10 +170,6 @@ board_setup:
         call _draw_food
         call _draw_snake
 
-    .erase_first_tail:
-        ; The first tail part has to get erased, since it would stay if the snake is moving.
-        call _erase_last_snake_unit
-
     .complete:
         ; Restore old stack frame and return to caller.
         mov rsp, rbp
@@ -211,14 +205,9 @@ board_reset:
 
     .save_solid_values:
         ; Prepare to save the width and height of board.
-        ; ! Here is an annoying problem:
-        ; ! I do have to sub 2 of width and height, because it is getting added in the constructor again. My consideration was: Initially I just have to pass the playable width and height. Then add two rows in the height for the fence and two columns in width for the fence. Here it would be nice (and also not as difficult - just annoying atm) to find a better solution: The fence should be drawn at width(-1 & width + 1) and height(-1 & height + 1). Also the collission check should be like that.
-        ; TODO: Find better way to handle board borders.
         mov cx, [rbx + board.width]
-        sub cx, 2
         shl ecx, 16
         mov cx, [rbx + board.height]
-        sub cx, 2
         ; Second local variable:
         ; * Board dimensions
         mov [rbp - 16], ecx
@@ -262,13 +251,20 @@ board_move_snake:
         cmp qword [rel lcl_board_ptr], 0
         je _b_object_failed
 
+        ; Expect X- and Y-coordinates of old tail in ECX.
+        mov [rbp + 16], ecx
+
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
     .move_snake:
         ; Here the snake gets drawn, the last unit deleted and the console cursor gets moved to the end, because otherwise the snake would trail it the whole time.
         call _draw_snake
-        call _erase_last_snake_unit
+
+        ; Tell the eraser, which position the old tail was and let it do its job.
+        mov ecx, [rbp + 16]
+        call _erase_snake_unit
+
         call console_manager_set_cursor_to_end
 
     .complete:
@@ -312,7 +308,7 @@ board_create_new_food:
         mov [rbp - 16], rax
 
         ; Check if food would be placed on the snake. If yes, loop again.
-        ; ! Here I also would like to find a better solution. The bigger the snake gets and the less possible fields on the board are free, the chance to create a valid random position decreases a lot. There must be a better way. For example: create a list of possible positions and let the board randomly choose one. If the snake is updated, the position it moved to disapperas from the list, while the just freed position gets into the list again. 
+        ; ! Here I would like to find a better solution. The bigger the snake gets and the less possible fields on the board are free, the chance to create a valid random position decreases a lot. There must be a better way. For example: create a list of possible positions and let the board randomly choose one. If the snake is updated, the position it moved to disapperas from the list, while the just freed position gets into the list again. 
         ; TODO: Find different randomization algorithm.
         mov rcx, rax
         call _control_food_and_snake_position
@@ -448,29 +444,33 @@ board_draw_food:
 
 ; Private destructor. The board_reset method is the public method to handle the board release.
 _board_destroy:
-.set_up:
-    ; Setting up the stack frame without local variables.
-    push rbp
-    mov rbp, rsp
+    .set_up:
+        ; Setting up the stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; Reserve 32 bytes shadow space for called functions.
-    sub rsp, 32
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    ; If board is not created yet, print a debug message.
-    cmp qword [rel lcl_board_ptr], 0
-    je _b_object_failed
+        ; If board is not created yet, print a debug message.
+        cmp qword [rel lcl_board_ptr], 0
+        je _b_object_failed
 
-.destroy_object:
-    ; Use the local lcl_board_ptr to free the memory space and set it back to 0.
-    mov rcx, [rel lcl_board_ptr]
-    call free
-    mov qword [rel lcl_board_ptr], 0
+    .destroy_object:
+        ; Use the local lcl_board_ptr to free the memory space and set it back to 0.
+        mov rcx, [rel lcl_board_ptr]
+        call free
+        mov qword [rel lcl_board_ptr], 0
 
-.complete:
-    ; Restore old stack frame and leave the destructor.
-    mov rsp, rbp
-    pop rbp
-    ret
+    .complete:
+        ; Restore old stack frame and leave the destructor.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+
+
+;;;;;; DRAWING METHODS ;;;;;;
 
 ; The actual function to draw the snake on the board. It loops down from head to tail and uses the DRAWABLE getters to finally draw the snake on the board.
 _draw_snake:
@@ -580,150 +580,266 @@ _draw_snake:
         pop rbp
         ret
 
+; Drawing the border of the board. The function loops through the Y-axis of the board. Before it starts with Y = 0, it draws the top fence at board.y - 1. As soon as the Y-counter exceeds the board.height, it draws the bottom fence.
 _draw_fence:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 104
+    .set_up:
+        ; Setting up stack frame:
+        ; 24 bytes local variables.
+        ; 8 bytes to keep stack 16 byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
 
-    cmp qword [rel lcl_board_ptr], 0
-    je _b_object_failed
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+        
+        ; If board is not created yet, print a debug message.
+        cmp qword [rel lcl_board_ptr], 0
+        je _b_object_failed
 
-    mov r8, [rel lcl_board_ptr]
-    mov cx, [r8 + board.width]
-    mov [rbp - 8], cx                     
-    mov cx, [r8 + board.height]                  ; Save height.
-    mov [rbp - 16], cx    
+        ; Save non volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
+        mov [rbp - 24], r13
 
-    call get_board_x_offset
-    mov [rbp - 24], ax
-    call get_board_y_offset
-    mov [rbp - 32], ax
+    .set_up_loop_base:
+        ; I am setting up the base for the drawing loop:
+        ; * - EBX will hold the width and the height of the board [width, height].
+        ; * - R12 will be the height counter for the loop [X-offset, Y-offset].
+        ; * - R13 will hold the X- and Y-offsets of the board.
+        mov rcx, [rel lcl_board_ptr]
+        ; Setting up EBX containing the width and height of board.
+        mov bx, [rcx + board.width]
+        shl ebx, 16                   
+        mov bx, [rcx + board.height]                  ; Save height.   
 
-    ; Save non-volatile regs.
-    mov [rbp - 40], r15
-    mov [rbp - 48], r14
+        ; Setting up R13D containing X- and Y-offsets. 
+        call get_board_x_offset
+        mov r13w, ax
+        shl r13d, 16
+        call get_board_y_offset
+        mov r13w, ax
 
-    xor r15, r15        ; Zero Height counter
-.loop:
-    cmp r15, 0
-    je .draw_whole_line
-    cmp r15w, [rbp - 16]
-    je .draw_whole_line
+        ; Set height counter to 0.
+        xor r12w, r12w
 
-.draw_single_chars:
-    mov cx, [rbp - 24]
-    shl rcx, 16
-    mov cx, r15w
-    add cx, [rbp - 32]
-    lea rdx, [rel fence_char] 
-    call console_manager_write_char
-    mov cx, word [rbp - 8]
-    add cx, [rbp - 24]
-    shl rcx, 16
-    mov cx, r15w
-    add cx, [rbp - 32]
-    lea rdx, [rel fence_char] 
-    call console_manager_write_char
-    jmp .loop_handle
+    .draw_top_fence:
+        ; The Fence at board(Y - 1).
+        ; Setting up the params for "console_manager_repeat_char":
+        ; * - CL contains the char to repeat.
+        mov cl, [rel fence_char]
 
-.draw_whole_line:
-    xor r14, r14        ; Zero Width counter
-    .inner_loop:
-        mov cx, r14w
-        add cx, [rbp - 24]
-        shl rcx, 16
-        mov cx, r15w
-        add cx, [rbp - 32]
-        lea rdx, [rel fence_char]
+        ; * - EDX contains the number of repetitions.
+        ror ebx, 16
+        movzx edx, bx
+        add edx, 3
+        rol ebx, 16
+
+        ; * - R8D contains the starting coordinates. (In this case: [board.width_offset - 1, board.height_offset - 1])
+        ror r13d, 16
+        mov r8w, r13w
+        dec r8w
+        shl r8d, 16
+        rol r13d, 16
+        mov r8w, r13w
+        dec r8w
+        call console_manager_repeat_char
+
+    .draw_side_fence_loop:
+        ; Preparing coordinates of the left fence piece. 
+        ; The X-coordinate is board.x-offset - 1
+        ror r13d, 16
+        mov cx, r13w
+        dec cx
+
+        ; Now the Y-coordinate is board.y-offset + R12W.
+        shl ecx, 16
+        rol r13d, 16
+        mov cx, r13w
+        add cx, r12w
+
+        ; Finally the pointer to the fence char get's loaded into RDX.
+        ; Parameters are set up.
+        lea rdx, [rel fence_char] 
         call console_manager_write_char
-    .inner_loop_handle:
-        cmp r14w, [rbp - 8]
-        je .loop_handle
-        inc r14w
-        jmp .inner_loop
 
-.loop_handle:
-    cmp r15w, word [rbp - 16]
-    je .complete
-    inc r15
-    jmp .loop
+        ; Preparing coordinates of the right fence piece.
+        ; The X-coordinate is board.x-offset + board.width + 1
+        ror r13d, 16
+        mov cx, r13w
+        ror ebx, 16
+        add cx, bx
+        inc cx
 
-.complete:
-    mov [rbp - 48], r14
-    mov [rbp - 40], r15
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; The Y- coordinate is board.y-offset + R12W
+        shl ecx, 16
+        rol r13d, 16
+        mov cx, r13w
+        add cx, r12w
 
+        ; Loading again the pointer to the fence char into RDX.
+        ; Parameters are set up.
+        lea rdx, [rel fence_char] 
+        call console_manager_write_char
+
+    .draw_side_fence_loop_handle:
+        ; The loop handles sets EBX back into set up [width, height] and increments the height counter.
+        rol ebx, 16
+        inc r12w
+
+        ; Then it is checking, if R12W exceeded the board height.
+        ; If it didn't exceed it, it loops again.
+        cmp r12w, bx
+        jbe .draw_side_fence_loop
+
+    .draw_bottom_fence:
+        ; The Fence at board(height + 1).
+        ; Setting up the params for "console_manager_repeat_char":
+        ; * - CL contains the char to repeat.
+        mov cl, [rel fence_char]
+
+        ; * - EDX contains the number of repetitions.
+        ror ebx, 16
+        movzx edx, bx
+        add edx, 3
+
+        ; * - R8D contains the starting coordinates. (In this case: [board.width_offset - 1, board.height_offset + R12W])
+        ror r13d, 16
+        mov r8w, r13w
+        dec r8w
+        shl r8d, 16
+        rol r13d, 16
+        mov r8w, r13w
+        add r8w, r12w
+        call console_manager_repeat_char
+
+    .complete:
+        ; Restore non-volatile regs.
+        mov r15, [rbp - 40]
+        mov r14, [rbp - 32]
+        mov r13, [rbp - 24]
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; Here the food (another DRAWABLE) is getting printed into the board. 
 _draw_food:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 80
+    .set_up:
+        ; Set up stack frame:
+        ; 24 bytes local variables.
+        ; 8 bytes to keep stack 16 byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
 
-    cmp qword [rel lcl_board_ptr], 0
-    je _b_object_failed
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+        
+        ; If board is not created yet, print a debug message.
+        cmp qword [rel lcl_board_ptr], 0
+        je _b_object_failed
 
-    mov rcx, [rel lcl_board_ptr]
-    mov rcx, [rcx + board.food_ptr]
-    mov [rbp - 8], rcx
+        ; Save non volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
+        mov [rbp - 24], r13
 
-    mov rdx, [rcx + food.interface_table_ptr]
-    mov rdx, [rdx + interface_table.vtable_drawable_ptr]
-    mov [rbp - 16], rdx
+        ; RBX becomes food pointer.
+        mov rbx, [rel lcl_board_ptr]
+        mov rbx, [rbx + board.food_ptr]
 
-    call [rdx + DRAWABLE_VTABLE_X_POSITION_OFFSET]
-    mov word [rbp - 24], ax
-    call get_board_x_offset
-    add word [rbp - 24], ax 
+        ; R12 becomes pointer to DRAWABLE vtable.
+        mov r12, [rbx + food.interface_table_ptr]
+        mov r12, [r12 + interface_table.vtable_drawable_ptr]
 
-    mov rcx, [rbp - 8]
-    mov rdx, [rbp - 16]
-    call [rdx + DRAWABLE_VTABLE_Y_POSITION_OFFSET]
-    mov word [rbp - 32], ax
-    call get_board_y_offset
-    add word [rbp - 32], ax
+        ; R13 will hold final position [X-position, Y-position].
+    .get_x_position:
+        ; Get X-position of DRAWABLE.
+        mov rcx, rbx
+        call [r12 + DRAWABLE_VTABLE_X_POSITION_OFFSET]
+        mov r13w, ax
 
-    mov rcx, [rbp - 8]
-    mov rdx, [rbp - 16]
-    call [rdx + DRAWABLE_VTABLE_CHAR_PTR_OFFSET]
+        ; Add board.x_offset.
+        call get_board_x_offset
+        add r13w, ax 
 
-    mov rdx, rax
-    mov cx, word [rbp - 24]
-    shl rcx, 16
-    mov cx, word [rbp - 32]
-    call console_manager_write_char
+    .get_y_position:
+        ; Get Y-position of DRAWABLE.
+        mov rcx, rbx
+        call [r12 + DRAWABLE_VTABLE_Y_POSITION_OFFSET]
+        shl r13d, 16
+        mov r13w, ax
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Add board.y_offset.
+        call get_board_y_offset
+        add r13w, ax
+    
+    .get_char_ptr:
+        ; Finally get char pointer of DRAWABLE object.
+        mov rcx, rbx
+        call [r12 + DRAWABLE_VTABLE_CHAR_PTR_OFFSET]
 
-_erase_last_snake_unit:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 56
+        ; Set up parameter for "console_manager_write_char":
+        ; * - ECX contains the position of char.
+        ror r13d, 16
+        mov cx, r13w
+        rol r13d, 16
+        shl rcx, 16
+        mov cx, r13w
 
-    cmp qword [rel lcl_board_ptr], 0
-    je _b_object_failed
+        ; * - RDX contains pointer to char.
+        mov rdx, rax
+        call console_manager_write_char
 
-    call get_board_x_offset
-    mov [rbp - 8], ax
+    .complete:
+        ; Restore non volatile regs.
+        mov [rbp - 24], r13
+        mov [rbp - 16], r12
+        mov [rbp - 8], rbx
 
-    call get_board_y_offset
-    mov [rbp - 16], ax
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
-    call snake_get_tail_position
-    mov ecx, eax
-    ror ecx, 16
-    add cx, [rbp - 8]
-    rol ecx, 16
-    add cx, [rbp - 16]
-    mov rdx, 1
-    call console_manager_erase
+; If the snake is moving, the former tail has to be erased, since it would stay there the whole time. This function is responsible for that.
+; ! At the moment I am deleting the actual tail of the snake, which should not be the case. I need to find a way better solution for that. Idea: Save the position of the snake before it is getting updated. Erase that position after the update and then save it again.
+; TODO: Find better solution for erasing the former tail.
+_erase_snake_unit:
+    .set_up:
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+        push rbp
+        mov rbp, rsp
+        sub rsp, 56
+
+        cmp qword [rel lcl_board_ptr], 0
+        je _b_object_failed
+
+        ; Expect position of old tail in ECX.
+        mov [rbp + 16], ecx
+
+        call get_board_x_offset
+        mov [rbp - 8], ax
+
+        call get_board_y_offset
+        mov [rbp - 16], ax
+
+        mov ecx, [rbp + 16]
+        ror ecx, 16
+        add cx, [rbp - 8]
+        rol ecx, 16
+        add cx, [rbp - 16]
+        mov rdx, 1
+        call console_manager_erase
+
+    .complete:
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _create_random_position:
     push rbp
@@ -747,16 +863,6 @@ _create_random_position:
     xor rdx, rdx
     div r8
 
-    cmp dx, 0
-    je .increment_x
-    cmp dx, word [rcx + board.width]
-    je .decrement_x
-    jmp .calculate_y
-.increment_x:
-    inc dx
-    jmp .calculate_y
-.decrement_x:
-    dec dx
 
 .calculate_y:
     mov word [rbp - 8], dx
@@ -767,16 +873,6 @@ _create_random_position:
     xor rdx, rdx
     div r8
 
-    cmp dx, 0
-    je .increment_y
-    cmp dx, word [rcx + board.height]
-    je .decrement_y
-    jmp .complete
-.increment_y:
-    inc dx
-    jmp .complete
-.decrement_y:
-    dec dx
 
 .complete:
     mov word [rbp - 16], dx

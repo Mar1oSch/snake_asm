@@ -155,7 +155,7 @@ _game_setup:
 _update_snake:
     push rbp
     mov rbp, rsp
-    sub rsp, 72
+    sub rsp, 80
 
     ; Expect direction in CL
     cmp qword [rel GAME_PTR], 0
@@ -169,7 +169,11 @@ _update_snake:
     mov [rbp - 16], r8                       ; Save active unit ptr.
     mov r9, [rcx + snake.tail_ptr]
     mov [rbp - 24], r9                       ; Save tail ptr.
-
+    mov r9, [r9 + unit.position_ptr]
+    mov r10w, [r9 + position.x]
+    shl r10d, 16
+    mov r10w, [r9 + position.y]
+    mov [rbp - 40], r10d
 .loop:
     mov rcx, [rbp - 16]
     movzx rdx, byte [rbp - 8]
@@ -187,6 +191,7 @@ _update_snake:
     jmp .loop
 
 .complete:
+    mov eax, [rbp - 40]
     mov rsp, rbp
     pop rbp
     ret
@@ -413,16 +418,16 @@ _check_wall_collission:
     mov rdx, [rdx + unit.position_ptr]
 
     cmp word [rdx + position.x], 0
-    je .game_over
+    jb .game_over
     movzx r9, word [rcx + board.width]
     cmp word [rdx + position.x], r9w
-    je .game_over
+    ja .game_over
 
     cmp word [rdx + position.y], 0
-    je .game_over
+    jb .game_over
     movzx r9, word [rcx + board.height]
     cmp word [rdx + position.y], r9w
-    je .game_over
+    ja .game_over
 
     mov rax, 0
     jmp .complete
@@ -527,10 +532,11 @@ _print_player:
     mov r10, [r9 + game.board_ptr]
     xor rcx, rcx
     movzx rcx, word [rbp - 8]
+    dec cx
     shl rcx, 16
     mov cx, [r10 + board.height]
     add cx, [rbp - 16]
-    inc cx
+    add cx, 2
     mov rdx, [r9 + game.options_ptr]
     mov rdx, [rdx + options.player_ptr]
     mov rdx, [rdx + player.name]
@@ -556,9 +562,10 @@ _print_level:
     mov r9, [r8 + game.board_ptr]
     xor rcx, rcx
     movzx rcx, word [rbp - 8]
+    dec cx
     shl rcx, 16
     mov cx, [rbp - 16]
-    dec cx
+    sub cx, 2
     mov [rbp - 24], ecx
     lea rdx, [rel lvl_format]
     mov r8, lvl_length
@@ -596,11 +603,11 @@ _print_points:
     mov r8, [r9 + game.board_ptr]
     movzx rcx, word [r8 + board.width]
     add cx, [rbp - 8]
-    sub cx, 3
+    sub cx, 2
     shl rcx, 16
     mov cx, [r8 + board.height]
     add cx, [rbp - 16]
-    inc cx
+    add cx, 2
     mov edx, [r9 + game.points]
     mov r8, 4
     call console_manager_write_number
@@ -624,10 +631,10 @@ _print_highscore:
     mov r8, [r8 + game.board_ptr]
     movzx rcx, word [r8 + board.width]
     add cx, [rbp - 8]
-    sub cx, 9
+    sub cx, 8
     shl rcx, 16
     mov cx, [rbp - 16]
-    dec cx
+    sub cx, 2
     mov [rbp - 32], ecx
     lea rdx, [rel best_format]
     mov r8, best_length
@@ -723,6 +730,7 @@ _game_play:
     call _get_direction_change
     mov rcx, [rel current_direction]
     call _update_snake
+    mov ecx, eax
     call board_move_snake
     call _collission_check
     cmp rax, 2

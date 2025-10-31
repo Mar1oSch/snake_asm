@@ -12,7 +12,7 @@
 ; The snake as whole has no direction, since every unit has it's own direction. I am passing down the direction each update through the units in the list. 
 ; The length of the snake is then used to check, if the player finished the game: If length of snake = board.width * board.height, player gets 100 bonus points.
 
-global snake_new, snake_add_unit, snake_update, snake_get_tail_position, snake_reset
+global snake_new, snake_add_unit, snake_update,  snake_reset
 
 ;;;;;; CONSTANTS ;;;;;;
 STARTING_LENGTH equ 8
@@ -101,12 +101,12 @@ snake_new:
         mov [rax + snake.tail_ptr], rcx
 
         ; Initial snake length is one.
-        mov qword [rax + snake.length], 0
+        mov qword [rax + snake.length], 1
 
     .set_up_list:
         ; Use the non volatile R12 register as counter for the loop:
         ; It is initialized as STARTING_LENGTH - 1, because one unit already was created.
-        mov r12, STARTING_LENGTH
+        mov r12, STARTING_LENGTH - 1
 
     .loop:
         ; Check if 0 is reached. If it is, the creation is completed.
@@ -184,26 +184,6 @@ snake_reset:
         ; Restore old stack frame and leave destructor.
         mov rsp, rbp
         pop rbp
-        ret
-
-; A getter for the position of the snakes tail unit.
-snake_get_tail_position:
-    .debug:
-        ; Check if snake exits. If it isn't, let the user know.
-        cmp qword [rel lcl_snake_ptr], 0
-        je _s_object_failed
-
-    .get_tail_position:
-        mov rcx, [rel lcl_snake_ptr]
-        mov rcx, [rcx + snake.tail_ptr]
-        mov rcx, [rcx + unit.position_ptr]
-
-    .complete:
-        ; Return the position in EAX.
-        movzx rax, word [rcx + position.x]
-        shl rax, 16
-        mov ax, [rcx + position.y]
-
         ret
 
 ; The function which handles the addition of a new unit into the linked list. 

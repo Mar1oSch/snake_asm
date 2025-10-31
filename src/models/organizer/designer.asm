@@ -198,10 +198,11 @@ designer_write_table:
     mov word [rbp - 64], 3                                              ; Starting Y-coordinate of the table.
 
     ; Setting up correct buffer size, so the table is scrollable.
-    xor rcx, rcx
-    mov ecx, [rbp - 40]
-    shl ecx, 1
-    call console_manager_set_buffer_size
+    ; xor rcx, rcx
+    ; mov ecx, [rbp - 40]
+    ; shl ecx, 1
+    ; add ecx, 2
+    ; call console_manager_set_buffer_size
 
 .loop:
     .inner_loop:
@@ -266,7 +267,7 @@ designer_write_table:
     mov rcx, rax
     shl rcx, 16
     mov cx, word [rbp - 64]
-    inc cx
+    add cx, 2
     call console_manager_set_cursor
 
     mov r13, [rbp - 24]
