@@ -52,6 +52,8 @@ section .text
 
 ; The constructor of the board. It needs to know the width and height the game wants it to be (I wanted the user to be able to create a personalized board by input, but I decided to stay with the default size. That's why I wanted the board to get its width and height from outside itself) and it needs a pointer to the console manager object. 
 board_new:
+    ; * 1. param: Expect width and height in ECX. [width, height]
+    ; * 2. param: Expect pointer to console_manager in RDX.
     .set_up:
         ; Set up stack frame:
         ; 8 bytes local variables.
@@ -64,13 +66,12 @@ board_new:
         cmp qword [rel lcl_board_ptr], 0
         jne .complete
 
-        ; Save non-volatile regs.
-        mov [rbp - 8], rbx
-
-        ; Expect width and height in ECX
-        ; Expect pointer to console_manager in RDX
+        ; Save params into shadow space.
         mov [rbp + 16], ecx
         mov [rbp + 24], rdx
+
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
 
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
@@ -242,6 +243,7 @@ board_reset:
 
 ; As soon as the game updated the snake depending on the game logic, it calls the board to mov the snake. Therefore the board needs to draw it and also erase the last unit, because it would just simply stay on the board and the snake would get longer and longer and longer (even without consuming food;). 
 board_move_snake:
+    ; * 1. param: Expect X- and Y-coordinates of old tail in ECX.
     .set_up:
         ; Set up stack frame without local variables.
         push rbp
@@ -251,7 +253,7 @@ board_move_snake:
         cmp qword [rel lcl_board_ptr], 0
         je _b_object_failed
 
-        ; Expect X- and Y-coordinates of old tail in ECX.
+        ; Save param into shadow space.
         mov [rbp + 16], ecx
 
         ; Reserve 32 bytes shadow space for called functions.
@@ -311,7 +313,7 @@ board_create_new_food:
         ; ! Here I would like to find a better solution. The bigger the snake gets and the less possible fields on the board are free, the chance to create a valid random position decreases a lot. There must be a better way. For example: create a list of possible positions and let the board randomly choose one. If the snake is updated, the position it moved to disapperas from the list, while the just freed position gets into the list again. 
         ; TODO: Find different randomization algorithm.
         mov ecx, eax
-        call _control_food_and_snake_position
+        call _is_food_position_free
         test rax, rax
         jz .randomize_new_position_loop
 
@@ -808,6 +810,7 @@ _draw_food:
 
 ; If the snake is moving, the former tail has to be erased, since it would stay there the whole time. This function is responsible for that.
 _erase_snake_unit:
+    ; * 1. param: Expect position of old tail in ECX.
     .set_up:
         ; Set up stack frame:
         ; 8 bytes for local variables.
@@ -823,7 +826,7 @@ _erase_snake_unit:
         cmp qword [rel lcl_board_ptr], 0
         je _b_object_failed
 
-        ; Expect position of old tail in ECX.
+        ; Save param into shadow space.
         mov [rbp + 16], ecx
 
         ; Save non-volatile regs.
@@ -905,19 +908,19 @@ _create_random_position:
     .calculate_x:
         ; Div RAX by board.width and save remainder in R12W.
         xor rdx, rdx
-        mov r8w, [rbx + board.width]
-        div r8w
+        movzx r8, word [rbx + board.width]
+        div r8
         mov r12w, dx
 
     .calculate_y:
         ; Prepare RAX for calculation.
         mov rax, [rel lcl_filetime_struc]
-        rol rax, 16
+        rol rax, 32
 
         ; Div RAX by board.height and save remainder in R12W (after preparing the reg).
         xor rdx, rdx
-        mov r8w, [rbx + board.height]
-        div r8w
+        movzx r8, word [rbx + board.height]
+        div r8
         shl r12d, 16
         mov r12w, dx
 
@@ -934,50 +937,77 @@ _create_random_position:
         pop rbp
         ret
 
-_control_food_and_snake_position:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+; Here the newly created position gets controlled with snake positions. If it is on a snake position, the function returns FALSE. If not, the function returns TRUE.
+_is_food_position_free:
+    ; * 1. param: Expect X- and Y-Coordinates of position in ECX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; Expect X- and Y-Coordinates in ECX.
-    mov [rbp - 8], cx               ; Save Y-Coordinates
-    shr rcx, 16
-    mov [rbp - 16], cx              ; Save X-Coordinates
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+        
+        ; If board is not created yet, print a debug message.
+        cmp qword [rel lcl_board_ptr], 0
+        je _b_object_failed
 
-    cmp qword [rel lcl_board_ptr], 0
-    je _b_object_failed
+    .set_up_loop_base:
+        ; I am setting up the base for the controlling loop:
+        ; * - ECX is already holding the X- and Y-position of the checked position.
+        ; * - RDX will hold the tail.
+        ; * - R8 will hold the active snake unit.
+        ; * - R9 gets the position information of the active unit from R8.
 
-    mov rcx, [rel lcl_board_ptr]
-    mov rcx, [rcx + board.snake_ptr]
-    mov r8, [rcx + snake.tail_ptr]
-    mov [rbp - 24], r8
-    mov r8, [rcx + snake.head_ptr]
+        ; Make RDX pointing to snake object first.
+        mov rdx, [rel lcl_board_ptr]
+        mov rdx, [rdx + board.snake_ptr]
 
-.loop:
-    mov r9, [r8 + unit.position_ptr]
-    mov r10w, word [r9 + position.x]
-    cmp r10w, word [rbp - 16]
-    jne .loop_handle
-    mov r10w, word [r9 + position.y]
-    cmp r10w, word [rbp - 8]
-    je .failed
-.loop_handle:
-    cmp r8, [rbp - 24]
-    je .worked
-    mov r8, [r8 + unit.next_unit_ptr]
-    jmp .loop
+        ; R8 will store head first.
+        mov r8, [rdx + snake.head_ptr]
 
-.failed:
-    mov rax, 0
-    jmp .complete
+        ; Now RDX can hold the tail.
+        mov rdx, [rdx + snake.tail_ptr]
 
-.worked:
-    mov rax, 1
+    .check_loop:
+        ; Compare unit.y_position with check.y_position.
+        ; If it is not equal, preparing x coordinates can already be skipped.
+        mov r9, [r8 + unit.position_ptr]
+        mov r10w, [r9 + position.y]
+        cmp r10w, cx
+        jne .check_loop_handle
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Compare unit.x_position with check.x_position.
+        ; If it is also equal, the position is blocked and needs to be recreated.
+        ror ecx, 16
+        mov r10w, word [r9 + position.x]
+        cmp r10w, cx
+        je .position_blocked
+
+    .check_loop_handle:
+        ; If R8 was the tail, the check is done and the position is free.
+        cmp r8, rdx
+        je .position_free
+
+        ; Move on to next unit in the linked list and reset ECX.
+        mov r8, [r8 + unit.next_unit_ptr]
+        rol ecx, 16
+        jmp .check_loop
+
+    .position_blocked:
+        ; Set return value to FALSE.
+        mov rax, 0
+        jmp .complete
+
+    .position_free:
+        ; Set return value to TRUE.
+        mov rax, 1
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 
 
