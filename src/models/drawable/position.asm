@@ -42,7 +42,7 @@ position_new:
         ; Check if return of malloc is 0 (if it is, it failed).
         ; If it failed, it will get printed into the console.
         test rax, rax
-        jz _p_malloc_failed
+        jz _pos_malloc_failed
 
     .set_up_object:
         ; Load the X- and Y-coordinates from the shadow space.
@@ -83,7 +83,7 @@ position_destroy:
 
 ;;;;;; DEBUGGING ;;;;;;
 
-_p_malloc_failed:
+_pos_malloc_failed:
     .set_up:
         ; Setting up stack frame without local variables.
         push rbp
