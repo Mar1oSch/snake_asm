@@ -64,7 +64,7 @@ snake_new:
         ; First local variable.
         mov [rbp - 8], r12
 
-        ; Reserve 32 bytes shadow space for cunction calls.
+        ; Reserve 32 bytes shadow space for called functions. 
         sub rsp, 32
 
     .create_dependend_objects:
@@ -141,10 +141,14 @@ snake_reset:
         mov rbp, rsp
         sub rsp, 16
 
+        ; If snake is not created, let the user know.
+        cmp qword [rel lcl_snake_ptr], 0
+        je _s_object_failed
+
         ; Save non-volatile regs.
         mov [rbp - 8], rbx
 
-        ; Reserve 32 bytes shadow space for cunction calls.
+        ; Reserve 32 bytes shadow space for called functions. 
         sub rsp, 32
 
         ; Using the tail pointer as termination signal.

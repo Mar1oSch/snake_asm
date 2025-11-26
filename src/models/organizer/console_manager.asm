@@ -1,6 +1,6 @@
 %include "../include/strucs/organizer/console_manager_struc.inc"
 
-global console_manager_new, console_manager_destroy, console_manager_clear, console_manager_write_char, console_manager_set_cursor, console_manager_erase, console_manager_write_word, console_manager_set_cursor_to_end, console_manager_get_width_to_center_offset, console_manager_get_height_to_center_offset, console_manager_get_numeral_input, console_manager_get_literal_input, console_manager_set_buffer_size, console_manager_write_number, console_manager_repeat_char
+global console_manager_new, console_manager_destroy, console_manager_clear, console_manager_write_char, console_manager_set_cursor, console_manager_erase, console_manager_write_word, console_manager_get_width_to_center_offset, console_manager_get_height_to_center_offset, console_manager_get_numeral_input, console_manager_get_literal_input, console_manager_set_buffer_size, console_manager_write_number, console_manager_repeat_char
 
 section .rodata
     erase_char db " "
@@ -9,6 +9,10 @@ section .rodata
     window_size_string db "top left corner: {%d, %d}, bottom right corner: {%d, %d}", 13, 10, 0
 
 section .data
+    _console_cursor_info:
+        dd 1
+        dd 0
+
     _console_screen_buffer_info:
         dw 0, 0
         dw 0, 0
@@ -29,7 +33,7 @@ section .text
     extern file_manager_get_num_of_entries
 
     extern GetStdHandle
-    extern SetConsoleCursorPosition
+    extern SetConsoleCursorPosition, SetConsoleCursorInfo
     extern WriteConsoleA, ReadConsoleA
     extern GetConsoleScreenBufferInfo, GetNumberOfConsoleInputEvents
     extern SetConsoleScreenBufferSize
@@ -59,6 +63,10 @@ console_manager_new:
     mov rcx, -11
     call GetStdHandle
     mov [r15 + console_manager.output_handle], rax
+
+    mov rcx, rax
+    lea rdx, [rel _console_cursor_info]
+    call SetConsoleCursorInfo
 
     call _cm_get_console_info
     lea rcx, [rel _console_screen_buffer_info]
@@ -265,30 +273,6 @@ console_manager_set_cursor:
 
     ; Expect Position-X and Position-Y in ECX. 
     call _cm_set_cursor_position
-
-    mov rsp, rbp
-    pop rbp
-    ret
-
-console_manager_set_cursor_to_end:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
-
-    ; Save non-volatile regs.
-    mov [rbp - 8], r15
-
-    mov r15, [rel CONSOLE_MANAGER_PTR]
-    movzx rcx, word [r15 + console_manager.window_size + 4]
-    sub cx, 2
-    shl rcx, 16
-    mov cx, [r15 + console_manager.window_size + 6]
-    sub cx, 2
-    call _cm_set_cursor_position
-
-.complete:
-    ; Restore non-volatile regs.
-    mov r15, [rbp - 8]
 
     mov rsp, rbp
     pop rbp

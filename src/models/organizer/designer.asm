@@ -21,7 +21,7 @@ section .text
     extern malloc, free
     extern Sleep
 
-    extern console_manager_new, console_manager_write_word, console_manager_clear, console_manager_set_cursor_to_end, console_manager_write_char, console_manager_get_width_to_center_offset, console_manager_set_cursor, console_manager_set_buffer_size, console_manager_write_number
+    extern console_manager_new, console_manager_write_word, console_manager_clear, console_manager_write_char, console_manager_get_width_to_center_offset, console_manager_set_cursor, console_manager_set_buffer_size, console_manager_write_number
 
     extern helper_parse_int_to_string, helper_get_digits_of_number, helper_change_position
 
@@ -80,7 +80,6 @@ designer_clear:
     sub rsp, 40
 
     call console_manager_clear
-    call console_manager_set_cursor_to_end
 
     mov rsp, rbp
     pop rbp

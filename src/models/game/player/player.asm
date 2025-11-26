@@ -6,6 +6,9 @@
 ; The points of a game are stored in the game object. If the actual points are higher than the actual highscore of the player, it is getting updated.
 global player_new, player_destroy, get_player_points, get_player_name_length, player_update_highscore
 
+section .rodata
+    ;;;;;; DEBUGGING ;;;;;;
+    constructor_name db "player_new", 0
 
 section .bss
     ; Memory space for the created player pointer.
@@ -19,6 +22,8 @@ section .bss
 
 section .text
     extern malloc, free
+
+    extern malloc_failed, object_not_created
 
 ; Here the player object is created and memory space for it allocated. 
 ; It needs to know the name of the player and the actual highscore.
@@ -74,47 +79,109 @@ player_new:
         pop rbp 
         ret
 
-
+; The player name could have any length between 1 and 15 signs.
+; To find out, how long the name actually is, I created this function. Initially the name is 15 times 0. The zeroes are getting exchanged for the letter of the input.
+; So, the first 0 is after the last letter of the input.
 get_player_name_length:
-    push rbp
-    mov rbp, rsp
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    xor rcx, rcx
-    mov rdx, [rel lcl_player_ptr]
-    mov rdx, [rdx + player.name]
-.loop:
-    mov r8b, [rdx + rcx]
-    test r8b, r8b
-    jz .complete
-    inc rcx
-    jmp .loop
+        ; If player is not created yet, print a debug message.
+        cmp qword [rel lcl_player_ptr], 0
+        je _pl_object_failed
 
-.complete:
-    mov rax, rcx
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Set loop counter to 0.
+        xor rax, rax
 
+        ; Get the player name to loop through it.
+        mov rdx, [rel lcl_player_ptr]
+        mov rdx, [rdx + player.name]
+
+    .get_length_loop:
+        ; Check if the active byte is 0.
+        mov r8b, [rdx + rax]
+        test r8b, r8b
+
+        ; If it is, function is completed.
+        jz .complete
+
+    .get_length_loop_handle:
+        ; If it is not 0, increase RAX and iterate again.
+        inc rax
+        jmp .get_length_loop
+
+    .complete:
+        ; RAX contains the count. It will be returned by the function.
+        ; Restore the old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; If the points of the played game are higher than the current highscore, the points will be moved into the highscore field of the current player object.
 player_update_highscore:
-    push rbp
-    mov rbp, rsp
+    ; * Expect new Highscore in ECX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; Expect new Highscore in ECX.
-    mov rdx, [rel lcl_player_ptr]
-    mov [rdx + player.highscore], ecx
+        ; If player is not created yet, print a debug message.
+        cmp qword [rel lcl_player_ptr], 0
+        je _pl_object_failed
+
+    .move_highscore:
+        ; Move active points into highscore field.
+        mov rdx, [rel lcl_player_ptr]
+        mov [rdx + player.highscore], ecx
+
+    .complete:
+        ; Restore the old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; Simple destructor of the player object.
+player_destroy:
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
+
+        ; If player is not created yet, print a debug message.
+        cmp qword [rel lcl_player_ptr], 0
+        je _pl_object_failed
+
+    .destroy_object:
+        ; Use the local lcl_snake_ptr to free the memory space and set it back to 0.
+        mov rcx, [rel lcl_player_ptr]
+        call free
+        mov qword [rel lcl_player_ptr], 0
+
+    .complete:
+        ; Restore the old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+
+
+
+;;;;;; ERROR HANDLING ;;;;;;
+
+_pl_object_failed:
+    lea rcx, [rel constructor_name]
+    call object_not_created
 
     mov rsp, rbp
     pop rbp
     ret
 
-player_destroy:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    mov rcx, [rel lcl_player_ptr]
-    call free
-    mov qword [rel lcl_player_ptr], 0
+_pl_malloc_failed:
+    lea rcx, [rel constructor_name]
+    mov rdx, rax
+    call malloc_failed
 
     mov rsp, rbp
     pop rbp

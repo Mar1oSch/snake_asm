@@ -13,9 +13,15 @@
 %include "../include/strucs/snake/unit_struc.inc"
 %include "../include/strucs/snake/snake_struc.inc"
 
+; This is one of the more complicated classes:
+; The game itself. It has a board, which it delegates to draw the updated game.
+; It has options, how it handles the player and the level.
+; And it has points. Each game ,the player reaches some points. At the end, the game compares the highscore of the current player with the points of that round. If this round the player reached more points than the acutal highscore, the points are the new highscore.
+
 global game_new, game_destroy, game_start, game_reset
 
 section .rodata
+    ;;;;;; SCOREBOARD STRINGS ;;;;;;
     lvl_format db "Lvl:", 0
     lvl_length equ $ - lvl_format
 
@@ -27,15 +33,23 @@ section .rodata
     direction_error db "Direction is illegal: %d", 0
 
 section .data
+    ; Save the current direction of the snakes head.
     current_direction dq 2
+
+    ; Check, if the player wants to puse the game.
     is_paused db 0
 
 section .bss
-    GAME_PTR resq 1
+    ; Memory space for the created game pointer.
+    ; Since there is always just one game in the game, I decided to create a kind of a singleton.
+    ; If this lcl_game_ptr is 0, the constructor will create a new game object.
+    ; If it is not 0, it simply is going to return this pointer.
+    ; This pointer is also used, to reference the object in the destructor and other functions.
+    ; So it is not needed to pass a pointer to the object itself as function parameter.
+    lcl_game_ptr resq 1
 
 section .text
-    extern malloc
-    extern free
+    extern malloc, free
     extern Sleep
     extern GetAsyncKeyState
     extern printf
@@ -43,7 +57,7 @@ section .text
     extern player_update_highscore, get_player_name_length
     extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset, get_board_x_offset, get_board_y_offset, board_draw_food
     extern snake_add_unit
-    extern console_manager_set_cursor_to_end, console_manager_write_word, console_manager_write_number
+    extern console_manager_write_word, console_manager_write_number
     extern file_manager_update_highscore, file_manager_find_name
     extern designer_type_sequence
     extern helper_change_position, helper_parse_int_to_string
@@ -51,150 +65,294 @@ section .text
     extern malloc_failed, object_not_created
 
 ;;;;;; PUBLIC METHODS ;;;;;;
+
+; Here the game is created. Since itself is creating the board, it needs to know the dimensions of it. 
 game_new:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 56
+    ; * Expect width and height for the board in ECX.
+    ; * Expect options pointer in RDX.
+    ; * Expect interactor pointer in R8.
+    .set_up:
+        ; Set up stack frame.
+        ; 8 bytes for local variables.
+        ; 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
 
-    ; Expect width and height for the board in ECX.
-    ; Expect options_ptr in RDX.
-    ; Expect interactor pointer in R8.
-    cmp qword [rel GAME_PTR], 0
-    jne .complete
-    mov [rbp - 8], rdx
+        ; Check if a game already exists. If yes, return the pointer to it.
+        cmp qword [rel lcl_game_ptr], 0
+        jne .complete
 
-    mov rdx, [r8 + interactor.designer_ptr]
-    mov rdx, [rdx + designer.console_manager_ptr]
-    call board_new
-    mov [rbp - 16], rax
+        ; Save params into shadow space.
+        mov [rbp + 16], rdx
 
-    mov rcx, game_size
-    call malloc
-    test rax, rax
-    jz _g_malloc_failed
-    mov [rel GAME_PTR], rax
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    mov rcx, [rbp - 16]
-    mov [rax + game.board_ptr], rcx
+    .create_depended_objects:
+        ; ECX already contains the board dimensions.
+        ; Moving console manager pointer into RDX.
+        mov rdx, [r8 + interactor.designer_ptr]
+        mov rdx, [rdx + designer.console_manager_ptr]
+        call board_new
+        ; * First local variable: Board pointer.
+        mov [rbp - 8], rax
 
-    mov rcx, [rbp - 8]
-    mov [rax + game.options_ptr], rcx
+    .create_object:
+        ; Creating the game itself, containing space for:
+        ; * - Options pointer. (8 bytes)
+        ; * - Board pointer. (8 bytes)
+        ; * - Points. (4 bytes)
+        mov rcx, game_size
+        call malloc
+        ; Pointer to game object is stored in RAX now.
+        ; Check if return of malloc is 0 (if it is, it failed).
+        ; If it failed, it will get printed into the console.
+        test rax, rax
+        jz _g_malloc_failed
 
-    mov dword [rax + game.points], 0
-.complete:
-    mov rax, [rel GAME_PTR]
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Save pointer to initially reserved space. Object is "officially" created now.
+        mov [rel lcl_game_ptr], rax
 
+    .set_up_object:
+        ; Save board pointer into reserved space.
+        mov rcx, [rbp - 8]
+        mov [rax + game.board_ptr], rcx
+
+        ; Save options pointer into reserved space.
+        mov rcx, [rbp + 16]
+        mov [rax + game.options_ptr], rcx
+
+        ; Initialize points to zero.
+        mov dword [rax + game.points], 0
+
+    .complete:
+        ; Use the pointer to the game object as return value of this constructor.
+        mov rax, qword [rel lcl_game_ptr]
+
+        ; Restore the old stack frame and leave the constructor.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; Simple destructor to free memory space.
 game_destroy:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    cmp qword [rel GAME_PTR], 0
-    je _g_object_failed
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
 
-    mov rcx, [rel GAME_PTR]
-    call free
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .destroy_object:
+        ; Use the local lcl_board_ptr to free the memory space and set it back to 0.
+        mov rcx, [rel lcl_game_ptr]
+        call free
+        mov qword [rel lcl_game_ptr], 0
 
+    .complete:
+        ; Restore old stack frame and leave destructor.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; A simple wrapper function which is calling the more complicated private functions.
 game_start:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    call _game_setup
-    call _game_play
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
+    .call_functions:
+        call _game_setup
+        call _game_play
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; Resetting the game to play a new round.
 game_reset:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
+    ; * Expect options pointer in RCX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; Expect options_ptr in RCX.
-    mov [rbp - 8], rcx
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
 
-    sub rsp, 32
-    call board_reset
-    mov rcx, [rel GAME_PTR]
-    mov [rcx + game.board_ptr], rax
-    mov rax, [rbp - 8]
-    mov [rcx + game.options_ptr], rax
-    mov dword [rcx + game.points], 0
-    call game_start
+        ; Save params into shadow space.
+        mov [rbp + 16], rcx
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+
+    .reset_board:
+        ; Reset the board and all of its depending objects.
+        call board_reset
+        ; Pointer to new board is returned in RAX.
+
+    .set_up_game:
+        ; Already existing game is being updated.
+        ; At first the resetted board is moved into reserved space.
+        mov rcx, [rel lcl_game_ptr]
+        mov [rcx + game.board_ptr], rax
+
+        ; The passed options pointer is moved into reserved space.
+        mov rax, [rbp + 16]
+        mov [rcx + game.options_ptr], rax
+
+        ; The new game is initialized with 0 points.
+        mov dword [rcx + game.points], 0
+
+    .start_game:
+        call game_start
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 
 
 
 ;;;;;; PRIVATE METHODS ;;;;;;
+
+; Another wrapper function, which is demanding the board to setup and then builds the scoreboard.
 _game_setup:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    call board_setup
-    call _build_scoreboard
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
+    .call_functions:
+        call board_setup
+        call _build_scoreboard
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; This is one of the main functions of the game itself.
+; It is updating the snake.
+; So, it needs to know the direction the head is going next. Then it is going down through the linked list and passing the direction downwards.
+; That means, I have to save the old direction of the unit first, then update it depending on its new direction. It is passing the old direction down to the next unit as its new direction.
+; It will return the position of the old tail, to let the board know, where it has to erase a unit.
 _update_snake:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 80
+    ; * Expect direction in CL
+    .set_up:
+        ; Set up stack frame.
+        ; - 40 bytes local variables.
+        ; - 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
 
-    ; Expect direction in CL
-    cmp qword [rel GAME_PTR], 0
-    je _g_object_failed
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
 
-    mov [rbp - 8], cl                      ; Save first direction.
-    mov rcx, [rel GAME_PTR]
-    mov rcx, [rcx + game.board_ptr]
-    mov rcx, [rcx + board.snake_ptr]
-    mov r8, [rcx + snake.head_ptr]
-    mov [rbp - 16], r8                       ; Save active unit ptr.
-    mov r9, [rcx + snake.tail_ptr]
-    mov [rbp - 24], r9                       ; Save tail ptr.
-    mov r9, [r9 + unit.position_ptr]
-    mov r10w, [r9 + position.x]
-    shl r10d, 16
-    mov r10w, [r9 + position.y]
-    mov [rbp - 40], r10d
-.loop:
-    mov rcx, [rbp - 16]
-    movzx rdx, byte [rbp - 8]
-    movzx r8, byte [rcx + unit.direction]
-    mov [rbp - 32], r8
-    call _update_unit
-    mov rcx, [rbp - 16]
-    cmp rcx, [rbp - 24]
-    je .complete
-.loop_handle:
-    mov rcx, [rcx + unit.next_unit_ptr]
-    mov [rbp - 16], rcx
-    mov r8, [rbp - 32]
-    mov byte [rbp - 8], r8b
-    jmp .loop
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
+        mov [rbp - 24], r13
+        mov [rbp - 32], r14
+        mov [rbp - 40], r15
 
-.complete:
-    mov eax, [rbp - 40]
-    mov rsp, rbp
-    pop rbp
-    ret
+
+    .set_up_loop_base:
+        ; I am setting up the base for the update loop:
+        ; * - RBX is going to be the tail pointer. After every iteration, I will check, if the tail is reached.
+        ; * - R12 is the active unit getting updated.
+        ; * - R13B will hold the new direction.
+        ; * - R14B will hold the old direction.
+        ; * - R15D will hold the old tail position.
+
+        ; At first I save the new head direction into R13B
+        mov r13b, cl
+
+        ; Prepare the snake pointer in RCX.
+        mov rcx, [rel lcl_game_ptr]
+        mov rcx, [rcx + game.board_ptr]
+        mov rcx, [rcx + board.snake_ptr]
+
+        ; Active unit to get updated.
+        mov r12, [rcx + snake.head_ptr]
+
+        ; Tail pointer as base.
+        mov rbx, [rcx + snake.tail_ptr]
+
+        ; Save the old position of the tail.
+        mov rcx, [rbx + unit.position_ptr]
+        mov r15w, [rcx + position.x]             
+        shl r15d, 16
+        mov r15w, [rcx + position.y]
+
+    .update_loop:
+        ; At first, I preserve the active direction.
+        mov r14b, [r12 + unit.direction]
+
+        ; Now I prepare the params for the unit update:
+        ; * - Pointer to unit in RCX.
+        ; * - New direction in RDX.
+        ; And the unit gets updated.
+        mov rcx, r12
+        mov dl, r13b
+        call _update_unit
+
+        ; Check if I updated the tail. If yes, function is completed.
+        cmp r12, rbx
+        je .complete
+
+    .update_loop_handle:
+        ; Jump to the next unit.
+        ; Old direction is the new direction now.
+        ; Iterate again.
+        mov r12, [r12 + unit.next_unit_ptr]
+        mov r13b, r14b
+        jmp .update_loop
+
+    .complete:
+        ; Old tail position is the return value now.
+        mov eax, r15d
+
+        ; Restore non volatile regs.
+        mov r15, [rbp - 40]
+        mov r14, [rbp - 32]
+        mov r13, [rbp - 24]
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _update_unit:
     push rbp
@@ -366,7 +524,7 @@ _check_snake_collission:
     mov rbp, rsp
     sub rsp, 40
 
-    mov rcx, [rel GAME_PTR]
+    mov rcx, [rel lcl_game_ptr]
     mov rcx, [rcx + game.board_ptr]
     mov rcx, [rcx + board.snake_ptr]
     mov r8, [rcx + snake.head_ptr]
@@ -411,7 +569,7 @@ _check_wall_collission:
     mov rbp, rsp
     sub rsp, 40
 
-    mov rcx, [rel GAME_PTR]
+    mov rcx, [rel lcl_game_ptr]
     mov rcx, [rcx + game.board_ptr]
     mov rdx, [rcx + board.snake_ptr]
     mov rdx, [rdx + snake.head_ptr]
@@ -445,7 +603,7 @@ _check_food_collission:
     mov rbp, rsp
     sub rsp, 40
 
-    mov rcx, [rel GAME_PTR]
+    mov rcx, [rel lcl_game_ptr]
     mov rcx, [rcx + game.board_ptr]
 
     mov rdx, [rcx + board.snake_ptr]
@@ -482,10 +640,10 @@ _add_points:
     mov rbp, rsp
     sub rsp, 40
 
-    cmp qword [rel GAME_PTR], 0
+    cmp qword [rel lcl_game_ptr], 0
     je _g_object_failed
 
-    mov rcx, [rel GAME_PTR]
+    mov rcx, [rel lcl_game_ptr]
     mov r8, [rcx + game.options_ptr]
     mov r8d, [r8 + options.lvl]
 
@@ -502,7 +660,7 @@ _build_scoreboard:
     mov rbp, rsp
     sub rsp, 40
 
-    cmp qword [rel GAME_PTR], 0
+    cmp qword [rel lcl_game_ptr], 0
     je _g_object_failed
 
     call _print_points
@@ -528,7 +686,7 @@ _print_player:
     call get_player_name_length
     mov r8, rax
 
-    mov r9, [rel GAME_PTR]
+    mov r9, [rel lcl_game_ptr]
     mov r10, [r9 + game.board_ptr]
     xor rcx, rcx
     movzx rcx, word [rbp - 8]
@@ -558,7 +716,7 @@ _print_level:
     call get_board_y_offset
     mov [rbp - 16], ax
 
-    mov r8, [rel GAME_PTR]
+    mov r8, [rel lcl_game_ptr]
     mov r9, [r8 + game.board_ptr]
     xor rcx, rcx
     movzx rcx, word [rbp - 8]
@@ -578,7 +736,7 @@ _print_level:
     call helper_change_position
 
     mov ecx, eax
-    mov rdx, [rel GAME_PTR]
+    mov rdx, [rel lcl_game_ptr]
     mov rdx, [rdx + game.options_ptr]
     mov edx, [rdx + options.lvl]
     mov r8, 2
@@ -599,7 +757,7 @@ _print_points:
     call get_board_y_offset
     mov [rbp - 16], ax
 
-    mov r9, [rel GAME_PTR]
+    mov r9, [rel lcl_game_ptr]
     mov r8, [r9 + game.board_ptr]
     movzx rcx, word [r8 + board.width]
     add cx, [rbp - 8]
@@ -627,7 +785,7 @@ _print_highscore:
     call get_board_y_offset
     mov [rbp - 16], ax
 
-    mov r8, [rel GAME_PTR]
+    mov r8, [rel lcl_game_ptr]
     mov r8, [r8 + game.board_ptr]
     movzx rcx, word [r8 + board.width]
     add cx, [rbp - 8]
@@ -648,7 +806,7 @@ _print_highscore:
     call helper_change_position
 
     mov ecx, eax
-    mov rdx, [rel GAME_PTR]
+    mov rdx, [rel lcl_game_ptr]
     mov rdx, [rdx + game.options_ptr]
     mov rdx, [rdx + options.player_ptr]
     mov edx, [rdx + player.highscore]
@@ -663,7 +821,7 @@ _get_delay:
     push rbp
     mov rbp, rsp
 
-    mov rax, [rel GAME_PTR]
+    mov rax, [rel lcl_game_ptr]
     mov rax, [rax + game.options_ptr]
     mov eax, [rax + options.lvl]
 
@@ -772,7 +930,6 @@ _pause:
     mov rdx, paused_table_size
     xor r8, r8
     call designer_type_sequence
-    call console_manager_set_cursor_to_end
 
     mov rcx, 500
     call Sleep
@@ -785,7 +942,6 @@ _pause:
     mov rdx, empty_table_size
     xor r8, r8
     call designer_type_sequence
-    call console_manager_set_cursor_to_end
 
     mov rcx, 500
     call Sleep
@@ -817,7 +973,6 @@ _game_over:
     xor r8, r8
     call designer_type_sequence
 
-    call console_manager_set_cursor_to_end
     call _update_highscore
 
     mov rcx, 2000
@@ -834,7 +989,7 @@ _update_highscore:
 
     call _add_bonus_points
 
-    mov rdx, [rel GAME_PTR]
+    mov rdx, [rel lcl_game_ptr]
     mov ecx, [rdx + game.points]
     mov r8, [rdx + game.options_ptr]
     mov r8, [r8 + options.player_ptr]
@@ -844,14 +999,14 @@ _update_highscore:
 
     call player_update_highscore
 
-    mov rcx, [rel GAME_PTR]
+    mov rcx, [rel lcl_game_ptr]
     mov rcx, [rcx + game.options_ptr]
     mov rcx, [rcx + options.player_ptr]
     mov rcx, [rcx + player.name]
     call file_manager_find_name
 
     mov rdx, rax
-    mov rcx, [rel GAME_PTR]
+    mov rcx, [rel lcl_game_ptr]
     mov rcx, [rcx + game.options_ptr]
     mov rcx, [rcx + options.player_ptr]
     mov ecx, dword [rcx + player.highscore]
@@ -867,7 +1022,7 @@ _add_bonus_points:
     mov rbp, rsp
     sub rsp, 40
 
-    mov rcx, [rel GAME_PTR]
+    mov rcx, [rel lcl_game_ptr]
     mov rcx, [rcx + game.board_ptr]
     movzx rax, word [rcx + board.width]
     dec rax

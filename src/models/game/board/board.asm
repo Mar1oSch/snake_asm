@@ -41,12 +41,12 @@ section .text
     extern GetSystemTimeAsFileTime
 
     extern snake_new, snake_update, snake_reset
-    extern console_manager_write_char, console_manager_set_cursor_to_end, console_manager_erase, console_manager_repeat_char, console_manager_get_height_to_center_offset, console_manager_get_width_to_center_offset
+    extern console_manager_write_char,  console_manager_erase, console_manager_repeat_char, console_manager_get_height_to_center_offset, console_manager_get_width_to_center_offset
     extern food_new, food_destroy
     extern designer_clear
+    extern DRAWABLE_VTABLE_X_POSITION_OFFSET, DRAWABLE_VTABLE_Y_POSITION_OFFSET, DRAWABLE_VTABLE_CHAR_PTR_OFFSET
 
     extern malloc_failed, object_not_created
-    extern DRAWABLE_VTABLE_X_POSITION_OFFSET, DRAWABLE_VTABLE_Y_POSITION_OFFSET, DRAWABLE_VTABLE_CHAR_PTR_OFFSET
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 
@@ -253,21 +253,16 @@ board_move_snake:
         cmp qword [rel lcl_board_ptr], 0
         je _b_object_failed
 
-        ; Save param into shadow space.
-        mov [rbp + 16], ecx
-
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
     .move_snake:
+        ; Tell the eraser, which position the old tail was and let it do its job.
+        call _erase_snake_unit
+
         ; Here the snake gets drawn, the last unit deleted and the console cursor gets moved to the end, because otherwise the snake would trail it the whole time.
         call _draw_snake
 
-        ; Tell the eraser, which position the old tail was and let it do its job.
-        mov ecx, [rbp + 16]
-        call _erase_snake_unit
-
-        call console_manager_set_cursor_to_end
 
     .complete:
         ; Restore old stack frame and return to caller.
