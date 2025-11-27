@@ -42,7 +42,7 @@ section .text
     extern Sleep
 
     extern console_manager_get_literal_input, console_manager_get_numeral_input
-    extern designer_new, designer_start_screen, designer_clear, designer_type_sequence, designer_write_table, designer_write_headline
+    extern designer_new, designer_start_screen, designer_clear, designer_type_sequence, designer_write_table, designer_write_headline, designer_toggle_cursor_visibility
     extern game_new, game_start, game_reset
     extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file, file_manager_update_table
     extern player_new, player_destroy
@@ -105,6 +105,8 @@ interactor_setup:
     mov rcx, 1000
     call Sleep
     call designer_clear
+    mov ecx, 1
+    call designer_toggle_cursor_visibility
     call _introduction
 
     mov rsp, rbp
@@ -147,6 +149,8 @@ interactor_start_game:
     mov rbp, rsp
     sub rsp, 40
 
+    xor ecx, ecx
+    call designer_toggle_cursor_visibility
     call game_start
 
     mov rsp, rbp
@@ -159,6 +163,8 @@ interactor_replay_game:
     sub rsp, 40
 
 .loop:
+    mov ecx, 1
+    call designer_toggle_cursor_visibility
     sub rsp, 32
     mov rcx, [rel INTERACTOR_PTR]
     mov rcx, [rcx + interactor.game_ptr]
@@ -166,7 +172,10 @@ interactor_replay_game:
     call _handle_options
     test rax, rax
     jz .complete
-    mov rcx, rax
+    mov [rbp - 8], rax
+    xor ecx, ecx
+    call designer_toggle_cursor_visibility
+    mov rcx, [rbp - 8]
     call game_reset
     jmp .loop
 
@@ -460,7 +469,7 @@ _change_level:
 _show_options_table:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, 32
 
     ; Clear console before writing new sequence.
     call designer_clear

@@ -59,7 +59,7 @@ section .text
     extern snake_add_unit
     extern console_manager_write_word, console_manager_write_number
     extern file_manager_update_highscore, file_manager_find_name
-    extern designer_type_sequence
+    extern designer_type_sequence, designer_toggle_cursor_visibility
     extern helper_change_position, helper_parse_int_to_string
 
     extern malloc_failed, object_not_created
@@ -221,7 +221,7 @@ game_reset:
         ; The new game is initialized with 0 points.
         mov dword [rcx + game.points], 0
 
-    .start_game:
+    .start_game:        
         call game_start
 
     .complete:
@@ -659,9 +659,6 @@ _check_snake_collission:
         mov [rbp - 16], r12
         mov [rbp - 24], r13
         mov [rbp - 32], r14
-
-        ; Reserve 32 bytes shadow space for called functions.
-        sub rsp, 32
 
     .set_up_loop_base:
         ; I am setting up the base for the collission check loop:

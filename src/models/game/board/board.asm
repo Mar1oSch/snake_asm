@@ -733,8 +733,6 @@ _draw_food:
         mov rbp, rsp
         sub rsp, 32
 
-        ; Reserve 32 bytes shadow space for called functions.
-        sub rsp, 32
         
         ; If board is not created yet, print a debug message.
         cmp qword [rel lcl_board_ptr], 0
@@ -752,6 +750,9 @@ _draw_food:
         ; R12 becomes pointer to DRAWABLE vtable.
         mov r12, [rbx + food.interface_table_ptr]
         mov r12, [r12 + interface_table.vtable_drawable_ptr]
+
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
         ; R13 will hold final position [X-position, Y-position].
     .get_x:
@@ -794,9 +795,9 @@ _draw_food:
 
     .complete:
         ; Restore non-volatile regs.
-        mov [rbp - 24], r13
-        mov [rbp - 16], r12
-        mov [rbp - 8], rbx
+        mov r13, [rbp - 24]
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
 
         ; Restore old stack frame and return to caller.
         mov rsp, rbp

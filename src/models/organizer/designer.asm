@@ -7,7 +7,7 @@
 %include "../include/strucs/organizer/designer_struc.inc"
 %include "../include/strucs/organizer/console_manager_struc.inc"
 
-global designer_new, designer_destroy, designer_start_screen, designer_clear, designer_type_sequence, designer_write_headline, designer_write_table
+global designer_new, designer_destroy, designer_start_screen, designer_clear, designer_type_sequence, designer_write_headline, designer_write_table, designer_toggle_cursor_visibility
 
 section .rodata
 ;;;;;; TABLE ;;;;;;
@@ -21,7 +21,7 @@ section .text
     extern malloc, free
     extern Sleep
 
-    extern console_manager_new, console_manager_write_word, console_manager_clear, console_manager_write_char, console_manager_get_width_to_center_offset, console_manager_set_cursor, console_manager_set_buffer_size, console_manager_write_number
+    extern console_manager_new, console_manager_write_word, console_manager_clear, console_manager_write_char, console_manager_get_width_to_center_offset, console_manager_set_cursor, console_manager_set_buffer_size, console_manager_write_number, console_manager_set_console_cursor_info
 
     extern helper_parse_int_to_string, helper_get_digits_of_number, helper_change_position
 
@@ -80,6 +80,18 @@ designer_clear:
     sub rsp, 40
 
     call console_manager_clear
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+designer_toggle_cursor_visibility:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    ; Expect 0 if cursor is off, anything else if it is on in ECX.
+    call console_manager_set_console_cursor_info
 
     mov rsp, rbp
     pop rbp

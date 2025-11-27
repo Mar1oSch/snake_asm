@@ -58,7 +58,6 @@ player_new:
         ; If it failed, it will get printed into the console.
         test rax, rax
         jz _pl_malloc_failed
-
         mov [rel lcl_player_ptr], rax
 
     .set_up_object:
@@ -152,6 +151,9 @@ player_destroy:
         ; If player is not created yet, print a debug message.
         cmp qword [rel lcl_player_ptr], 0
         je _pl_object_failed
+
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
     .destroy_object:
         ; Use the local lcl_snake_ptr to free the memory space and set it back to 0.
