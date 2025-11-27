@@ -10,7 +10,7 @@ section .rodata
 
 section .data
     _console_cursor_info:
-        dd 50
+        dd 5
         dd 0
 
     _console_screen_buffer_info:

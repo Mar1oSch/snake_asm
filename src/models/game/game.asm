@@ -613,6 +613,7 @@ _update_unit_direction:
 
 ;;;;;; COLLISSION CHECK METHODS ;;;;;;
 
+; Simple wrapper function, which gatheres all the collission checks and calls them.
 _collission_check:
     .set_up:
         ; Set up stack frame without local variables.
@@ -642,6 +643,8 @@ _collission_check:
         pop rbp
         ret
 
+; Checking the snake collission by comparing the head position with the position of every unit.
+; ! There also must be a better way to check that instead of looping through the whole list every time again.
 _check_snake_collission:
     .set_up:
         ; Set up stack frame.
@@ -716,104 +719,132 @@ _check_snake_collission:
         mov r12, [rbp - 16]
         mov rbx, [rbp - 8]
 
+        ; Restore old stack frame and return to caller.
         mov rsp, rbp
         pop rbp
         ret
 
+; Wall collission is simply checking if head is exceeding the boundaries of the board dimensions.
 _check_wall_collission:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    cmp qword [rel lcl_game_ptr], 0
-    je _g_object_failed
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
 
-    mov rcx, [rel lcl_game_ptr]
-    mov rcx, [rcx + game.board_ptr]
-    mov rdx, [rcx + board.snake_ptr]
-    mov rdx, [rdx + snake.head_ptr]
-    mov rdx, [rdx + unit.position_ptr]
+    .set_up_head_position:
+        mov rcx, [rel lcl_game_ptr]
+        mov rcx, [rcx + game.board_ptr]
+        mov rdx, [rcx + board.snake_ptr]
+        mov rdx, [rdx + snake.head_ptr]
+        mov rdx, [rdx + unit.position_ptr]
 
-    cmp word [rdx + position.x], 0
-    jb .game_over
-    movzx r9, word [rcx + board.width]
-    cmp word [rdx + position.x], r9w
-    ja .game_over
+    .compare_x:
+        cmp word [rdx + position.x], 0
+        jb .game_over
+        mov r9w, [rcx + board.width]
+        cmp [rdx + position.x], r9w
+        ja .game_over
 
-    cmp word [rdx + position.y], 0
-    jb .game_over
-    movzx r9, word [rcx + board.height]
-    cmp word [rdx + position.y], r9w
-    ja .game_over
+    .compare_y:
+        cmp word [rdx + position.y], 0
+        jb .game_over
+        mov r9w, [rcx + board.height]
+        cmp [rdx + position.y], r9w
+        ja .game_over
 
-    mov rax, 0
-    jmp .complete
+    .game_on:
+        mov rax, 0
+        jmp .complete
 
-.game_over:
-    mov rax, 1
+    .game_over:
+        mov rax, 1
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
+; Food collission checks if the head position is same with the food position. Also simple.
 _check_food_collission:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    cmp qword [rel lcl_game_ptr], 0
-    je _g_object_failed
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
 
-    mov rcx, [rel lcl_game_ptr]
-    mov rcx, [rcx + game.board_ptr]
+        ; Set up board.
+        mov rcx, [rel lcl_game_ptr]
+        mov rcx, [rcx + game.board_ptr]
+        mov r8, [rcx + board.food_ptr]
 
-    mov rdx, [rcx + board.snake_ptr]
-    mov rdx, [rdx + snake.head_ptr]
-    mov rdx, [rdx + unit.position_ptr]
+    .set_up_food_position:
+        mov r8, [r8 + food.position_ptr]
+        mov r9w, [r8 + position.x]
+        shl r9, 16
+        mov r9w, [r8 + position.y]
 
-    mov r8, [rcx + board.food_ptr]
-    mov r8, [r8 + food.position_ptr]
+    .set_up_head_position:
+        mov r8, [rcx + board.snake_ptr]
+        mov r8, [r8 + snake.head_ptr]
+        mov r8, [r8 + unit.position_ptr]
+        mov r10w, [r8 + position.x]
+        shl r10, 16
+        mov r10w, [r8 + position.y]
 
-    movzx r9, word [rdx + position.x]
-    movzx r10, word [r8 + position.x]
-    cmp r9, r10
-    jne .no_food_collission
+    .compare:
+        cmp r9d, r10d
+        je .food_collission
 
-    movzx r9, word [rdx + position.y]
-    movzx r10, word [r8 + position.y]
-    cmp r9, r10
-    je .food_collission
+    .no_food_collission:
+        xor rax, rax
+        jmp .complete
 
-.no_food_collission:
-    mov rax, 0
-    jmp .complete
+    .food_collission:
+        mov rax, 2
 
-.food_collission:
-    mov rax, 2
-
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+    .complete:
+        ; Returning the value if collission (2) or no collission (0)in RAX.
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 ;;;;;; SCOREBOARD METHODS ;;;;;;
+
+; I wanted to print the lvl top left, the best top right, player name bottom left and score at the bottom right.
+; This is a wrapper function gathering all the print functions to succeed that goal.
 _build_scoreboard:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    cmp qword [rel lcl_game_ptr], 0
-    je _g_object_failed
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
 
-    call _print_points
-    call _print_level
-    call _print_player
-    call _print_highscore
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .call_functions: 
+        call _print_points
+        call _print_level
+        call _print_player
+        call _print_highscore
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _print_player:
     push rbp
