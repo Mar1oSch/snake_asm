@@ -261,118 +261,169 @@ _game_setup:
 
 
 ;;;;;; GAME PLAY ;;;;;;
+
+; This is the active game. It is organizing the rules and the mechanics.
 _game_play:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
+    .set_up:
+        ; Set up stack frame.
+        ; 8 bytes local variables.
+        ; 8 bytes to keep stack aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
 
-    mov qword [rel current_direction], 2
-    mov rcx, [rel lcl_game_ptr]
-    mov rcx, [rcx + game.options_ptr]
-    mov cx, [rcx + options.delay]
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
 
-    mov [rbp - 8], cx
-.loop:
-    call _request_pause
-    cmp byte [rel is_paused], 0
-    jne .pause
-    call _request_direction_change
-    mov rcx, [rel current_direction]
-    call _update_snake
-    mov ecx, eax
-    call board_move_snake
-    call _collission_check
-    cmp rax, 2
-    je .food_event
-    cmp rax, 1
-    je .complete
-.loop_handle:
-    movzx rcx, word [rbp - 8]
-    call Sleep
-    jmp .loop
+        ; Starting direction: Right.
+        mov qword [rel current_direction], 2
 
-.food_event:
-    call _add_points
-    call snake_add_unit
-    call board_create_new_food
-    jmp .loop_handle
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
 
-.pause:
-    call _pause
-    jmp .loop_handle
+        ; Get the delay defined inside the options.
+        mov rbx, [rel lcl_game_ptr]
+        mov rbx, [rbx + game.options_ptr]
+        mov bx, [rbx + options.delay]
 
-.complete:
-    call _game_over
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+
+    .game_loop:
+        ; At first check if the "P" button was pressed.
+        call _request_pause
+        cmp byte [rel is_paused], 0
+        jne .pause
+
+        ; Then check, if a direction change was requested.
+        call _request_direction_change
+        mov rcx, [rel current_direction]
+
+        ; Update the snake and use the new direction.
+        call _update_snake
+
+        ; Use the old snake tail position to move the snake and let the board erase the last unit.
+        mov ecx, eax
+        call board_move_snake
+
+        ; Check, if the snake collided with something. 
+        call _collission_check
+        cmp rax, 2
+        je .food_event
+        cmp rax, 1
+        je .game_over
+
+    .game_loop_handle:
+        ; Sleep before the new iteration.
+        movzx rcx, bx
+        call Sleep
+        jmp .game_loop
+
+    .food_event:
+        call _add_points
+        call snake_add_unit
+        call board_create_new_food
+        jmp .game_loop_handle
+
+    .pause:
+        call _pause
+        jmp .game_loop_handle
+
+    .game_over:
+        call _game_over
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _add_points:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    cmp qword [rel lcl_game_ptr], 0
-    je _g_object_failed
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
 
-    mov rcx, [rel lcl_game_ptr]
-    mov r8, [rcx + game.options_ptr]
-    mov r8d, [r8 + options.lvl]
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    add [rcx + game.points], r8d
+    .add:
+        mov rcx, [rel lcl_game_ptr]
+        mov r8, [rcx + game.options_ptr]
+        mov r8d, [r8 + options.lvl]
+        add [rcx + game.points], r8d
 
-    call _print_points
+    .print:
+        call _print_points
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _pause:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-.loop:
-    call _request_pause
-    cmp byte [rel is_paused], 0
-    je .complete
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
 
-    lea rcx, [rel paused_table]
-    mov rdx, paused_table_size
-    xor r8, r8
-    call designer_type_sequence
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    mov rcx, 500
-    call Sleep
+    ; Let the " P A U S E " appear and disappear.
+    .pause_loop:
+        call _request_pause
+        cmp byte [rel is_paused], 0
+        je .complete
 
-    call _request_pause
-    cmp byte [rel is_paused], 0
-    je .complete
+        lea rcx, [rel paused_table]
+        mov rdx, paused_table_size
+        xor r8, r8
+        call designer_type_sequence
 
-    lea rcx, [rel empty_table]
-    mov rdx, empty_table_size
-    xor r8, r8
-    call designer_type_sequence
+        mov rcx, 500
+        call Sleep
 
-    mov rcx, 500
-    call Sleep
+        call _request_pause
+        cmp byte [rel is_paused], 0
+        je .complete
 
-    call _request_pause
-    cmp byte [rel is_paused], 0
-    jne .loop
+        lea rcx, [rel empty_table]
+        mov rdx, empty_table_size
+        xor r8, r8
+        call designer_type_sequence
 
+        mov rcx, 500
+        call Sleep
 
-.complete:
-    lea rcx, [rel empty_table]
-    mov rdx, empty_table_size
-    xor r8, r8
-    call designer_type_sequence
+        call _request_pause
+        cmp byte [rel is_paused], 0
+        jne .pause_loop
 
-    call board_draw_food
+    ; User wants to play on.
+    ; Empty the letters and the board draw the food again.
+    .complete:
+        lea rcx, [rel empty_table]
+        mov rdx, empty_table_size
+        xor r8, r8
+        call designer_type_sequence
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        call board_draw_food
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 ;;;;;; UPDATING METHODES ;;;;;;
 
@@ -459,7 +510,7 @@ _update_snake:
         ; Old tail position is the return value now.
         mov eax, r15d
 
-        ; Restore non volatile regs.
+        ; Restore non-volatile regs.
         mov r15, [rbp - 40]
         mov r14, [rbp - 32]
         mov r13, [rbp - 24]
@@ -563,75 +614,114 @@ _update_unit_direction:
 ;;;;;; COLLISSION CHECK METHODS ;;;;;;
 
 _collission_check:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    cmp qword [rel lcl_game_ptr], 0
-    je _g_object_failed
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
 
-    call _check_food_collission
-    cmp rax, 2
-    je .complete
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    call _check_wall_collission
-    cmp rax, 1
-    je .complete
+    .check_collission:
+        call _check_food_collission
+        cmp rax, 2
+        je .complete
 
-    call _check_snake_collission
+        call _check_wall_collission
+        cmp rax, 1
+        je .complete
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+        call _check_snake_collission
+
+    .complete:
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _check_snake_collission:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame.
+        ; 32 bytes local variables.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
 
-    cmp qword [rel lcl_game_ptr], 0
-    je _g_object_failed
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
 
-    mov rcx, [rel lcl_game_ptr]
-    mov rcx, [rcx + game.board_ptr]
-    mov rcx, [rcx + board.snake_ptr]
-    mov r8, [rcx + snake.head_ptr]
-    mov rdx, [r8 + unit.position_ptr]
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
+        mov [rbp - 24], r13
+        mov [rbp - 32], r14
 
-    movzx r9, word [rdx + position.y]           ; Save Y-Position of Head
-    mov word [rbp - 8], r9w
-    movzx r9, word [rdx + position.x]           ; Save X-Position of Head
-    mov word [rbp - 16], r9w
-    mov r9, [rcx + snake.tail_ptr]              
-    mov [rbp - 24], r9                          ; Save tail of Snake
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    mov r8, [r8 + unit.next_unit_ptr]
-.loop:
-    mov r9, [r8 + unit.position_ptr]
-    mov r10w, word [r9 + position.x]
-    cmp r10w, word [rbp - 16]
-    jne .loop_handle
-    mov r10w, word [r9 + position.y]
-    cmp r10w, word [rbp - 8]
-    je .game_over
-.loop_handle:
-    cmp r8, [rbp - 24]
-    je .game_on
-    mov r8, [r8 + unit.next_unit_ptr]
-    jmp .loop
+    .set_up_loop_base:
+        ; I am setting up the base for the collission check loop:
+        ; * - RBX is going to be the tail pointer. After every iteration, I will check, if the tail is reached.
+        ; * - R12 is the active unit getting updated.
+        ; * - R13D will hold the position of the head.
+        ; * - R14D will hold the position of the active unit.
+        mov rbx, [rel lcl_game_ptr]
+        mov rbx, [rbx + game.board_ptr]
+        mov rbx, [rbx + board.snake_ptr]
+        mov r12, [rbx + snake.head_ptr]
+        mov r12, [r12 + unit.position_ptr]
 
-.game_over:
-    mov rax, 1
-    jmp .complete
+        ; Save X-Position of active unit.
+        mov r13w, [r12 + position.x]           
+        shl r13, 16
+        ; Save Y-Position of active unit.
+        mov r13w, [r12 + position.y]
 
-.game_on:
-    xor rax, rax
+        ; The first unit to be checked is the fourth unit after head.
+        mov r12, [rbx + snake.head_ptr]
+        mov rcx, 3
+    .loop:
+        mov r12, [r12 + unit.next_unit_ptr]
+        loop .loop
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; RBX is the tail now.
+        mov rbx, [rbx + snake.tail_ptr]
+
+    .collission_check_loop:
+        mov rcx, [r12 + unit.position_ptr]
+        mov r14w, [rcx + position.x]
+        shl r14, 16
+        mov r14w, [rcx + position.y]
+        cmp r14d, r13d
+        je .game_over
+
+    .collission_check_loop_handle:
+        cmp r12, rbx
+        je .game_on
+        mov r12, [r12 + unit.next_unit_ptr]
+        jmp .collission_check_loop
+
+    .game_over:
+        mov rax, 1
+        jmp .complete
+
+    .game_on:
+        xor rax, rax
+
+    .complete:
+        ; Restore non-volatile regs.
+        mov r14, [rbp - 32]
+        mov r13, [rbp - 24]
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
+
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _check_wall_collission:
     push rbp
