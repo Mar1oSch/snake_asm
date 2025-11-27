@@ -259,6 +259,8 @@ _game_setup:
         pop rbp
         ret
 
+;;;;;; UPDATING METHODES ;;;;;;
+
 ; This is one of the main functions of the game itself.
 ; It is updating the snake.
 ; So, it needs to know the direction the head is going next. Then it is going down through the linked list and passing the direction downwards.
