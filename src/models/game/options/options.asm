@@ -27,9 +27,12 @@ options_new:
     ; * Expect player pointer in RCX.
     ; * Expect lvl in EDX.
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Setting up stack frame.
+        ; 8 bytes local variables.
+        ; 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
+        sub rsp, 16
 
         ; Save params into shadow space.
         mov [rbp + 16], rcx
@@ -49,19 +52,28 @@ options_new:
         ; If it failed, it will get printed into the console.
         test rax, rax
         jz _o_malloc_failed
+        ; * First local variable: options pointer.
+        mov [rbp - 8], rax
 
     .set_up_object:
-        ; Use the first parameter and save it inot reserved space for player pointer.
+        ; Use the first parameter and save it into reserved space for player pointer.
         mov rcx, [rbp + 16]
         mov [rax + options.player_ptr], rcx
 
-        ; Use the second parameter and save it inot reserved space for level.
+        ; Use the second parameter and save it into reserved space for level.
         mov ecx, [rbp + 24]
         mov [rax + options.lvl], ecx
 
+        ; Get delay and save it into reserved space for delay.
+        call _get_delay
+        mov rcx, [rbp - 8]
+        mov [rcx + options.delay], ax
+
     .complete:
-        ; Restore old stack frame and return from constructor.
         ; Return pointer to options object in RAX.
+        mov rax, rcx
+
+        ; Restore old stack frame and return from constructor.
         mov rsp, rbp
         pop rbp
         ret
@@ -86,6 +98,77 @@ options_destroy:
         pop rbp
         ret
 
+
+
+
+;;;;;; PRIVATE METHODS ;;;;;;
+_get_delay:
+    ; * Expect level in ECX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
+
+        ; If ecx is above 9 or below 1 it is invalid.
+        cmp ecx, 1
+        jb .invalid
+        cmp ecx, 9
+        ja .invalid
+
+        ; Setting up table and jmp to desired address.
+        lea rdx, [rel .delay_table]
+        dec rcx
+        mov rax, [rdx + rcx*8]
+        jmp rax
+
+    ; Get the delay by level.
+    .invalid:
+        mov ax, 400
+        jmp .complete
+
+    .delay_table:
+        dq .first_level
+        dq .second_level
+        dq .third_level
+        dq .fourth_level
+        dq .fifth_level
+        dq .sixth_level
+        dq .seventh_level
+        dq .eighth_level
+        dq .nineth_level
+
+    .first_level:  
+        mov ax, 400
+        jmp .complete
+    .second_level: 
+        mov ax, 330
+        jmp .complete
+    .third_level:  
+        mov ax, 270
+        jmp .complete
+    .fourth_level: 
+        mov ax, 220
+        jmp .complete
+    .fifth_level:  
+        mov ax, 180
+        jmp .complete
+    .sixth_level:  
+        mov ax, 140
+        jmp .complete
+    .seventh_level:
+        mov ax, 100
+        jmp .complete
+    .eighth_level: 
+        mov ax, 60
+        jmp .complete
+    .nineth_level: 
+        mov ax, 30
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 ;;;;;; DEBUGGING ;;;;;;
 _o_malloc_failed:

@@ -259,6 +259,121 @@ _game_setup:
         pop rbp
         ret
 
+
+;;;;;; GAME PLAY ;;;;;;
+_game_play:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 48
+
+    mov qword [rel current_direction], 2
+    mov rcx, [rel lcl_game_ptr]
+    mov rcx, [rcx + game.options_ptr]
+    mov cx, [rcx + options.delay]
+
+    mov [rbp - 8], cx
+.loop:
+    call _request_pause
+    cmp byte [rel is_paused], 0
+    jne .pause
+    call _request_direction_change
+    mov rcx, [rel current_direction]
+    call _update_snake
+    mov ecx, eax
+    call board_move_snake
+    call _collission_check
+    cmp rax, 2
+    je .food_event
+    cmp rax, 1
+    je .complete
+.loop_handle:
+    movzx rcx, word [rbp - 8]
+    call Sleep
+    jmp .loop
+
+.food_event:
+    call _add_points
+    call snake_add_unit
+    call board_create_new_food
+    jmp .loop_handle
+
+.pause:
+    call _pause
+    jmp .loop_handle
+
+.complete:
+    call _game_over
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_add_points:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    cmp qword [rel lcl_game_ptr], 0
+    je _g_object_failed
+
+    mov rcx, [rel lcl_game_ptr]
+    mov r8, [rcx + game.options_ptr]
+    mov r8d, [r8 + options.lvl]
+
+    add [rcx + game.points], r8d
+
+    call _print_points
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_pause:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+.loop:
+    call _request_pause
+    cmp byte [rel is_paused], 0
+    je .complete
+
+    lea rcx, [rel paused_table]
+    mov rdx, paused_table_size
+    xor r8, r8
+    call designer_type_sequence
+
+    mov rcx, 500
+    call Sleep
+
+    call _request_pause
+    cmp byte [rel is_paused], 0
+    je .complete
+
+    lea rcx, [rel empty_table]
+    mov rdx, empty_table_size
+    xor r8, r8
+    call designer_type_sequence
+
+    mov rcx, 500
+    call Sleep
+
+    call _request_pause
+    cmp byte [rel is_paused], 0
+    jne .loop
+
+
+.complete:
+    lea rcx, [rel empty_table]
+    mov rdx, empty_table_size
+    xor r8, r8
+    call designer_type_sequence
+
+    call board_draw_food
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
 ;;;;;; UPDATING METHODES ;;;;;;
 
 ; This is one of the main functions of the game itself.
@@ -356,155 +471,104 @@ _update_snake:
         pop rbp
         ret
 
+; Wrapper function, which handles the unit update. It first updates the position depending on its active direction.
+; Afterwards it is changing the direction into it's new direction passed from the unit above.
 _update_unit:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    ; * Expect pointer to unit object in RCX.
+    ; * Expect direction in DL.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; Expect pointer to unit object in RCX.
-    ; Expect direction in DL.
-    mov [rbp - 8], rcx
-    mov [rbp - 16], dl
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
 
-    call _update_unit_position
+        ; Save params into shadow space.
+        mov [rbp + 16], rcx
+        mov [rbp + 24], dl
 
-    mov rcx, [rbp - 8]
-    mov dl, [rbp - 16]
-    call _update_unit_direction
+    .update_position:
+        call _update_unit_position
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .update_direction:
+        mov rcx, [rbp + 16]
+        mov dl, [rbp + 24]
+        call _update_unit_direction
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _update_unit_position:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    ; * Expect pointer to unit in RCX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; Expect pointer to unit in RCX.
-    mov rdx, [rcx + unit.position_ptr]
-    movzx r8, byte [rcx + unit.direction]
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
 
-    cmp r8, 0
-    je .left
-    cmp r8, 1
-    je .up
-    cmp r8, 2
-    je .right
-    cmp r8, 3
-    je .down
-    call _u_direction_error
+        ; Prepare unit.
+        mov rdx, [rcx + unit.position_ptr]
 
-; Update the position of the unit depending on its direction.
-.left:
-    dec word [rdx + position.x]
-    jmp .complete
-.up:
-    dec word [rdx + position.y]
-    jmp .complete
-.right:
-    inc word [rdx + position.x]
-    jmp .complete
-.down:
-    inc word [rdx + position.y]
+        ; Prepare movement table.
+        lea rax, [rel .movement_table]
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Prepare active unit direction.
+        movzx r8, byte [rcx + unit.direction]
+        
+        mov rax, [rax + r8*8]
+        jmp rax
+    
+    .movement_table:
+        dq .move_left
+        dq .move_up
+        dq .move_right
+        dq .move_down
+
+    ; Update position.
+    .move_left:
+        dec word [rdx + position.x]
+        jmp .complete
+    .move_up:
+        dec word [rdx + position.y]
+        jmp .complete
+    .move_right:
+        inc word [rdx + position.x]
+        jmp .complete
+    .move_down:
+        inc word [rdx + position.y]
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _update_unit_direction:
-    ; Expect pointer to unit object in RCX.
-    ; Expect new direction in DL.
+    ; * Expect pointer to unit object in RCX.
+    ; * Expect new direction in DL.
     mov [rcx + unit.direction], dl
     ret
 
-_get_direction_change:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
 
-    mov rcx, 25h
-    call GetAsyncKeyState
-    test rax, 8001h
-    jnz .left
 
-    mov rcx, 26h
-    call GetAsyncKeyState
-    test rax, 8001h
-    jnz .up
 
-    mov rcx, 27h
-    call GetAsyncKeyState
-    test rax, 8001h
-    jnz .right
-
-    mov rcx, 28h
-    call GetAsyncKeyState
-    test rax, 8001h
-    jnz .down
-
-    jmp .complete
-
-.left:
-    cmp qword [rel current_direction], 2
-    je .complete
-    mov qword [rel current_direction], 0
-    jmp .complete
-
-.up:
-    cmp qword [rel current_direction], 3
-    je .complete
-    mov qword [rel current_direction], 1
-    jmp .complete
-
-.right:
-    cmp qword [rel current_direction], 0
-    je .complete
-    mov qword [rel current_direction], 2
-    jmp .complete
-
-.down:
-    cmp qword [rel current_direction], 1
-    je .complete
-    mov qword [rel current_direction], 3
-
-.complete:
-    mov rax, qword [rel current_direction]
-    mov rsp, rbp
-    pop rbp
-    ret
-
-_get_pause_request:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    mov rcx, 50h
-    call GetAsyncKeyState
-    test rax, 1
-
-    jz .complete
-
-    cmp byte [rel is_paused], 1
-    je .pause_stop
-
-    mov byte [rel is_paused], 1
-    jmp .complete
-
-.pause_stop:
-    mov byte [rel is_paused], 0
-
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
-
+;;;;;; COLLISSION CHECK METHODS ;;;;;;
 
 _collission_check:
     push rbp
     mov rbp, rsp
     sub rsp, 40
+
+    cmp qword [rel lcl_game_ptr], 0
+    je _g_object_failed
 
     call _check_food_collission
     cmp rax, 2
@@ -525,6 +589,9 @@ _check_snake_collission:
     push rbp
     mov rbp, rsp
     sub rsp, 40
+
+    cmp qword [rel lcl_game_ptr], 0
+    je _g_object_failed
 
     mov rcx, [rel lcl_game_ptr]
     mov rcx, [rcx + game.board_ptr]
@@ -559,7 +626,7 @@ _check_snake_collission:
     jmp .complete
 
 .game_on:
-    mov rax, 0
+    xor rax, rax
 
 .complete:
     mov rsp, rbp
@@ -570,6 +637,9 @@ _check_wall_collission:
     push rbp
     mov rbp, rsp
     sub rsp, 40
+
+    cmp qword [rel lcl_game_ptr], 0
+    je _g_object_failed
 
     mov rcx, [rel lcl_game_ptr]
     mov rcx, [rcx + game.board_ptr]
@@ -605,6 +675,9 @@ _check_food_collission:
     mov rbp, rsp
     sub rsp, 40
 
+    cmp qword [rel lcl_game_ptr], 0
+    je _g_object_failed
+
     mov rcx, [rel lcl_game_ptr]
     mov rcx, [rcx + game.board_ptr]
 
@@ -637,26 +710,7 @@ _check_food_collission:
     pop rbp
     ret
 
-_add_points:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    cmp qword [rel lcl_game_ptr], 0
-    je _g_object_failed
-
-    mov rcx, [rel lcl_game_ptr]
-    mov r8, [rcx + game.options_ptr]
-    mov r8d, [r8 + options.lvl]
-
-    add [rcx + game.points], r8d
-
-    call _print_points
-
-    mov rsp, rbp
-    pop rbp
-    ret
-
+;;;;;; SCOREBOARD METHODS ;;;;;;
 _build_scoreboard:
     push rbp
     mov rbp, rsp
@@ -801,7 +855,6 @@ _print_highscore:
     xor r9, r9
     call console_manager_write_word
 
-
     mov ecx, [rbp - 32]
     mov rdx, best_length
     xor r8, r8
@@ -819,151 +872,7 @@ _print_highscore:
     pop rbp
     ret
 
-_get_delay:
-    push rbp
-    mov rbp, rsp
-
-    mov rax, [rel lcl_game_ptr]
-    mov rax, [rax + game.options_ptr]
-    mov eax, [rax + options.lvl]
-
-    cmp rax, 9
-    ja .invalid
-
-    lea rdx, [rel .delay_table]
-
-    dec rax
-    mov rax, [rdx + rax*8]
-    jmp rax
-
-.invalid:
-    mov ax, 400
-    jmp .complete
-
-.delay_table:
-    dq .first_level
-    dq .second_level
-    dq .third_level
-    dq .fourth_level
-    dq .fifth_level
-    dq .sixth_level
-    dq .seventh_level
-    dq .eighth_level
-    dq .nineth_level
-
-.first_level:  mov ax, 400  ; etc.
-               jmp .complete
-.second_level: mov ax, 330
-               jmp .complete
-.third_level:  mov ax, 270
-               jmp .complete
-.fourth_level: mov ax, 220
-               jmp .complete
-.fifth_level:  mov ax, 180
-               jmp .complete
-.sixth_level:  mov ax, 140
-               jmp .complete
-.seventh_level:mov ax, 100
-               jmp .complete
-.eighth_level: mov ax, 60
-               jmp .complete
-.nineth_level: mov ax, 30
-
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
-
-_game_play:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
-
-    mov qword [rel current_direction], 2
-    call _get_delay
-
-    mov [rbp - 8], ax
-.loop:
-    call _get_pause_request
-    cmp byte [rel is_paused], 0
-    jne .pause
-    call _get_direction_change
-    mov rcx, [rel current_direction]
-    call _update_snake
-    mov ecx, eax
-    call board_move_snake
-    call _collission_check
-    cmp rax, 2
-    je .food_event
-    cmp rax, 1
-    je .complete
-.loop_handle:
-    movzx rcx, word [rbp - 8]
-    call Sleep
-    jmp .loop
-
-.food_event:
-    call _add_points
-    call snake_add_unit
-    call board_create_new_food
-    jmp .loop_handle
-
-.pause:
-    call _pause
-    jmp .loop_handle
-
-.complete:
-    call _game_over
-    mov rsp, rbp
-    pop rbp
-    ret
-
-_pause:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-.loop:
-    call _get_pause_request
-    cmp byte [rel is_paused], 0
-    je .complete
-
-    lea rcx, [rel paused_table]
-    mov rdx, paused_table_size
-    xor r8, r8
-    call designer_type_sequence
-
-    mov rcx, 500
-    call Sleep
-
-    call _get_pause_request
-    cmp byte [rel is_paused], 0
-    je .complete
-
-    lea rcx, [rel empty_table]
-    mov rdx, empty_table_size
-    xor r8, r8
-    call designer_type_sequence
-
-    mov rcx, 500
-    call Sleep
-
-    call _get_pause_request
-    cmp byte [rel is_paused], 0
-    jne .loop
-
-
-.complete:
-    lea rcx, [rel empty_table]
-    mov rdx, empty_table_size
-    xor r8, r8
-    call designer_type_sequence
-
-    call board_draw_food
-
-    mov rsp, rbp
-    pop rbp
-    ret
+;;;;;; AFTER GAME METHODS ;;;;;;
 
 _game_over:
     push rbp
@@ -1038,6 +947,90 @@ _add_bonus_points:
     jb .complete
 
     mov dword [rcx + game.points], 100
+.complete:
+    mov rsp, rbp
+    pop rbp
+    ret
+
+
+;;;;;; KEY PRESS REQUESTS ;;;;;;
+
+_request_direction_change:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    mov rcx, 25h
+    call GetAsyncKeyState
+    test rax, 8001h
+    jnz .left
+
+    mov rcx, 26h
+    call GetAsyncKeyState
+    test rax, 8001h
+    jnz .up
+
+    mov rcx, 27h
+    call GetAsyncKeyState
+    test rax, 8001h
+    jnz .right
+
+    mov rcx, 28h
+    call GetAsyncKeyState
+    test rax, 8001h
+    jnz .down
+
+    jmp .complete
+
+.left:
+    cmp qword [rel current_direction], 2
+    je .complete
+    mov qword [rel current_direction], 0
+    jmp .complete
+
+.up:
+    cmp qword [rel current_direction], 3
+    je .complete
+    mov qword [rel current_direction], 1
+    jmp .complete
+
+.right:
+    cmp qword [rel current_direction], 0
+    je .complete
+    mov qword [rel current_direction], 2
+    jmp .complete
+
+.down:
+    cmp qword [rel current_direction], 1
+    je .complete
+    mov qword [rel current_direction], 3
+
+.complete:
+    mov rax, qword [rel current_direction]
+    mov rsp, rbp
+    pop rbp
+    ret
+
+_request_pause:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 40
+
+    mov rcx, 50h
+    call GetAsyncKeyState
+    test rax, 1
+
+    jz .complete
+
+    cmp byte [rel is_paused], 1
+    je .pause_stop
+
+    mov byte [rel is_paused], 1
+    jmp .complete
+
+.pause_stop:
+    mov byte [rel is_paused], 0
+
 .complete:
     mov rsp, rbp
     pop rbp
