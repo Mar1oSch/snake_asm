@@ -1,18 +1,29 @@
+; Strucs:
 %include "../include/strucs/organizer/console_manager_struc.inc"
+
+; This is the console manager, which is responsible for managing the basic communication with the console. Every interaction with it is handled here.
 
 global console_manager_new, console_manager_destroy, console_manager_clear, console_manager_write_char, console_manager_set_cursor, console_manager_erase, console_manager_write_word, console_manager_get_width_to_center_offset, console_manager_get_height_to_center_offset, console_manager_get_numeral_input, console_manager_get_literal_input, console_manager_set_buffer_size, console_manager_write_number, console_manager_repeat_char, console_manager_set_console_cursor_info
 
 section .rodata
+    ;;;;;; ERASER ;;;;;;
     erase_char db " "
+
+    ;;;;; CONSTANTS ;;;;;;
+    STD_OUTPUT_HANDLE equ -11
+    STD_INPUT_HANDLE equ -10
+    WINDOW_SIZE_OFFSET equ 10
+
     ;;;;; DEBUGGING ;;;;;;
     constructor_name db "console_manager", 13, 10, 0
-    window_size_string db "top left corner: {%d, %d}, bottom right corner: {%d, %d}", 13, 10, 0
 
 section .data
+    ; This is the parameter which needs to get passed into "SetConsoleCursorInfo". I am using it to turn of the visibility of the cursor while the game is running. And then turning it one, if a user input is requested.
     _console_cursor_info:
         dd 5
         dd 0
 
+    ; I need the console screen buffer info as parameter for "GetConsoleScreenBufferInfo". It is used to calculate the center of the window and to increase the buffer size for the leaderboard.
     _console_screen_buffer_info:
         dw 0, 0
         dw 0, 0
@@ -21,7 +32,15 @@ section .data
         dw 0, 0
 
 section .bss
-    CONSOLE_MANAGER_PTR resq 1
+    ; Memory space for the created game pointer.
+    ; Since there is always just one game in the game, I decided to create a kind of a singleton.
+    ; If this lcl_game_ptr is 0, the constructor will create a new game object.
+    ; If it is not 0, it simply is going to return this pointer.
+    ; This pointer is also used, to reference the object in the destructor and other functions.
+    ; So it is not needed to pass a pointer to the object itself as function parameter.
+    lcl_console_manager_ptr resq 1
+
+    ; A parameter to recieve the actual amount of chars written (it is passed into "WriteConsoleA")
     lcl_chars_written resq 1
 
 section .text
@@ -40,58 +59,102 @@ section .text
     extern FillConsoleOutputCharacterA
 
 ;;;;;; PUBLIC METHODS ;;;;;;
+
+; Here the console manager gets created. 
 console_manager_new:
+.set_up:
+    ; Set up stack frame.
+    ; 8 bytes local variables.
+    ; 8 bytes to keep stack 16-byte aligned.
     push rbp
     mov rbp, rsp
-    sub rsp, 88
+    sub rsp, 16
 
-    cmp qword [rel CONSOLE_MANAGER_PTR], 0
+    ; If a console manager already exists, skip the creation and simply return the pointer to it.
+    cmp qword [rel lcl_console_manager_ptr], 0
     jne .complete
 
     ; Save non-volatile regs.
-    mov [rbp - 8], r15              
+    mov [rbp - 8], rbx              
 
-    mov rcx, console_manager_size
+    ; Reserve 32 bytes shadow space for called functions. 
+    sub rsp, 32
+
+.create_object:
+    ; Creating the console_manager, containing space for:
+    ; * - Output handle. (8 bytes)
+    ; * - Input handle. (8 bytes)
+    ; * - Window dimensions. (8 bytes)
+    mov cx, console_manager_size
     call malloc
-    mov [rel CONSOLE_MANAGER_PTR], rax
-    mov r15, [rel CONSOLE_MANAGER_PTR]
+    ; Pointer to console_manager object is stored in RAX now.
+    ; Check if return of malloc is 0 (if it is, it failed).
+    ; If it failed, it will get printed into the console.
+    test rax, rax
+    jz _cm_malloc_failed
 
-    mov rcx, -10
+    ; Save pointer to initially reserved space. Object is "officially" created now.
+    mov [rel lcl_console_manager_ptr], rax
+
+    ; Make RBX containing lcl_console_manager_ptr to set object up.
+    mov rbx, rax
+
+.set_up_object:
+    ; Save output handle into preserved memory space.
+    mov rcx, STD_OUTPUT_HANDLE
     call GetStdHandle
-    mov [r15 + console_manager.input_handle], rax
+    mov [rbx + console_manager.output_handle], rax
 
-    mov rcx, -11
+    ; Save input handle into preserved memory space.
+    mov rcx, STD_INPUT_HANDLE
     call GetStdHandle
-    mov [r15 + console_manager.output_handle], rax
+    mov [rbx + console_manager.input_handle], rax
 
+    ; Get Screen buffer info.
     call _cm_get_console_info
     lea rcx, [rel _console_screen_buffer_info]
 
-    mov rdx, [rcx + 10]
-    mov [r15 + console_manager.window_size], rdx
+    ; Save window dimensions into preserved memory space.
+    mov rdx, [rcx + WINDOW_SIZE_OFFSET]
+    mov [rbx + console_manager.window_size], rdx
 
 .complete:
-    mov rax, r15
-    mov r15, [rbp - 8]
+    ; Return console manager pointer in RAX.
+    mov rax, [rel lcl_console_manager_ptr]
 
+    ; Restore non-volatile regs.
+    mov rbx, [rbp - 8]
+
+    ; Restore old stack frame and return to caller.
     mov rsp, rbp
     pop rbp
     ret
 
+; Simple destructor to free memory space.
 console_manager_destroy:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    cmp qword [rel CONSOLE_MANAGER_PTR], 0
-    je  _cm_object_failed
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
 
-    mov rcx, [rel CONSOLE_MANAGER_PTR]
-    call free
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .destroy_object:
+        ; Use the local lcl_console_manager_ptr to free the memory space and set it back to 0.
+        mov rcx, [rel lcl_console_manager_ptr]
+        call free
+        mov qword [rel lcl_console_manager_ptr], 0
+
+    .complete:
+        ; Restore old stack frame and leave destructor.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 console_manager_write_char:
     push rbp
@@ -165,7 +228,7 @@ console_manager_set_console_cursor_info:
     ; Expect 0 if cursor is off, anything else if it is on in ECX.
     lea rdx, [rel _console_cursor_info]
     mov [rdx + 4], ecx
-    mov rcx, [rel CONSOLE_MANAGER_PTR]
+    mov rcx, [rel lcl_console_manager_ptr]
     mov rcx, [rcx + console_manager.output_handle]
     call SetConsoleCursorInfo
 
@@ -302,7 +365,7 @@ console_manager_set_buffer_size:
 
     call _cm_get_console_info
 
-    mov rcx, [rel CONSOLE_MANAGER_PTR]
+    mov rcx, [rel lcl_console_manager_ptr]
     mov dx, [rcx + console_manager.window_size + 4]
     inc dx
     add [rbp - 16], dx
@@ -322,13 +385,13 @@ console_manager_set_buffer_size:
     ret
 
 console_manager_get_width_to_center_offset:
-    mov rax, [rel CONSOLE_MANAGER_PTR]
+    mov rax, [rel lcl_console_manager_ptr]
     movzx rax, word [rax + console_manager.window_size + 4]
     shr rax, 1
     ret
 
 console_manager_get_height_to_center_offset:
-    mov rax, [rel CONSOLE_MANAGER_PTR]
+    mov rax, [rel lcl_console_manager_ptr]
     movzx rax, word [rax + console_manager.window_size + 6]
     shr rax, 1
     ret
@@ -341,7 +404,7 @@ _cm_empty_console:
     mov rbp, rsp
     sub rsp, 56
 
-    cmp qword [rel CONSOLE_MANAGER_PTR], 0
+    cmp qword [rel lcl_console_manager_ptr], 0
     je _cm_object_failed
 
     call _cm_get_console_info
@@ -363,7 +426,7 @@ _cm_write_char_multiple_times:
     mov rbp, rsp
     sub rsp, 56
 
-    cmp qword [rel CONSOLE_MANAGER_PTR], 0
+    cmp qword [rel lcl_console_manager_ptr], 0
     je _cm_object_failed
 
     ; Expect char to write in CL.
@@ -375,7 +438,7 @@ _cm_write_char_multiple_times:
     mov r9w, r8w
     mov r8d, edx
     mov dl, cl
-    mov rcx, [rel CONSOLE_MANAGER_PTR]
+    mov rcx, [rel lcl_console_manager_ptr]
     mov rcx, [rcx + console_manager.output_handle]
     lea r10, [rel lcl_chars_written]
     mov qword [rsp + 32], r10
@@ -390,16 +453,16 @@ _cm_get_console_info:
     mov rbp, rsp
     sub rsp, 56
 
-    cmp qword [rel CONSOLE_MANAGER_PTR], 0
+    cmp qword [rel lcl_console_manager_ptr], 0
     je _cm_object_failed
 
-    mov r8, [rel CONSOLE_MANAGER_PTR]
+    mov r8, [rel lcl_console_manager_ptr]
     mov rcx, [r8 + console_manager.output_handle]
     lea rdx, [rel _console_screen_buffer_info]
     call GetConsoleScreenBufferInfo
 
 .complete:
-    mov rcx, [rel CONSOLE_MANAGER_PTR]
+    mov rcx, [rel lcl_console_manager_ptr]
     lea rax, [rel _console_screen_buffer_info]
     mov rdx, [rax + 10]
     mov [rcx + console_manager.window_size], rdx
@@ -414,14 +477,14 @@ _cm_set_cursor_position:
     sub rsp, 56
 
     ; Expect COORD struct (2 words) in RCX.
-    cmp qword [rel CONSOLE_MANAGER_PTR], 0
+    cmp qword [rel lcl_console_manager_ptr], 0
     je _cm_object_failed
 
     mov word [rbp - 8], cx
     shr rcx, 16
     mov word [rbp - 16], cx
 
-    mov rcx, [rel CONSOLE_MANAGER_PTR]
+    mov rcx, [rel lcl_console_manager_ptr]
     mov rcx, [rcx + console_manager.output_handle]
     mov dx, [rbp - 8]
     shl rdx, 16
@@ -437,7 +500,7 @@ _cm_set_cursor_start:
     mov rbp, rsp
     sub rsp, 40
 
-    mov rcx, [rel CONSOLE_MANAGER_PTR]
+    mov rcx, [rel lcl_console_manager_ptr]
     mov rcx, [rcx + console_manager.output_handle]
     xor rdx, rdx
     call SetConsoleCursorPosition
@@ -451,14 +514,14 @@ _cm_write:
     mov rbp, rsp
     sub rsp, 40
 
-    cmp qword [rel CONSOLE_MANAGER_PTR], 0
+    cmp qword [rel lcl_console_manager_ptr], 0
     je _cm_object_failed
 
     ; Expect pointer to string in RCX.
     ; Expect number of chars to write in RDX.
     mov r8, rdx
     mov rdx, rcx
-    mov rcx, [rel CONSOLE_MANAGER_PTR]
+    mov rcx, [rel lcl_console_manager_ptr]
     mov rcx, [rcx + console_manager.output_handle]
     mov r9, 0
     xor rax, rax
@@ -480,7 +543,7 @@ _cm_read:
 
     mov r8, rdx
     mov rdx, rcx
-    mov rcx, [rel CONSOLE_MANAGER_PTR]
+    mov rcx, [rel lcl_console_manager_ptr]
     mov rcx, [rcx + console_manager.input_handle]
     lea r9, [rbp - 24]
     call ReadConsoleA
@@ -511,7 +574,7 @@ _cm_clear_buffer:
 
 .loop:
     lea rdx, [rbp - 8]
-    mov rcx, [rel CONSOLE_MANAGER_PTR]
+    mov rcx, [rel lcl_console_manager_ptr]
     mov rcx, [rcx + console_manager.input_handle]   
     mov r8, 1
     lea r9, [rbp - 16]
@@ -531,10 +594,10 @@ _cm_clear_buffer:
 ;     mov rbp, rsp
 ;     sub rsp, 40
 
-;     cmp qword [rel CONSOLE_MANAGER_PTR], 0
+;     cmp qword [rel lcl_console_manager_ptr], 0
 ;     je _cm_object_failed
 
-;     mov rcx, [rel CONSOLE_MANAGER_PTR]
+;     mov rcx, [rel lcl_console_manager_ptr]
 ;     mov rcx, [rcx + console_manager.output_handle]
 ;     mov rdx, 0x0E
 ;     call SetConsoleTextAttribute
