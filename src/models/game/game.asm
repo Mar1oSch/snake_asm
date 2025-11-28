@@ -150,7 +150,7 @@ game_destroy:
         sub rsp, 32
 
     .destroy_object:
-        ; Use the local lcl_board_ptr to free the memory space and set it back to 0.
+        ; Use the local lcl_game_ptr to free the memory space and set it back to 0.
         mov rcx, [rel lcl_game_ptr]
         call free
         mov qword [rel lcl_game_ptr], 0

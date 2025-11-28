@@ -194,7 +194,7 @@ designer_write_table:
     mov edx, [rcx + table.row_count]
     mov [rbp - 40], edx
     dec dword [rbp - 40]
-    mov r9, [rcx + table.column_format_ptr]
+    mov r9, [rcx + table.column_format_list_ptr]
     mov [rbp - 48], r9
 
     mov rax, [rel DESIGNER_PTR]
