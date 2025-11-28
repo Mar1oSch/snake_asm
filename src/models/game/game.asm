@@ -927,7 +927,7 @@ _print_level:
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
-    ; I want to place the player on the left top corner above the board.
+    ; I want to place the level on the left top corner above the board.
     ; R12D will hold the X- and the Y-coordinates of the starting point.
     .get_x_offset:
         ; So I get the X-Offset of the board.
@@ -1110,198 +1110,294 @@ _print_highscore:
 
 ;;;;;; AFTER GAME METHODS ;;;;;;
 
+; A wrapper function to handle the mechanics if the game is over.
 _game_over:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    lea rcx, [rel game_over_table]
-    mov rdx, game_over_table_size
-    xor r8, r8
-    call designer_type_sequence
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    call _update_highscore
+    .game_over_sequence:
+        lea rcx, [rel game_over_table]
+        mov rdx, game_over_table_size
+        xor r8, r8
+        call designer_type_sequence
 
-    mov rcx, 2000
-    call Sleep
+        mov rcx, 2000
+        call Sleep
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .highscore_update:
+        call _update_highscore
 
+    .complete:
+        ; Resotre old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; Mechanic to possibly update the highscore of the player.
 _update_highscore:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame.
+        ; 8 bytes local variables.
+        ; 8 bytes to keep stack 16 byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
 
-    call _add_bonus_points
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
 
-    mov rdx, [rel lcl_game_ptr]
-    mov ecx, [rdx + game.points]
-    mov r8, [rdx + game.options_ptr]
-    mov r8, [r8 + options.player_ptr]
-    mov r8d, [r8 + player.highscore]
-    cmp ecx, r8d
-    jbe .complete
+        ; Set up game pointer in RBX.
+        mov rbx, [rel lcl_game_ptr]
 
-    call player_update_highscore
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    mov rcx, [rel lcl_game_ptr]
-    mov rcx, [rcx + game.options_ptr]
-    mov rcx, [rcx + options.player_ptr]
-    mov rcx, [rcx + player.name]
-    call file_manager_find_name
+    .add_bonus_points:
+        call _add_bonus_points
 
-    mov rdx, rax
-    mov rcx, [rel lcl_game_ptr]
-    mov rcx, [rcx + game.options_ptr]
-    mov rcx, [rcx + options.player_ptr]
-    mov ecx, dword [rcx + player.highscore]
-    call file_manager_update_highscore
+        ; Set up game points in ECX.
+        mov ecx, [rbx + game.points]
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Set up player pointer in RBX.
+        mov rbx, [rbx + game.options_ptr]
+        mov rbx, [rbx + options.player_ptr]
+
+    .compare_points_and_highscore:
+        ; Set up highscore in EDX.
+        mov edx, [rbx + player.highscore]
+
+        cmp ecx, edx
+        jbe .complete
+
+    .update_highscore:
+        call player_update_highscore
+
+        mov rcx, [rbx + player.name]
+        call file_manager_find_name
+
+        mov rdx, rax
+        mov ecx, dword [rbx + player.highscore]
+        call file_manager_update_highscore
+
+    .complete:
+        ; Restore non-volatile regs.
+        mov rbx, [rbp - 8]
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _add_bonus_points:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    mov rcx, [rel lcl_game_ptr]
-    mov rcx, [rcx + game.board_ptr]
-    movzx rax, word [rcx + board.width]
-    dec rax
-    movzx rdx, word [rcx + board.height]
-    dec rdx
-    mul rdx
+    ; Board area in RAX.
+    .set_up_board_area:
+        mov rcx, [rel lcl_game_ptr]
+        mov rcx, [rcx + game.board_ptr]
+        movzx rax, word [rcx + board.width]
+        movzx rdx, word [rcx + board.height]
+        mul rdx
 
-    mov r8, [rcx + board.snake_ptr]
-    mov r8, [r8 + snake.length]
-    cmp r8, rax
-    jb .complete
+    ; Snake length in RDX.
+    .set_up_snake_length:
+        mov rdx, [rcx + board.snake_ptr]
+        mov rdx, [rdx + snake.length]
 
-    mov dword [rcx + game.points], 100
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+    ; If snake length is as big as area, add 100 points bonus.
+    .compare:
+        cmp rdx, rax
+        jb .complete
+
+    .add_bonus_points:
+        add dword [rcx + game.points], 100
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 
 ;;;;;; KEY PRESS REQUESTS ;;;;;;
 
+; Checking the states of the arrow keys.
 _request_direction_change:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    mov rcx, 25h
-    call GetAsyncKeyState
-    test rax, 8001h
-    jnz .left
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    mov rcx, 26h
-    call GetAsyncKeyState
-    test rax, 8001h
-    jnz .up
+    ; 25H is the number of the left arrow key.
+    .check_left:
+        mov rcx, 25h
+        call GetAsyncKeyState
+        test rax, 8001h
+        jnz .go_left
 
-    mov rcx, 27h
-    call GetAsyncKeyState
-    test rax, 8001h
-    jnz .right
+    ; 26H is the number of the up arrow key.
+    .check_up:
+        mov rcx, 26h
+        call GetAsyncKeyState
+        test rax, 8001h
+        jnz .go_up
 
-    mov rcx, 28h
-    call GetAsyncKeyState
-    test rax, 8001h
-    jnz .down
+    ; 27H is the number of the right arrow key.
+    .check_right:
+        mov rcx, 27h
+        call GetAsyncKeyState
+        test rax, 8001h
+        jnz .go_right
 
-    jmp .complete
+    ; 28H is the number of the down arrow key.
+    .check_down:
+        mov rcx, 28h
+        call GetAsyncKeyState
+        test rax, 8001h
+        jnz .go_down
 
-.left:
-    cmp qword [rel current_direction], 2
-    je .complete
-    mov qword [rel current_direction], 0
-    jmp .complete
+        jmp .complete
 
-.up:
-    cmp qword [rel current_direction], 3
-    je .complete
-    mov qword [rel current_direction], 1
-    jmp .complete
+    ; If the snake is not going right at the moment, let it go left now.
+    .go_left:
+        cmp qword [rel current_direction], 2
+        je .complete
+        mov qword [rel current_direction], 0
+        jmp .complete
 
-.right:
-    cmp qword [rel current_direction], 0
-    je .complete
-    mov qword [rel current_direction], 2
-    jmp .complete
+    ; If the snake is not going down at the moment, let it go up now.
+    .go_up:
+        cmp qword [rel current_direction], 3
+        je .complete
+        mov qword [rel current_direction], 1
+        jmp .complete
 
-.down:
-    cmp qword [rel current_direction], 1
-    je .complete
-    mov qword [rel current_direction], 3
+    ; If the snake is not going left at the moment, let it go right now.
+    .go_right:
+        cmp qword [rel current_direction], 0
+        je .complete
+        mov qword [rel current_direction], 2
+        jmp .complete
 
-.complete:
-    mov rax, qword [rel current_direction]
-    mov rsp, rbp
-    pop rbp
-    ret
+    ; If the snake is not going up at the moment, let it go down now.
+    .go_down:
+        cmp qword [rel current_direction], 1
+        je .complete
+        mov qword [rel current_direction], 3
+
+    .complete:
+        ; Return new direction in RAX.
+        mov rax, qword [rel current_direction]
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _request_pause:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    mov rcx, 50h
-    call GetAsyncKeyState
-    test rax, 1
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    jz .complete
+    ; 50H is the "P" key.
+    .check_pause:
+        mov rcx, 50h
+        call GetAsyncKeyState
+        test rax, 1
 
-    cmp byte [rel is_paused], 1
-    je .pause_stop
+        jz .complete
 
-    mov byte [rel is_paused], 1
-    jmp .complete
+    .check_if_paused:
+        cmp byte [rel is_paused], 1
+        je .pause_stop
 
-.pause_stop:
-    mov byte [rel is_paused], 0
+    .pause:
+        mov byte [rel is_paused], 1
+        jmp .complete
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+    .pause_stop:
+        mov byte [rel is_paused], 0
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 
 ;;;;;; ERROR HANDLING ;;;;;;
 _g_malloc_failed:
-    lea rcx, [rel constructor_name]
-    mov rdx, rax
-    call malloc_failed
+    .set_up:
+        ; Setting up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+
+    .debug:
+        lea rcx, [rel constructor_name]
+        mov rdx, rax
+        call malloc_failed
+
+    .complete:
+        ; Restore old stack frame and leave debugging function.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _g_object_failed:
-    lea rcx, [rel constructor_name]
-    call object_not_created
+    .set_up:
+        ; Setting up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+
+    .debug:
+        lea rcx, [rel constructor_name]
+        call object_not_created
+
+    .complete:
+        ; Restore old stack frame and leave debugging function.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _u_direction_error:
-    ; Expect pointer to unit object in RCX.
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    ; * Expect pointer to unit object in RCX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    mov rdx, rcx
-    movzx rdx, byte [rdx + unit.direction]
-    lea rcx, [rel direction_error]
-    call printf
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .debug:
+        mov rdx, rcx
+        movzx rdx, byte [rdx + unit.direction]
+        lea rcx, [rel direction_error]
+        call printf
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret

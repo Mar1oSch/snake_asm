@@ -172,19 +172,41 @@ player_destroy:
 
 ;;;;;; ERROR HANDLING ;;;;;;
 
-_pl_object_failed:
-    lea rcx, [rel constructor_name]
-    call object_not_created
-
-    mov rsp, rbp
-    pop rbp
-    ret
-
 _pl_malloc_failed:
-    lea rcx, [rel constructor_name]
-    mov rdx, rax
-    call malloc_failed
+    .set_up:
+        ; Setting up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+
+    .debug:
+        lea rcx, [rel constructor_name]
+        mov rdx, rax
+        call malloc_failed
+
+    .complete:
+        ; Restore old stack frame and leave debugging function.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+_pl_object_failed:
+    .set_up:
+        ; Setting up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
+
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+
+    .debug:
+        lea rcx, [rel constructor_name]
+        call object_not_created
+
+    .complete:
+        ; Restore old stack frame and leave debugging function.
+        mov rsp, rbp
+        pop rbp
+        ret
