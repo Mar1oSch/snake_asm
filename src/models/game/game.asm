@@ -23,10 +23,10 @@ global game_new, game_destroy, game_start, game_reset
 section .rodata
     ;;;;;; SCOREBOARD STRINGS ;;;;;;
     lvl_format db "Lvl:", 0
-    lvl_length equ $ - lvl_format
+    LVL_LENGTH equ $ - lvl_format
 
     best_format db "Best:", 0
-    best_length equ $ - best_format  
+    BEST_LENGTH equ $ - best_format  
 
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "game_new", 0
@@ -847,148 +847,266 @@ _build_scoreboard:
         ret
 
 _print_player:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 56
+    .set_up:
+        ; Set up stack frame.
+        ; 24 bytes local variables.
+        ; 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
 
-    call get_board_x_offset
-    mov [rbp - 8], ax
+        ; Save non volatile regs.
+        mov [rbp - 8], rbx 
+        mov [rbp - 16], r12
+        mov [rbp - 24], r13
 
-    call get_board_y_offset
-    mov [rbp - 16], ax
+        ; Prepare game pointer in RBX.
+        mov rbx, [rel lcl_game_ptr]
 
-    call get_player_name_length
-    mov r8, rax
+        ; Prepare board pointer in R13.
+        mov r13, [rbx + game.board_ptr]
 
-    mov r9, [rel lcl_game_ptr]
-    mov r10, [r9 + game.board_ptr]
-    xor rcx, rcx
-    movzx rcx, word [rbp - 8]
-    dec cx
-    shl rcx, 16
-    mov cx, [r10 + board.height]
-    add cx, [rbp - 16]
-    add cx, 2
-    mov rdx, [r9 + game.options_ptr]
-    mov rdx, [rdx + options.player_ptr]
-    mov rdx, [rdx + player.name]
-    xor r9, r9 
-    call console_manager_write_word
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    ; I want to place the player on the left bottom corner below the board.
+    ; R12D will hold the X- and the Y-coordinates of the starting point.
+    .get_x_offset:
+        ; So I get the X-Offset of the board.
+        call get_board_x_offset
+        ; Prepare X value in R12W.
+        mov r12w, ax
+        dec r12w
+        shl r12d, 16
+
+    .get_y_offset:
+        ; Get Y-Offset of the board.
+        call get_board_y_offset
+        ; Prepare Y value in R12W.
+        mov r12w, ax
+        add r12w, [r13 + board.height]
+        add r12w, 2
+
+    ; Find out, how many bytes have to been written.
+    .get_name_length:
+        call get_player_name_length
+        ; Prepare 3 parameter for write function. (Amount of bytes to write)
+        mov r8, rax
+
+    .write_name:
+        mov ecx, r12d
+        mov rdx, [rbx + game.options_ptr]
+        mov rdx, [rdx + options.player_ptr]
+        mov rdx, [rdx + player.name]
+        xor r9, r9 
+        call console_manager_write_word
+
+    .complete:
+        ; Restore non-volatile regs.
+        mov r13, [rbp - 24]
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _print_level:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 72
+    .set_up:
+        ; Set up stack frame.
+        ; 8 bytes local variables.
+        ; 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
 
-    call get_board_x_offset
-    mov [rbp - 8], ax
+        ; Save non-volatile regs.
+        mov [rbp - 8], r12
 
-    call get_board_y_offset
-    mov [rbp - 16], ax
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    mov r8, [rel lcl_game_ptr]
-    mov r9, [r8 + game.board_ptr]
-    xor rcx, rcx
-    movzx rcx, word [rbp - 8]
-    dec cx
-    shl rcx, 16
-    mov cx, [rbp - 16]
-    sub cx, 2
-    mov [rbp - 24], ecx
-    lea rdx, [rel lvl_format]
-    mov r8, lvl_length
-    xor r9, r9
-    call console_manager_write_word
+    ; I want to place the player on the left top corner above the board.
+    ; R12D will hold the X- and the Y-coordinates of the starting point.
+    .get_x_offset:
+        ; So I get the X-Offset of the board.
+        call get_board_x_offset
+        ; Prepare X value in R12W.
+        mov r12w, ax
+        dec r12w
+        shl r12d, 16
 
-    mov ecx, [rbp - 24]
-    mov rdx, lvl_length
-    xor r8, r8
-    call helper_change_position
+    .get_y_offset:
+        ; Get Y-Offset of the board.
+        call get_board_y_offset
+        ; Prepare Y value in R12W.
+        mov r12w, ax
+        sub r12w, 2
 
-    mov ecx, eax
-    mov rdx, [rel lcl_game_ptr]
-    mov rdx, [rdx + game.options_ptr]
-    mov edx, [rdx + options.lvl]
-    mov r8, 2
-    call console_manager_write_number
+    .write_word:
+        mov ecx, r12d
+        lea rdx, [rel lvl_format]
+        mov r8, LVL_LENGTH
+        xor r9, r9
+        call console_manager_write_word
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .change_position:
+        mov ecx, r12d
+        mov rdx, LVL_LENGTH
+        xor r8, r8
+        call helper_change_position
+
+    .write_lvl:
+        mov ecx, eax
+        mov rdx, [rel lcl_game_ptr]
+        mov rdx, [rdx + game.options_ptr]
+        mov edx, [rdx + options.lvl]
+        mov r8, 2
+        call console_manager_write_number
+
+    .complete:
+        ; Restore non-volatile regs.
+        mov r12, [rbp - 8]
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _print_points:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 64
+    .set_up:
+        ; Set up stack frame.
+        ; 24 bytes local variables.
+        ; 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
 
-    call get_board_x_offset
-    mov [rbp - 8], ax
+        ; Save non volatile regs.
+        mov [rbp - 8], rbx 
+        mov [rbp - 16], r12
+        mov [rbp - 24], r13
 
-    call get_board_y_offset
-    mov [rbp - 16], ax
+        ; Prepare game pointer in RBX.
+        mov rbx, [rel lcl_game_ptr]
 
-    mov r9, [rel lcl_game_ptr]
-    mov r8, [r9 + game.board_ptr]
-    movzx rcx, word [r8 + board.width]
-    add cx, [rbp - 8]
-    sub cx, 2
-    shl rcx, 16
-    mov cx, [r8 + board.height]
-    add cx, [rbp - 16]
-    add cx, 2
-    mov edx, [r9 + game.points]
-    mov r8, 4
-    call console_manager_write_number
+        ; Prepare board pointer in R13.
+        mov r13, [rbx + game.board_ptr]
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+
+    ; I want to place the points on the right bottom corner below the board.
+    ; R12D will hold the X- and the Y-coordinates of the starting point.
+    .get_x_offset:
+        ; So I get the X-Offset of the board.
+        call get_board_x_offset
+        ; Prepare X value in R12W.
+        mov r12w, ax
+        add r12w, [r13 + board.width]
+        sub r12w, 2
+        shl r12d, 16
+
+    .get_y_offset:
+        ; Get Y-Offset of the board.
+        call get_board_y_offset
+        ; Prepare Y value in R12W.
+        mov r12w, ax
+        add r12w, [r13 + board.height]
+        add r12w, 2
+
+    .write_points:
+        mov ecx, r12d
+        mov edx, [rbx + game.points]
+        mov r8, 4
+        call console_manager_write_number
+
+    .complete:
+        ; Restore non-volatile regs.
+        mov r13, [rbp - 24]
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _print_highscore:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 72
+    .set_up:
+        .set_up:
+        ; Set up stack frame.
+        ; 24 bytes local variables.
+        ; 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
 
-    call get_board_x_offset
-    mov [rbp - 8], ax
+        ; Save non volatile regs.
+        mov [rbp - 8], rbx 
+        mov [rbp - 16], r12
+        mov [rbp - 24], r13
 
-    call get_board_y_offset
-    mov [rbp - 16], ax
+        ; Prepare game pointer in RBX.
+        mov rbx, [rel lcl_game_ptr]
 
-    mov r8, [rel lcl_game_ptr]
-    mov r8, [r8 + game.board_ptr]
-    movzx rcx, word [r8 + board.width]
-    add cx, [rbp - 8]
-    sub cx, 8
-    shl rcx, 16
-    mov cx, [rbp - 16]
-    sub cx, 2
-    mov [rbp - 32], ecx
-    lea rdx, [rel best_format]
-    mov r8, best_length
-    xor r9, r9
-    call console_manager_write_word
+        ; Prepare board pointer in R13.
+        mov r13, [rbx + game.board_ptr]
 
-    mov ecx, [rbp - 32]
-    mov rdx, best_length
-    xor r8, r8
-    call helper_change_position
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    mov ecx, eax
-    mov rdx, [rel lcl_game_ptr]
-    mov rdx, [rdx + game.options_ptr]
-    mov rdx, [rdx + options.player_ptr]
-    mov edx, [rdx + player.highscore]
-    mov r8, 4
-    call console_manager_write_number
+    ; I want to place the highscore on the left top corner above the board.
+    ; R12D will hold the X- and the Y-coordinates of the starting point.
+    .get_x_offset:
+        ; So I get the X-Offset of the board.
+        call get_board_x_offset
+        ; Prepare X value in R12W.
+        mov r12w, ax
+        add r12w, [r13 + board.width]
+        sub r12w, BEST_LENGTH + 2
+        shl r12d, 16
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .get_y_offset:
+        ; Get Y-Offset of the board.
+        call get_board_y_offset
+        ; Prepare Y value in R12W.
+        mov r12w, ax
+        sub r12w, 2
+
+    .write_word:
+        mov ecx, r12d
+        lea rdx, [rel best_format]
+        mov r8, BEST_LENGTH
+        xor r9, r9
+        call console_manager_write_word
+
+    .change_position:
+        mov ecx, r12d
+        mov rdx, BEST_LENGTH
+        xor r8, r8
+        call helper_change_position
+
+    .write_number:
+        mov ecx, eax
+        mov rdx, [rbx + game.options_ptr]
+        mov rdx, [rdx + options.player_ptr]
+        mov edx, [rdx + player.highscore]
+        mov r8, 4
+        call console_manager_write_number
+
+    .complete:
+        ; Restore non-volatile regs.
+        mov r13, [rbp - 24]
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
 
 ;;;;;; AFTER GAME METHODS ;;;;;;
 
@@ -1179,10 +1297,9 @@ _u_direction_error:
     mov rbp, rsp
     sub rsp, 40
 
-    mov [rbp - 8], rcx
-    lea rcx, [rel direction_error]
-    mov rdx, [rbp - 8]
+    mov rdx, rcx
     movzx rdx, byte [rdx + unit.direction]
+    lea rcx, [rel direction_error]
     call printf
 
     mov rsp, rbp
