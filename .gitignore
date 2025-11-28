@@ -1,2 +1,2 @@
-.\src\leaderboard.bin
-.dmp
+/src/leaderboard.bin
+*.dmp
