@@ -62,73 +62,73 @@ section .text
 
 ; Here the console manager gets created. 
 console_manager_new:
-.set_up:
-    ; Set up stack frame.
-    ; 8 bytes local variables.
-    ; 8 bytes to keep stack 16-byte aligned.
-    push rbp
-    mov rbp, rsp
-    sub rsp, 16
+    .set_up:
+        ; Set up stack frame.
+        ; 8 bytes local variables.
+        ; 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
 
-    ; If a console manager already exists, skip the creation and simply return the pointer to it.
-    cmp qword [rel lcl_console_manager_ptr], 0
-    jne .complete
+        ; If a console manager already exists, skip the creation and simply return the pointer to it.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        jne .complete
 
-    ; Save non-volatile regs.
-    mov [rbp - 8], rbx              
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx              
 
-    ; Reserve 32 bytes shadow space for called functions. 
-    sub rsp, 32
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-.create_object:
-    ; Creating the console_manager, containing space for:
-    ; * - Output handle. (8 bytes)
-    ; * - Input handle. (8 bytes)
-    ; * - Window dimensions. (8 bytes)
-    mov cx, console_manager_size
-    call malloc
-    ; Pointer to console_manager object is stored in RAX now.
-    ; Check if return of malloc is 0 (if it is, it failed).
-    ; If it failed, it will get printed into the console.
-    test rax, rax
-    jz _cm_malloc_failed
+    .create_object:
+        ; Creating the console_manager, containing space for:
+        ; * - Output handle. (8 bytes)
+        ; * - Input handle. (8 bytes)
+        ; * - Window dimensions. (8 bytes)
+        mov cx, console_manager_size
+        call malloc
+        ; Pointer to console_manager object is stored in RAX now.
+        ; Check if return of malloc is 0 (if it is, it failed).
+        ; If it failed, it will get printed into the console.
+        test rax, rax
+        jz _cm_malloc_failed
 
-    ; Save pointer to initially reserved space. Object is "officially" created now.
-    mov [rel lcl_console_manager_ptr], rax
+        ; Save pointer to initially reserved space. Object is "officially" created now.
+        mov [rel lcl_console_manager_ptr], rax
 
-    ; Make RBX containing lcl_console_manager_ptr to set object up.
-    mov rbx, rax
+        ; Make RBX containing lcl_console_manager_ptr to set object up.
+        mov rbx, rax
 
-.set_up_object:
-    ; Save output handle into preserved memory space.
-    mov rcx, STD_OUTPUT_HANDLE
-    call GetStdHandle
-    mov [rbx + console_manager.output_handle], rax
+    .set_up_object:
+        ; Save output handle into preserved memory space.
+        mov rcx, STD_OUTPUT_HANDLE
+        call GetStdHandle
+        mov [rbx + console_manager.output_handle], rax
 
-    ; Save input handle into preserved memory space.
-    mov rcx, STD_INPUT_HANDLE
-    call GetStdHandle
-    mov [rbx + console_manager.input_handle], rax
+        ; Save input handle into preserved memory space.
+        mov rcx, STD_INPUT_HANDLE
+        call GetStdHandle
+        mov [rbx + console_manager.input_handle], rax
 
-    ; Get Screen buffer info.
-    call _cm_get_console_info
-    lea rcx, [rel _console_screen_buffer_info]
+        ; Get Screen buffer info.
+        call _cm_get_console_info
+        lea rcx, [rel _console_screen_buffer_info]
 
-    ; Save window dimensions into preserved memory space.
-    mov rdx, [rcx + WINDOW_SIZE_OFFSET]
-    mov [rbx + console_manager.window_size], rdx
+        ; Save window dimensions into preserved memory space.
+        mov rdx, [rcx + WINDOW_SIZE_OFFSET]
+        mov [rbx + console_manager.window_size], rdx
 
-.complete:
-    ; Return console manager pointer in RAX.
-    mov rax, [rel lcl_console_manager_ptr]
+    .complete:
+        ; Return console manager pointer in RAX.
+        mov rax, [rel lcl_console_manager_ptr]
 
-    ; Restore non-volatile regs.
-    mov rbx, [rbp - 8]
+        ; Restore non-volatile regs.
+        mov rbx, [rbp - 8]
 
-    ; Restore old stack frame and return to caller.
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 ; Simple destructor to free memory space.
 console_manager_destroy:
@@ -168,6 +168,10 @@ console_manager_write_char:
         push rbp
         mov rbp, rsp
 
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
+
         ; Save params into shadow space.
         mov [rbp + 16], rdx
 
@@ -201,6 +205,10 @@ console_manager_repeat_char:
         push rbp
         mov rbp, rsp
 
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
+
         ; Reserve 32 bytes shadow space for called functions. 
         sub rsp, 32
 
@@ -226,6 +234,10 @@ console_manager_write_word:
         push rbp
         mov rbp, rsp
         sub rsp, 32
+
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
 
         ; Save non-volatile regs.
         mov [rbp - 8], rbx
@@ -277,56 +289,60 @@ console_manager_write_number:
     ; * Expect X- and Y- Coordinates in ECX.
     ; * Expect number in RDX.
     ; * Expect digits to write in R8.
-.set_up:
-    ; Set up stack frame.
-    ; 24 bytes local variables. 
-    ; 8 bytes to keep stack 16-byte aligned.
-    push rbp
-    mov rbp, rsp
-    sub rsp, 32
+    .set_up:
+        ; Set up stack frame.
+        ; 24 bytes local variables. 
+        ; 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
 
-    ; Save non-volatile regs.
-    mov [rbp - 8], rbx
-    mov [rbp - 16], r12
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
 
-    ; Save params into regs.
-    ; * RBX = number.
-    ; * R12 = digits.
-    mov rbx, rdx
-    mov r12, r8
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
 
-    ; Reserve 32 bytes shadow space for called functions. 
-    sub rsp, 32
+        ; Save params into regs.
+        ; * RBX = number.
+        ; * R12 = digits.
+        mov rbx, rdx
+        mov r12, r8
 
-.set_position:
-    call _cm_set_cursor_position
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-.get_memory_space:
-    mov rcx, r12
-    call malloc
-    ; * Local variable: Pointer to the memory space containing the parsed string.
-    mov [rbp - 24], rax
+    .set_position:
+        call _cm_set_cursor_position
 
-.parse:
-    mov rcx, rax
-    mov rdx, rbx
-    mov r8, r12
-    call helper_parse_int_to_string
+    .get_memory_space:
+        mov rcx, r12
+        call malloc
+        ; * Local variable: Pointer to the memory space containing the parsed string.
+        mov [rbp - 24], rax
 
-.write:
-    mov rcx, rax
-    mov rdx, r12
-    call _cm_write
+    .parse:
+        mov rcx, rax
+        mov rdx, rbx
+        mov r8, r12
+        call helper_parse_int_to_string
 
-.free_memory_space:
-    mov rcx, [rbp - 24]
-    call free
+    .write:
+        mov rcx, rax
+        mov rdx, r12
+        call _cm_write
 
-.complete:
-    ; Restore old stack frame and return to caller.
-    mov rsp, rbp
-    pop rbp
-    ret
+    .free_memory_space:
+        mov rcx, [rbp - 24]
+        call free
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 ;;;;;; GET INPUT METHODS ;;;;;;
 
@@ -340,6 +356,10 @@ console_manager_get_numeral_input:
         push rbp
         mov rbp, rsp
         sub rsp, 32
+
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
 
         ; Save non-volatile regs.
         mov [rbp - 8], rbx
@@ -390,6 +410,10 @@ console_manager_get_literal_input:
         push rbp
         mov rbp, rsp
 
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
+
         ; Reserve 32 bytes shadow space for called functions. 
         sub rsp, 32
 
@@ -411,6 +435,10 @@ console_manager_clear_all:
         push rbp
         mov rbp, rsp
 
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
+
         ; Reserve 32 bytes shadow space for called functions. 
         sub rsp, 32
 
@@ -431,6 +459,10 @@ console_manager_clear_sequence:
         ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
+
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
 
         ; Save params into shadow space.
         mov [rbp + 16], rdx
@@ -486,6 +518,10 @@ console_manager_set_cursor:
         push rbp
         mov rbp, rsp
 
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
+
         ; Reserve 32 bytes shadow space for called functions. 
         sub rsp, 32
 
@@ -504,6 +540,10 @@ console_manager_set_buffer_size:
         ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
+
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
 
         ; Save params into shadow space.
         mov [rbp + 16], ecx
