@@ -21,7 +21,7 @@ section .text
     extern malloc, free
     extern Sleep
 
-    extern console_manager_new, console_manager_write_word, console_manager_clear, console_manager_write_char, console_manager_get_width_to_center_offset, console_manager_set_cursor, console_manager_set_buffer_size, console_manager_write_number, console_manager_set_console_cursor_info
+    extern console_manager_new, console_manager_write_word, console_manager_clear_all, console_manager_write_char, console_manager_get_width_to_center_offset, console_manager_set_cursor, console_manager_set_buffer_size, console_manager_write_number, console_manager_set_console_cursor_info
 
     extern helper_parse_int_to_string, helper_get_digits_of_number, helper_change_position
 
@@ -79,7 +79,7 @@ designer_clear:
     mov rbp, rsp
     sub rsp, 40
 
-    call console_manager_clear
+    call console_manager_clear_all
 
     mov rsp, rbp
     pop rbp
@@ -175,7 +175,7 @@ designer_write_headline:
 designer_write_table:
     push rbp
     mov rbp, rsp
-    sub rsp, 120
+    sub rsp, 112
 
     ; Save non-volatile regs.
     mov [rbp - 8], r15
@@ -185,9 +185,6 @@ designer_write_table:
     mov [rbp - 24], r13
     
     ; Expect pointer to table in RCX.
-    ; Expect column count in RDX.
-    ; Expect row count in R8.
-    ; Expect DWORD Struc (Length of Entry, Type of Entry) per Column in R9.
     mov r13, [rcx + table.content_ptr]                                                      ; Save table-pointer in R13.
     mov edx, [rcx + table.column_count]
     mov [rbp - 32], edx
@@ -197,10 +194,11 @@ designer_write_table:
     mov r9, [rcx + table.column_format_list_ptr]
     mov [rbp - 48], r9
 
+.calculate_x:
     mov rax, [rel DESIGNER_PTR]
     mov rax, [rax + designer.console_manager_ptr]
     movzx rax, word [rax + console_manager.window_size + 4]             ; Get the width of the console-window.
-    mov rcx, [rbp - 32]
+    mov ecx, [rbp - 32]
     inc rcx                                                             ; Add one column for pagination.
     xor rdx, rdx
     div rcx                                                             ; Divide the width into n parts for each column
@@ -217,7 +215,6 @@ designer_write_table:
 
 .loop:
     .inner_loop:
-
         movzx rcx, word [rbp - 56]
         mov rdx, rcx
         shr rdx, 1
@@ -226,7 +223,7 @@ designer_write_table:
         shl rcx, 16
         mov cx, [rbp - 64]
 
-        test r15, r15
+        test r15d, r15d
         jz .handle_pagination
 
         mov rdx, r13
@@ -244,21 +241,21 @@ designer_write_table:
 
         xor r9, r9
 
-    .write:    
+    .write:   
         call console_manager_write_word
 
     .inner_loop_handle:
         mov ecx, dword [rbp - 72]
         add r13, rcx
-        cmp r15, [rbp - 32]
+        cmp r15d, [rbp - 32]
         je .loop_handle
-        inc r15
+        inc r15d
         jmp .inner_loop
 .loop_handle:
-    cmp r14, [rbp - 40]
+    cmp r14d, [rbp - 40]
     je .complete
-    inc r14
-    xor r15, r15
+    inc r14d
+    xor r15d, r15d
     add word [rbp - 64], 2
     jmp .loop
 
@@ -266,7 +263,7 @@ designer_write_table:
     mov rdx, r14
     inc rdx
     call _table_pagination
-    inc r15
+    inc r15d
     jmp .inner_loop
 
 .handle_number:

@@ -41,7 +41,7 @@ section .text
     extern GetSystemTimeAsFileTime
 
     extern snake_new, snake_update, snake_reset
-    extern console_manager_write_char,  console_manager_erase, console_manager_repeat_char, console_manager_get_height_to_center_offset, console_manager_get_width_to_center_offset
+    extern console_manager_write_char,  console_manager_clear_sequence, console_manager_repeat_char, console_manager_get_height_to_center_offset, console_manager_get_width_to_center_offset
     extern food_new, food_destroy
     extern designer_clear
     extern DRAWABLE_VTABLE_X_POSITION_OFFSET, DRAWABLE_VTABLE_Y_POSITION_OFFSET, DRAWABLE_VTABLE_CHAR_PTR_OFFSET
@@ -840,7 +840,7 @@ _erase_snake_unit:
         mov bx, ax
 
     .erase_old_tail:
-        ; Now I am preparing the coordinates to pass them into the "console_manager_erase" method.
+        ; Now I am preparing the coordinates to pass them into the "console_manager_clear_sequence" method.
         ; At first the Y-coordinate is handled, and the board.y_offset is added to the Y-coordinate in CX.
         mov ecx, [rbp + 16]
         add cx, bx
@@ -857,7 +857,7 @@ _erase_snake_unit:
 
         ; Letting the function erase exactly one char.
         mov rdx, 1
-        call console_manager_erase
+        call console_manager_clear_sequence
 
     .complete:
         ; Restore non-volatile regs.

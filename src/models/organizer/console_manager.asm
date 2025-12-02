@@ -3,7 +3,7 @@
 
 ; This is the console manager, which is responsible for managing the basic communication with the console. Every interaction with it is handled here.
 
-global console_manager_new, console_manager_destroy, console_manager_clear, console_manager_write_char, console_manager_set_cursor, console_manager_erase, console_manager_write_word, console_manager_get_width_to_center_offset, console_manager_get_height_to_center_offset, console_manager_get_numeral_input, console_manager_get_literal_input, console_manager_set_buffer_size, console_manager_write_number, console_manager_repeat_char, console_manager_set_console_cursor_info
+global console_manager_new, console_manager_destroy, console_manager_clear_all, console_manager_write_char, console_manager_set_cursor, console_manager_clear_sequence, console_manager_write_word, console_manager_get_width_to_center_offset, console_manager_get_height_to_center_offset, console_manager_get_numeral_input, console_manager_get_literal_input, console_manager_set_buffer_size, console_manager_write_number, console_manager_repeat_char, console_manager_set_console_cursor_info
 
 section .rodata
     ;;;;;; ERASER ;;;;;;
@@ -156,234 +156,385 @@ console_manager_destroy:
         pop rbp
         ret
 
+
+;;;;;; WRITE METHODS ;;;;;;
+
+; Write a single char into console at cursor point (X, Y)
 console_manager_write_char:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
+    ; * Expect X- and Y-Coordinates in ECX
+    ; * Expect pointer to char in RDX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; Expect X- and Y-Coordinates in ECX
-    ; Expect pointer to char in RDX.
-    mov [rbp - 8], rdx
-    call _cm_set_cursor_position
+        ; Save params into shadow space.
+        mov [rbp + 16], rdx
 
-    mov rcx, [rbp - 8]
-    mov rdx, 1
-    call _cm_write
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .set_position:
+        ; Coordinates are already in ECX.
+        call _cm_set_cursor_position
 
+    .write_char:
+        ; Get pointer to char into RCX.
+        ; One char to write in RDX.
+        mov rcx, [rbp + 16]
+        mov rdx, 1
+        call _cm_write
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; It is a simple public wrapper function to call the more complicated private function repeating a single char defined amount of times, starting at (X, Y).
 console_manager_repeat_char:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    ; * Expect starting coordinates in ECX.
+    ; * Expect char to write in DL.
+    ; * Expect number of repetitions in R8D.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; Expect char to write in CL.
-    ; Expect number of repetitions in EDX.
-    ; Expect starting coordinates in R8D
-    call _cm_write_char_multiple_times
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .call_function:
+        call _cm_write_char_multiple_times
 
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; Writing a word. If RDX is pointing to a saved number, it is getting handled by the R) register. If there is a value not zero, it defines the amount of digits the number should be parsed into.
 console_manager_write_word:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 64
+    ; * Expect X- and Y-Coordinates in ECX
+    ; * Expect pointer to word in RDX.
+    ; * Expect length of string in R8
+    ; * Expect length of number in R9, if no number expect 0.
+    .set_up:
+        ; Set up stack frame without.
+        ; 24 bytes local variables.
+        ; 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
 
-    ; Expect X- and Y-Coordinates in ECX
-    ; Expect pointer to word in RDX.
-    ; Expect length of string in R8
-    ; If it is a number, expect length of number in R9, else expect 0.
-    mov [rbp - 8], rdx
-    mov [rbp - 16], r8
-    mov [rbp - 24], r9
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
+        mov [rbp - 24], r13
 
-    call _cm_set_cursor_position
+        ; Save params into regs:
+        ; * RBX = pointer to word.
+        ; * R12 = length of string.
+        ; * R13 = length of number.
+        mov rbx, rdx
+        mov r12, r8
+        mov r13, r9
 
-    cmp qword [rbp - 24], 0
-    je .write
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    mov rcx, [rbp - 8]
-    mov rdx, [rbp - 24]
-    call helper_parse_saved_number_to_written_number
-    mov [rbp - 8], rax
+    .set_position:
+        call _cm_set_cursor_position
 
-.write:
-    mov rcx, [rbp - 8]
-    mov rdx, [rbp - 16]
-    call _cm_write
+    .check_for_number:
+        test r13, r13
+        jz .write
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .handle_number:
+        mov rcx, rbx
+        mov rdx, r13
+        call helper_parse_saved_number_to_written_number
+        mov rbx, rax
 
-console_manager_set_console_cursor_info:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .write:
+        mov rcx, rbx
+        mov rdx, r12
+        call _cm_write
 
-    ; Expect 0 if cursor is off, anything else if it is on in ECX.
-    lea rdx, [rel _console_cursor_info]
-    mov [rdx + 4], ecx
-    mov rcx, [rel lcl_console_manager_ptr]
-    mov rcx, [rcx + console_manager.output_handle]
-    call SetConsoleCursorInfo
+    .complete:
+        ; Resotre non-volatile regs.
+        mov r13, [rbp - 24]
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
+; The function to write a number inside a register.
 console_manager_write_number:
+    ; * Expect X- and Y- Coordinates in ECX.
+    ; * Expect number in RDX.
+    ; * Expect digits to write in R8.
+.set_up:
+    ; Set up stack frame.
+    ; 24 bytes local variables. 
+    ; 8 bytes to keep stack 16-byte aligned.
     push rbp
     mov rbp, rsp
-    sub rsp, 80
+    sub rsp, 32
 
-    ; Expect X- and Y- Coordinates in ECX.
-    ; Expect number in RDX.
-    ; Expect digits to write in R8.
-    mov [rbp - 8], rdx
-    mov [rbp - 16], r8
+    ; Save non-volatile regs.
+    mov [rbp - 8], rbx
+    mov [rbp - 16], r12
 
+    ; Save params into regs.
+    ; * RBX = number.
+    ; * R12 = digits.
+    mov rbx, rdx
+    mov r12, r8
+
+    ; Reserve 32 bytes shadow space for called functions. 
+    sub rsp, 32
+
+.set_position:
     call _cm_set_cursor_position
 
-    mov rcx, [rbp - 8]
+.get_memory_space:
+    mov rcx, r12
     call malloc
+    ; * Local variable: Pointer to the memory space containing the parsed string.
     mov [rbp - 24], rax
 
+.parse:
     mov rcx, rax
-    mov rdx, [rbp - 8]
-    mov r8, [rbp - 16]
+    mov rdx, rbx
+    mov r8, r12
     call helper_parse_int_to_string
 
+.write:
     mov rcx, rax
-    mov rdx, [rbp - 16]
+    mov rdx, r12
     call _cm_write
 
-    ; mov rcx, [rbp - 24]
-    ; call free
+.free_memory_space:
+    mov rcx, [rbp - 24]
+    call free
 
+.complete:
+    ; Restore old stack frame and return to caller.
     mov rsp, rbp
     pop rbp
     ret
 
+;;;;;; GET INPUT METHODS ;;;;;;
+
+; Function to recieve a numeral input by user.
 console_manager_get_numeral_input:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 64
+    ; * Expect number of chars to read in RCX.
+    .set_up:
+        ; Set up stack frame.
+        ; 24 byte local variables.
+        ; 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
 
-    ; Expect number of chars to read in RCX.
-    mov [rbp - 8], rcx
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
 
-.loop:
-    lea rcx, [rbp - 16]
-    mov rdx, [rbp - 8]
-    call _cm_read
+        ; Save param into non-volatile regs.
+        mov rbx, rcx
 
-    lea rcx, [rbp - 16]
-    mov edx, [rbp - 8]
-    call helper_is_input_just_numbers
-    test rax, rax
-    jz .loop
+        ; Load pointer to second local variable into R12.
+        lea r12, [rbp - 24]
 
-    lea rcx, [rbp - 16]
-    mov rdx, [rbp - 8]
-    call helper_parse_string_to_int
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+    .numeral_input_loop:
+        mov rcx, r12
+        mov rdx, rbx
+        call _cm_read
 
+        mov rcx, r12
+        mov rdx, rbx
+        call helper_is_input_just_numbers
+        test rax, rax
+        jz .numeral_input_loop
+
+    .turn_input_into_number:
+        mov rcx, r12
+        mov rdx, rbx
+        call helper_parse_string_to_int
+        ; Number is stored in RAX now.
+
+    .complete:
+        ; Restore non-volatile regs.
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
+
+        ; Resore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; Recieve a literal input.
 console_manager_get_literal_input:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    ; * Expect pointer to save string to in RCX.
+    ; * Expect number of chars to read in RDX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; Expect pointer to save string to in RCX.
-    ; Expect number of chars to read in RDX.
-    call _cm_read
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+    .literal_inpit:
+        call _cm_read
 
-console_manager_clear:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
-    call _cm_empty_console
+;;;;;; CLEARING METHODS ;;;;;;
 
-    mov rsp, rbp
-    pop rbp
-    ret
+; Wrapper function to call the more complicated console cleaner.
+console_manager_clear_all:
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-console_manager_erase:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    ; Expect Position-X and Position-Y in ECX.
-    ; Expect length to clear in RDX.
-    mov [rbp - 8], rdx
+    .call_function:
+        call _cm_empty_console
 
-    call _cm_set_cursor_position
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
-    lea rcx, [rel erase_char]
-    mov rdx, [rbp - 8]
-    call _cm_write
+; Method to clear a defined amount of chars.
+console_manager_clear_sequence:
+    ; * Expect Position-X and Position-Y in ECX.
+    ; * Expect length to clear in RDX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Save params into shadow space.
+        mov [rbp + 16], rdx
 
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
+
+    .set_position:
+        call _cm_set_cursor_position
+
+    .clear:
+        lea rcx, [rel erase_char]
+        mov rdx, [rbp + 16]
+        call _cm_write
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+;;;;;; SETTER ;;;;;;
+
+; Turn console cursor on or off.
+console_manager_set_console_cursor_info:
+    ; *  Expect 0 if cursor is off, anything else if it is on in ECX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
+
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
+
+    .set_cursor_info:
+        lea rdx, [rel _console_cursor_info]
+        mov [rdx + 4], ecx
+        mov rcx, [rel lcl_console_manager_ptr]
+        mov rcx, [rcx + console_manager.output_handle]
+        call SetConsoleCursorInfo
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; Simple wrapper method to call the more complicated private method.
 console_manager_set_cursor:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    ; * Expect Position-X and Position-Y in ECX. 
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; Expect Position-X and Position-Y in ECX. 
-    call _cm_set_cursor_position
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .call_function:
+        call _cm_set_cursor_position
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 console_manager_set_buffer_size:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 56
+    ; * Expect height and width of new buffer size in ECX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; Expect height and width of new buffer size in ECX.
-    mov [rbp - 8], cx                   ; Save height of new buffer size.
-    shr rcx, 16
-    mov [rbp - 16], cx                  ; Save width of new buffer size.
+        ; Save params into shadow space.
+        mov [rbp + 16], ecx
 
-    call _cm_get_console_info
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
+    
+    .get_console_info:
+        call _cm_get_console_info
 
-    mov rcx, [rel lcl_console_manager_ptr]
-    mov dx, [rcx + console_manager.window_size + 4]
-    inc dx
-    add [rbp - 16], dx
-    mov dx, [rcx + console_manager.window_size + 6]
-    inc dx
-    add [rbp - 8], dx
+    .set_up_new_buffer_size:
+        mov rcx, [rel lcl_console_manager_ptr]
+        mov edx, [rbp + 16]
+        add dx, [rcx + console_manager.window_size + 6] + 1
+        ror edx, 16
+        add dx, [rcx + console_manager.window_size + 4] + 1
+        rol edx, 16
+    
+    .set_buffer_size:
+        mov rcx, [rcx + console_manager.output_handle]
+        call SetConsoleScreenBufferSize
 
-    mov rcx, [rcx + console_manager.output_handle]
-    movzx rdx, word [rbp - 8]
-    shl rdx, 16
-    mov dx, [rbp - 16]
-    call SetConsoleScreenBufferSize
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+;;;;;; GETTER ;;;;;;
 
+; The methods to get the center points of the console screen.
 console_manager_get_width_to_center_offset:
     mov rax, [rel lcl_console_manager_ptr]
     movzx rax, word [rax + console_manager.window_size + 4]
@@ -512,7 +663,7 @@ _cm_set_cursor_start:
 _cm_write:
     push rbp
     mov rbp, rsp
-    sub rsp, 40
+    sub rsp, (16+32)
 
     cmp qword [rel lcl_console_manager_ptr], 0
     je _cm_object_failed

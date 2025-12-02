@@ -347,7 +347,7 @@ _show_leaderboard:
 _get_player_index:
     push rbp
     mov rbp, rsp
-    sub rsp, 64
+    sub rsp, 72
 
     ; Expect num of entries in RCX.
     mov [rbp - 8], rcx
