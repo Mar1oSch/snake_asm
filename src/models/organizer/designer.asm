@@ -255,72 +255,109 @@ designer_write_headline:
         pop rbp
         ret
 
-
+; This is a function to write a table. For example the leaderboard of the game (which is, to be honest, the only table in this game).
+; It uses the table struc and depending on the amount of columns, it is dividing the screen into n parts.
+; I optimized that function for 3 parts, since I have one part for the pagination, one for the player name and one for the highscore.
 designer_write_table:
+    ; * Expect pointer to table in RCX.
+.set_up:
+    ; Set up stack frame.
+    ; * 40 bytes local variables.
+    ; * 8 bytes to keep stack 16-byte aligned.
     push rbp
     mov rbp, rsp
-    sub rsp, 112
+    sub rsp, 48
 
     ; Save non-volatile regs.
-    mov [rbp - 8], r15
-    xor r15, r15                                                        ; Set column-counter to 0.
-    mov [rbp - 16], r14
-    xor r14, r14                                                        ; Set row-counter to 0
+    mov [rbp - 8], rbx
+    mov [rbp - 16], r12
     mov [rbp - 24], r13
-    
-    ; * Expect pointer to table in RCX.
-    mov r13, [rcx + table.content_ptr]                                                      ; Save table-pointer in R13.
-    mov edx, [rcx + table.column_count]
-    mov [rbp - 32], edx
-    mov edx, [rcx + table.row_count]
-    mov [rbp - 40], edx
-    dec dword [rbp - 40]
-    mov r9, [rcx + table.column_format_list_ptr]
-    mov [rbp - 48], r9
+    mov [rbp - 32], r14
+    mov [rbp - 40], r15
 
-.calculate_x:
+    ; Reserve 32 bytes shadow space for called functions.
+    sub rsp, 32
+
+.set_up_loop_base:
+    ; I am setting up the base for the update loop:
+    ; * - RBX is going to be the content pointer.
+    ; * - R12D is the active column count.
+    ; * - R13D is the active row count.
+    ; * - R14D will hold the active coordinates. 
+    ; * - R15 will be the column format list pointer.
+    mov rbx, [rcx + table.content_ptr]                                                      ; Save table-pointer in rbx.
+    mov r12d, [rcx + table.column_count]
+    mov r13d, [rcx + table.row_count]
+    dec r13d
+    mov r15, [rcx + table.column_format_list_ptr]
+
+    ; I have to set up three local variables for the loop, to get back to them every iteration:
+    ; * First local variable: Column count of table.
+    mov [rbp - 48], r12d
+
+    ; * Second local variable: Row count of table.
+    mov [rbp - 56], r13d
+
+    ; In every column loop, the format list is looped through again. That's why in the beginning of the row loop, I am always loading it's starting point(er) again into R15.
+    ; * Third local variable: Column format list pointer.
+    mov [rbp - 64], r15
+
+.calculate_column_width:
+    ; Retrieving the width of the console window.
     mov rax, [rel lcl_designer_ptr]
     mov rax, [rax + designer.console_manager_ptr]
-    movzx rax, word [rax + console_manager.window_size + 4]             ; Get the width of the console-window.
-    mov ecx, [rbp - 32]
-    inc rcx                                                             ; Add one column for pagination.
-    xor rdx, rdx
-    div rcx                                                             ; Divide the width into n parts for each column
+    movzx rax, word [rax + console_manager.window_size + 4]
 
-    mov [rbp - 56], ax                                                  ; Save starting X-Coordinate of the table.
-    mov word [rbp - 64],2                                               ; Starting Y-coordinate of the table.
+    ; Adding the column count + 1 for pagination.
+    mov ecx, r12d
+    inc rcx
+
+    ; Dividing the width / (column count + 1) to get n parts.
+    xor rdx, rdx
+    div rcx                                                             
+
+.starting_coordinates:
+    mov r14w, ax
+    shl r14d, 16
+    mov r14w, 2
+
+.set_up_counters:
+    xor r12d, r12d
+    xor r13d, r13d
 
     ; Setting up correct buffer size, so the table is scrollable.
     ; xor rcx, rcx
-    ; mov ecx, [rbp - 40]
+    ; mov ecx, r13d
     ; shl ecx, 1
     ; add ecx, 2
     ; call console_manager_set_buffer_size
-
-.loop:
-    .inner_loop:
-        movzx rcx, word [rbp - 56]
+.row_loop:
+    ; Saving the starting point(er) of the column format list.
+    mov r15, [rbp - 64]
+    .column_loop:
+        ror r14d, 16
+        movzx rcx, r14w
         mov rdx, rcx
         shr rdx, 1
-        imul rdx, r15
+        imul rdx, r12
         add rcx, rdx
         shl rcx, 16
-        mov cx, [rbp - 64]
+        rol r14d, 16
+        mov cx, r14w
 
-        test r15d, r15d
+        test r12d, r12d
         jz .handle_pagination
 
-        mov rdx, r13
+        mov rdx, rbx
 
-        mov r10, [rbp - 48]
-        mov r9, r15
-        dec r9
-        imul r9, column_format_size
-        add r10, r9
-        mov r8d, [r10 + column_format.entry_length]
-        mov [rbp - 72], r8
+        mov r9d, r12d
+        dec r9d
+        imul r9d, column_format_size
+        add r15, r9
+        mov r8d, [r15 + column_format.entry_length]
+        mov [rbp - 72], r8d
 
-        cmp dword [r10 + column_format.entry_type], 0
+        cmp dword [r15 + column_format.entry_type], 0
         jne .handle_number
 
         xor r9, r9
@@ -328,27 +365,28 @@ designer_write_table:
     .write:   
         call console_manager_write_word
 
-    .inner_loop_handle:
-        mov ecx, dword [rbp - 72]
-        add r13, rcx
-        cmp r15d, [rbp - 32]
-        je .loop_handle
-        inc r15d
-        jmp .inner_loop
-.loop_handle:
-    cmp r14d, [rbp - 40]
+    .column_loop_handle:
+        mov ecx, [rbp - 72]
+        add rbx, rcx
+        cmp r12d, [rbp - 48]
+        je .row_loop_handle
+        inc r12d
+        jmp .column_loop
+
+.row_loop_handle:
+    cmp r13d, [rbp - 56]
     je .complete
-    inc r14d
-    xor r15d, r15d
-    add word [rbp - 64], 2
-    jmp .loop
+    inc r13d
+    xor r12d, r12d
+    add r14w, 2
+    jmp .row_loop
 
 .handle_pagination:
-    mov rdx, r14
+    mov rdx, r13
     inc rdx
     call _table_pagination
-    inc r15d
-    jmp .inner_loop
+    inc r12d
+    jmp .column_loop
 
 .handle_number:
     mov r9, r8
@@ -358,14 +396,18 @@ designer_write_table:
     call console_manager_get_center_x_offset
     mov rcx, rax
     shl rcx, 16
-    mov cx, word [rbp - 64]
+    mov cx, r14w
     add cx, 2
     call console_manager_set_cursor
 
+    ; Restore non-volatile regs.
+    mov r15, [rbp - 40]
+    mov r14, [rbp - 32]
     mov r13, [rbp - 24]
-    mov r14, [rbp - 16]
-    mov r15, [rbp - 8]
+    mov r12, [rbp - 16]
+    mov rbx, [rbp - 8]
 
+    ; Restore old stack frame and return to caller.
     mov rsp, rbp
     pop rbp
     ret

@@ -1,12 +1,6 @@
-%include "../include/strucs/game/player_struc.inc"
-
-section .rodata
-    player_ptr db "%p", 13, 10, 0
-
 section .text
     global main
     extern interactor_new, interactor_create_game, interactor_setup, interactor_start_game, interactor_replay_game
-    extern game_setup, game_start
 
 main:
     push rbp

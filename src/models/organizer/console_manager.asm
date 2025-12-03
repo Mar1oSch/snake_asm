@@ -337,11 +337,16 @@ console_manager_write_number:
         mov rdx, r12
         call _cm_write
 
+    ; ! I am running into a SEGFAULT when writing the table here if I am freeing that memory space again. Have to find out why.
     ; .free_memory_space:
     ;     mov rcx, [rbp - 24]
     ;     call free
 
     .complete:
+        ; Restore non-volatile regs.
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
+
         ; Restore old stack frame and return to caller.
         mov rsp, rbp
         pop rbp
