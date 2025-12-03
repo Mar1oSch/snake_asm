@@ -334,32 +334,42 @@ designer_write_table:
 .row_loop:
     ; Saving the starting point(er) of the column format list.
     mov r15, [rbp - 64]
+
     .column_loop:
+        ; Preparing coordinates in ECX.
         ror r14d, 16
-        movzx rcx, r14w
-        mov rdx, rcx
-        shr rdx, 1
-        imul rdx, r12
-        add rcx, rdx
-        shl rcx, 16
+        movzx ecx, r14w
+        mov edx, ecx
+        shr edx, 1
+        imul edx, r12d
+        add ecx, edx
+        shl ecx, 16
         rol r14d, 16
         mov cx, r14w
 
+        ; If R12D is 0 paginate.
         test r12d, r12d
         jz .handle_pagination
 
+        ; Let RDX point to active content.
         mov rdx, rbx
 
+        ; Point to active column format.
         mov r9d, r12d
         dec r9d
         imul r9d, column_format_size
         add r15, r9
         mov r8d, [r15 + column_format.entry_length]
+
+        ; * Fourth local variable: Length of column entry.
         mov [rbp - 72], r8d
 
+        ; Check if entry is string or int.
+        ; If it is a int, handle it.
         cmp dword [r15 + column_format.entry_type], 0
         jne .handle_number
 
+        ; Else set R9 0 and write.
         xor r9, r9
 
     .write:   
