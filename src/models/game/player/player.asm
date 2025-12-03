@@ -174,7 +174,7 @@ player_destroy:
 
 _pl_malloc_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 
@@ -194,7 +194,7 @@ _pl_malloc_failed:
 
 _pl_object_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 

@@ -11,8 +11,8 @@ malloc_failed:
     mov rbp, rsp
     sub rsp, 56
 
-    ; Expect pointer to constructor_name in RCX.
-    ; Expect failed malloc-return in RDX.
+    ; * Expectpointer to constructor_name in RCX.
+    ; * Expectfailed malloc-return in RDX.
     mov r8, rdx
     mov rdx, rcx
     lea rcx, [rel debug_string]

@@ -59,7 +59,7 @@ section .text
     extern snake_add_unit
     extern console_manager_write_word, console_manager_write_number
     extern file_manager_update_highscore, file_manager_find_name
-    extern designer_type_sequence, designer_toggle_cursor_visibility
+    extern designer_type_sequence
     extern helper_change_position, helper_parse_int_to_string
 
     extern malloc_failed, object_not_created
@@ -266,8 +266,8 @@ _game_setup:
 _game_play:
     .set_up:
         ; Set up stack frame.
-        ; 8 bytes local variables.
-        ; 8 bytes to keep stack aligned.
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 16
@@ -436,8 +436,8 @@ _update_snake:
     ; * Expect direction in CL
     .set_up:
         ; Set up stack frame.
-        ; - 40 bytes local variables.
-        ; - 8 bytes to keep stack 16-byte aligned.
+        ; * 40 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 32
@@ -648,7 +648,7 @@ _collission_check:
 _check_snake_collission:
     .set_up:
         ; Set up stack frame.
-        ; 32 bytes local variables.
+        ; * 32 bytes local variables.
         push rbp
         mov rbp, rsp
         sub rsp, 32
@@ -780,7 +780,7 @@ _check_food_collission:
         cmp qword [rel lcl_game_ptr], 0
         je _g_object_failed
 
-        ; Set up board.
+    .set_up_board:
         mov rcx, [rel lcl_game_ptr]
         mov rcx, [rcx + game.board_ptr]
         mov r8, [rcx + board.food_ptr]
@@ -849,8 +849,8 @@ _build_scoreboard:
 _print_player:
     .set_up:
         ; Set up stack frame.
-        ; 24 bytes local variables.
-        ; 8 bytes to keep stack 16-byte aligned.
+        ; * 24 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 32
@@ -915,8 +915,8 @@ _print_player:
 _print_level:
     .set_up:
         ; Set up stack frame.
-        ; 8 bytes local variables.
-        ; 8 bytes to keep stack 16-byte aligned.
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 16
@@ -977,8 +977,8 @@ _print_level:
 _print_points:
     .set_up:
         ; Set up stack frame.
-        ; 24 bytes local variables.
-        ; 8 bytes to keep stack 16-byte aligned.
+        ; * 24 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 32
@@ -1037,8 +1037,8 @@ _print_highscore:
     .set_up:
         .set_up:
         ; Set up stack frame.
-        ; 24 bytes local variables.
-        ; 8 bytes to keep stack 16-byte aligned.
+        ; * 24 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 32
@@ -1142,8 +1142,8 @@ _game_over:
 _update_highscore:
     .set_up:
         ; Set up stack frame.
-        ; 8 bytes local variables.
-        ; 8 bytes to keep stack 16 byte aligned.
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack 16 byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 16
@@ -1343,7 +1343,7 @@ _request_pause:
 ;;;;;; ERROR HANDLING ;;;;;;
 _g_malloc_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 
@@ -1363,7 +1363,7 @@ _g_malloc_failed:
 
 _g_object_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 

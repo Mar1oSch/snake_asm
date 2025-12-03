@@ -46,15 +46,15 @@ section .text
 ; The X-Coordinate is stored in the higher 16 bits of ECX.
 ; It also needs to know, which direction the first unit will move at start.
 snake_new:
+    ; * Expect X- and Y-Coordinates in ECX.
+    ; * Expect direction in DL.
     .set_up:
-        ; Setting up the stack frame:
-        ; 16 bytes for local variables.
+        ; Set up  stack frame:
+        ; * 16 bytes for local variables.
         push rbp
         mov rbp, rsp
         sub rsp, 16
 
-        ; Expect X- and Y-Coordinates in ECX.
-        ; Expect direction in DL.
 
         ; Check if snake already is created. If it is, return the pointer to the created snake.
         cmp qword [rel lcl_snake_ptr], 0
@@ -135,7 +135,7 @@ snake_new:
 ; This function cascades down the unit objects and releases their memory spaces. Afterwards it destroys itself.It is used by the board to reset itself.
 snake_reset:
     .set_up:
-        ; Setting up the stack frame.
+        ; Set up stack frame.
         ; * 16 bytes for local variables.
         push rbp
         mov rbp, rsp
@@ -193,7 +193,7 @@ snake_reset:
 ; The function which handles the addition of a new unit into the linked list. 
 snake_add_unit:
     .set_up:
-        ; Setting up the stack frame.
+        ; Set up stack frame.
         ; * 32 bytes for local variables.
         push rbp
         mov rbp, rsp
@@ -290,7 +290,7 @@ snake_add_unit:
 ;;;;;; PRIVATE METHODS ;;;;;;
 _snake_destroy:
     .set_up:
-        ; Setting up the stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 
@@ -320,7 +320,7 @@ _snake_destroy:
 
 _s_malloc_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 
@@ -340,7 +340,7 @@ _s_malloc_failed:
 
 _s_object_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 

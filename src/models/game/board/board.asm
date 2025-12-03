@@ -41,9 +41,9 @@ section .text
     extern GetSystemTimeAsFileTime
 
     extern snake_new, snake_update, snake_reset
-    extern console_manager_write_char,  console_manager_clear_sequence, console_manager_repeat_char, console_manager_get_height_to_center_offset, console_manager_get_width_to_center_offset
+    extern console_manager_write_char,  console_manager_clear_all, console_manager_clear_sequence, console_manager_repeat_char, console_manager_get_center_y_offset, console_manager_get_center_x_offset
     extern food_new, food_destroy
-    extern designer_clear
+
     extern DRAWABLE_VTABLE_X_POSITION_OFFSET, DRAWABLE_VTABLE_Y_POSITION_OFFSET, DRAWABLE_VTABLE_CHAR_PTR_OFFSET
 
     extern malloc_failed, object_not_created
@@ -52,12 +52,12 @@ section .text
 
 ; The constructor of the board. It needs to know the width and height the game wants it to be (I wanted the user to be able to create a personalized board by input, but I decided to stay with the default size. That's why I wanted the board to get its width and height from outside itself) and it needs a pointer to the console manager object. 
 board_new:
-    ; * 1. param: Expect width and height in ECX. [width, height]
-    ; * 2. param: Expect pointer to console_manager in RDX.
+    ; * Expect width and height in ECX. [width, height]
+    ; * Expect pointer to console_manager in RDX.
     .set_up:
         ; Set up stack frame:
-        ; 8 bytes local variables.
-        ; 8 bytes to keep stack 16 byte aligned.
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack 16 byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 16
@@ -159,8 +159,8 @@ board_setup:
         je _b_object_failed
 
     .clear_screen:
-        ; Let the designer clear the console screen.
-        call designer_clear
+        ; Clear console screen.
+        call console_manager_clear_all
 
     .draw_board:
         ; Calling all three draw functions to prepare the board:
@@ -185,8 +185,8 @@ board_setup:
 board_reset:
     .set_up:
         ; Set up stack frame:
-        ; 24 bytes for local variables.
-        ; 8 bytes to keep the stack 16 byte aligned.
+        ; * 24 bytes for local variables.
+        ; * 8 bytes to keep the stack 16 byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 32
@@ -243,7 +243,7 @@ board_reset:
 
 ; As soon as the game updated the snake depending on the game logic, it calls the board to mov the snake. Therefore the board needs to draw it and also erase the last unit, because it would just simply stay on the board and the snake would get longer and longer and longer (even without consuming food;). 
 board_move_snake:
-    ; * 1. param: Expect X- and Y-coordinates of old tail in ECX.
+    ; * Expect X- and Y-coordinates of old tail in ECX.
     .set_up:
         ; Set up stack frame without local variables.
         push rbp
@@ -274,7 +274,7 @@ board_move_snake:
 board_create_new_food:
     .set_up:
         ; Set up stack frame:
-        ; 16 bytes local variables.
+        ; * 16 bytes local variables.
         push rbp
         mov rbp, rsp
         sub rsp, 16
@@ -338,8 +338,8 @@ board_create_new_food:
 get_board_x_offset:
     .set_up:
         ; Set up stack frame:
-        ; 8 bytes for local variables.
-        ; 8 bytes to keep stack 16 byte aligned.
+        ; * 8 bytes for local variables.
+        ; * 8 bytes to keep stack 16 byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 16
@@ -358,7 +358,7 @@ get_board_x_offset:
     
     .get_center_x_of_console:
         ; Get the central X-point of the console window.
-        call console_manager_get_width_to_center_offset
+        call console_manager_get_center_x_offset
     
     .calculate_final_offset:
         ; To get the starting X value of the board, we need to subtract the half width of the board from the central point. 
@@ -378,8 +378,8 @@ get_board_x_offset:
 get_board_y_offset:
     .set_up:
         ; Set up stack frame:
-        ; 8 bytes for local variables.
-        ; 8 bytes to keep stack 16 byte aligned.
+        ; * 8 bytes for local variables.
+        ; * 8 bytes to keep stack 16 byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 16
@@ -398,7 +398,7 @@ get_board_y_offset:
     
     .get_center_y_of_console:
         ; Get the central Y-point of the console window.
-        call console_manager_get_height_to_center_offset
+        call console_manager_get_center_y_offset
     
     .calculate_final_offset:
         ; To get the starting Y value of the board, we need to subtract the half width of the board from the central point. 
@@ -442,7 +442,7 @@ board_draw_food:
 ; Private destructor. The board_reset method is the public method to handle the board release.
 _board_destroy:
     .set_up:
-        ; Setting up the stack frame without local variables.
+        ; Set up the stack frame without local variables.
         push rbp
         mov rbp, rsp
 
@@ -473,8 +473,8 @@ _board_destroy:
 _draw_snake:
     .set_up:
         ; Set up stack frame:
-        ; 40 bytes local variables.
-        ; 8 bytes to keep stack 16 byte aligned.
+        ; * 40 bytes local variables.
+        ; * 8 bytes to keep stack 16 byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 48
@@ -580,9 +580,9 @@ _draw_snake:
 ; Drawing the border of the board. The function loops through the Y-axis of the board. Before it starts with Y = 0, it draws the top fence at board.y - 1. As soon as the Y-counter exceeds the board.height, it draws the bottom fence.
 _draw_fence:
     .set_up:
-        ; Setting up stack frame:
-        ; 24 bytes local variables.
-        ; 8 bytes to keep stack 16 byte aligned.
+        ; Set up stack frame:
+        ; * 24 bytes local variables.
+        ; * 8 bytes to keep stack 16 byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 32
@@ -727,8 +727,8 @@ _draw_fence:
 _draw_food:
     .set_up:
         ; Set up stack frame:
-        ; 24 bytes local variables.
-        ; 8 bytes to keep stack 16 byte aligned.
+        ; * 24 bytes local variables.
+        ; * 8 bytes to keep stack 16 byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 32
@@ -806,11 +806,11 @@ _draw_food:
 
 ; If the snake is moving, the former tail has to be erased, since it would stay there the whole time. This function is responsible for that.
 _erase_snake_unit:
-    ; * 1. param: Expect position of old tail in ECX.
+    ; * Expect position of old tail in ECX.
     .set_up:
         ; Set up stack frame:
-        ; 8 bytes for local variables.
-        ; 8 bytes to keep stack 16 byte aligned.
+        ; * 8 bytes for local variables.
+        ; * 8 bytes to keep stack 16 byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 16
@@ -874,7 +874,7 @@ _erase_snake_unit:
 _create_random_position:
     .set_up:
         ; Set up stack frame:
-        ; 16 bytes for local variables.
+        ; * 16 bytes for local variables.
         push rbp
         mov rbp, rsp
         sub rsp, 16
@@ -935,7 +935,7 @@ _create_random_position:
 
 ; Here the newly created position gets controlled with snake positions. If it is on a snake position, the function returns FALSE. If not, the function returns TRUE.
 _is_food_position_free:
-    ; * 1. param: Expect X- and Y-Coordinates of position in ECX.
+    ; * Expect X- and Y-Coordinates of position in ECX.
     .set_up:
         ; Set up stack frame without local variables.
         push rbp
@@ -1012,7 +1012,7 @@ _is_food_position_free:
 
 _b_malloc_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 
@@ -1032,7 +1032,7 @@ _b_malloc_failed:
 
 _b_object_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 

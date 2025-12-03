@@ -32,14 +32,13 @@ section .text
 ; The Y-Coordinate is stored in the lower 16 bits of ECX (EX).
 ; The X-Coordinate is stored in the higher 16 bits of ECX.
 food_new:
+    ; * Expect X- and Y-Coordinates in ECX
     .set_up:
-        ; Setting up the stack frame:
-        ; 16 bytes space for local variables.
+        ; Set up stack frame:
+        ; * 16 bytes space for local variables.
         push rbp
         mov rbp, rsp
         sub rsp, 16                                              
-
-        ; Expect X- and Y-Coordinates in ECX
 
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
@@ -47,16 +46,14 @@ food_new:
     .create_dependend_objects:
         ; Creating the position object, a food object is pointing to.
         call position_new
-        ; First local variable: 
-        ; Position pointer.
+        ; * First local variable: Position pointer.
         mov [rbp - 8], rax                    
 
         ; Creating an interface table. 
         ; The food object is a drawable. 
         lea rcx, [rel drawable_vtable_food]
         call interface_table_new
-        ; Second local variable:
-        ; Interface table pointer.
+        ; * Second local variable: Interface table pointer.
         mov [rbp - 16], rax
 
     .create_object:
@@ -92,16 +89,16 @@ food_new:
         ret
 
 food_destroy:
+    ; * Expect pointer to the food object in RCX.
     .set_up:
-        ; Setting up the stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
-        ; Expect pointer to the food object in RCX.
-        ; Save first argument into shadow space (RBP + 16).
+        ; Save params into shadow space.
         mov [rbp + 16], rcx
 
     .destroy_dependend_objects:
@@ -136,20 +133,20 @@ food_destroy:
 ; * 3. : Get the Y-Coordinate of the Drawable.
 
 food_get_char_ptr:
-    ; Expect pointer to food object in RCX.
+    ; * Expect pointer to food object in RCX.
     ; Return pointer to food char in RAX.
     lea rax, [rcx + food.char]
     ret
 
 food_get_x_position:
-    ; Expect pointer to food object in RCX.
+    ; * Expect pointer to food object in RCX.
     ; Return X-Position in RAX.
     mov rax, [rcx + food.position_ptr]
     movzx rax, word [rax + position.x]
     ret
 
 food_get_y_position:
-    ; Expect pointer to food object in RCX.
+    ; * Expect pointer to food object in RCX.
     ; Return Y-Position in RAX.
     mov rax, [rcx + food.position_ptr]
     movzx rax, word [rax + position.y]
@@ -161,7 +158,7 @@ food_get_y_position:
 ;;;;;; ERROR HANDLING ;;;;;;
 _f_malloc_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 

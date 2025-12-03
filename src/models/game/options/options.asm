@@ -27,9 +27,9 @@ options_new:
     ; * Expect player pointer in RCX.
     ; * Expect lvl in EDX.
     .set_up:
-        ; Setting up stack frame.
-        ; 8 bytes local variables.
-        ; 8 bytes to keep stack 16-byte aligned.
+        ; Set up stack frame.
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 16
@@ -89,7 +89,7 @@ options_destroy:
         sub rsp, 32
 
     .destroy_object:
-        ; Expect pointer to options object in RCX
+        ; * Expectpointer to options object in RCX
         call free
 
     .complete:
@@ -173,7 +173,7 @@ _get_delay:
 ;;;;;; DEBUGGING ;;;;;;
 _o_malloc_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 

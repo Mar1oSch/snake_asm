@@ -221,7 +221,7 @@ table_manager_add_column:
 
 _tm_malloc_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 
@@ -241,7 +241,7 @@ _tm_malloc_failed:
 
 _tm_object_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 

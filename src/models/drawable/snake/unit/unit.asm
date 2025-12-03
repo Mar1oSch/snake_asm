@@ -38,18 +38,18 @@ section .text
 ; It also needs to know, which direction it will move next. This is important for the update algorithm the game is handling.
 ; Finally the unit is also represented by a character on the board. I wanted to differentiate between the head and the rest. That's why the snake needs to tell the unit, if it is the head of the snake or it isn't. The unit uses that information to choose, which character is used to represent it.
 unit_new:
+    ; * Expect X- and Y-Coordinates in ECX.
+    ; * Expect direction in DL.
+    ; * Expect 1 if char is the head or 0 if not in R8.
     .set_up:
-        ; Setting up the stack frame:
+        ; Set up stack frame:
         ; * 24 bytes space for local variables. 
         ; * 8 bytes to keep the stack 16 byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 32
 
-        ; Expect X- and Y-Coordinates in ECX.
-        ; Expect direction in DL.
-        ; Expect 1 if char is the head or 0 if not in R8.
-        ; Save DL and R8 into shadow space.
+        ; Save params into shadow space.
         mov [rbp + 16], dl
         mov [rbp + 24], r8
 
@@ -123,12 +123,13 @@ unit_new:
         ret
 
 unit_destroy:
+    ; * Expect pointer to unit object in RCX.
     .set_up:
-        ; Setting up the stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 
-        ; Expect unit-pointer in RCX.
+        ; Save params into shadow space.
         mov [rbp + 16], rcx
 
         ; Reserve 32 bytes shadow space for called functions.
@@ -166,20 +167,20 @@ unit_destroy:
 ; * 3. : Get the Y-Coordinate of the Drawable.
 
 unit_get_char_ptr:
-    ; Expect pointer to unit-object in RCX.
+    ; * Expect pointer to unit-object in RCX.
     ; Return pointer to unit char in RAX.
     lea rax, [rcx + unit.char]
     ret
 
 unit_get_x_position:
-    ; Expect pointer to unit-object in RCX.
+    ; * Expect pointer to unit-object in RCX.
     ; Return X-Position in RAX.
     mov rax, [rcx + unit.position_ptr]
     movzx rax, word [rax + position.x]
     ret
 
 unit_get_y_position:
-    ; Expect pointer to unit-object in RCX.
+    ; * Expect pointer to unit-object in RCX.
     ; Return Y-Position in RAX.
     mov rax, [rcx + unit.position_ptr]
     movzx rax, word [rax + position.y]
@@ -212,7 +213,7 @@ _handle_char:
 ;;;;;; ERROR HANDLING ;;;;;;
 _u_malloc_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 

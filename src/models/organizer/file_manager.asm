@@ -112,8 +112,8 @@ file_manager_add_leaderboard_record:
     mov rbp, rsp
     sub rsp, 56
 
-    ; Expect pointer to player_name in RCX.
-    ; Expect highscore in RDX.
+    ; * Expectpointer to player_name in RCX.
+    ; * Expecthighscore in RDX.
     mov [rbp - 8], rcx
     mov [rbp - 16], rdx
 
@@ -138,8 +138,8 @@ file_manager_get_record_by_index:
     mov rbp, rsp
     sub rsp, 48
 
-    ; Expect buffer to player_struc in RCX.
-    ; Expect index of player in file in RDX.
+    ; * Expectbuffer to player_struc in RCX.
+    ; * Expectindex of player in file in RDX.
     mov [rbp - 8], rcx
 
     mov rcx, rdx
@@ -166,7 +166,7 @@ file_manager_find_name:
     mov [rbp - 16], rdi
     mov [rbp - 24], r15
 
-    ; Expect pointer to name in RCX.
+    ; * Expectpointer to name in RCX.
     mov [rbp - 32], rcx
 
     xor r15, r15                ; Set index to zero.
@@ -209,8 +209,8 @@ file_manager_update_highscore:
     mov rbp, rsp
     sub rsp, 48
 
-    ; Expect highscore in RCX.
-    ; Expect player offset in RDX.
+    ; * Expecthighscore in RCX.
+    ; * Expectplayer offset in RDX.
     mov [rbp - 8], rcx
 
     mov rcx, rdx
@@ -300,7 +300,7 @@ file_manager_update_table:
     mov rbp, rsp
     sub rsp, 48
 
-    ; Expect pointer to table in RCX.
+    ; * Expectpointer to table in RCX.
     mov [rbp - 8], rcx
 
 
@@ -338,7 +338,7 @@ file_manager_destroy_table_from_file:
     mov rbp, rsp
     sub rsp, 40
 
-    ; Expect pointer to table in RCX.
+    ; * Expectpointer to table in RCX.
     call table_manager_destroy_table
 
     mov rsp, rbp
@@ -354,8 +354,8 @@ _set_pointer:
     mov rbp, rsp
     sub rsp, 48
 
-    ; Expect index in RCX.
-    ; Expect Offset in RDX.
+    ; * Expectindex in RCX.
+    ; * ExpectOffset in RDX.
     mov [rbp - 8], rdx
 
     ; Set FilePointer position:
@@ -411,8 +411,8 @@ _fm_read:
     mov rbp, rsp
     sub rsp, 48
 
-    ; Expect pointer to string to load read chars into in RCX.
-    ; Expect number of bytes to read in RDX.
+    ; * Expectpointer to string to load read chars into in RCX.
+    ; * Expectnumber of bytes to read in RDX.
     mov r8, rdx
     mov rdx, rcx
 
@@ -431,8 +431,8 @@ _fm_write:
     mov rbp, rsp
     sub rsp, 48
 
-    ; Expect pointer to string to write in RCX.
-    ; Expect amount of bytes to write in RDX.
+    ; * Expectpointer to string to write in RCX.
+    ; * Expectamount of bytes to write in RDX.
     mov r8, rdx
     mov rdx, rcx
 
@@ -451,8 +451,8 @@ _get_name:
     mov rbp, rsp
     sub rsp, 48
 
-    ; Expect pointer to buffer to save name into in RCX.
-    ; Expect index of desired record in RDX
+    ; * Expectpointer to buffer to save name into in RCX.
+    ; * Expectindex of desired record in RDX
     mov [rbp - 8], rcx
 
     mov rcx, rdx
@@ -473,7 +473,7 @@ _get_all_records:
     mov rbp, rsp
     sub rsp, 56
 
-    ; Expect pointer to memory, big enough to hold records in RCX.
+    ; * Expectpointer to memory, big enough to hold records in RCX.
     mov [rbp - 8], rcx
 
     call file_manager_get_total_bytes

@@ -9,7 +9,7 @@ helper_get_digits_of_number:
     push rbp
     mov rbp, rsp
 
-    ; Expect number in RCX.
+    ; * Expectnumber in RCX.
     mov rax, rcx
     mov r8, 10
     xor rcx, rcx
@@ -37,8 +37,8 @@ helper_is_input_just_numbers:
     mov rbp, rsp
     sub rsp, 48
 
-    ; Expect pointer to string in RCX.
-    ; Expect number of digits to parse in RDX.
+    ; * Expectpointer to string in RCX.
+    ; * Expectnumber of digits to parse in RDX.
     mov [rbp - 8], rdx
 
     mov rax, rcx
@@ -78,9 +78,9 @@ helper_parse_int_to_string:
     ; Save non-volatile regs.
     mov [rbp - 8], rdi
 
-    ; Expect pointer to save number to in RCX.
-    ; Expect number in RDX.
-    ; Expect number of digits to write in R8.
+    ; * Expectpointer to save number to in RCX.
+    ; * Expectnumber in RDX.
+    ; * Expectnumber of digits to write in R8.
     mov rdi, rcx
     mov rax, rdx
     mov rcx, r8
@@ -115,8 +115,8 @@ helper_parse_saved_number_to_written_number:
     ; Save non-volatile regs.
     mov [rbp - 8], rbx
 
-    ; Expect pointer to number (dword) in RCX.
-    ; Expect number of digits to parse in RDX.
+    ; * Expectpointer to number (dword) in RCX.
+    ; * Expectnumber of digits to parse in RDX.
     mov eax, [rcx]
     mov rcx, rdx
     mov ebx, 10
@@ -145,8 +145,8 @@ helper_parse_string_to_int:
     mov rbp, rsp
     sub rsp, 48
 
-    ; Expect pointer to string in RCX.
-    ; Expect number of digits to create in RDX.
+    ; * Expectpointer to string in RCX.
+    ; * Expectnumber of digits to create in RDX.
     mov [rbp - 8], rcx
     mov [rbp - 16], rdx
     call _get_digits_in_string
@@ -192,11 +192,11 @@ helper_merge_sort_list:
     mov [rbp - 8], rsi
     mov [rbp - 16], rdi
 
-    ; Expect pointer to list in RCX.
-    ; Expect amount of list records in RDX.
-    ; Expect record length in R8.
-    ; Expect offset of value to compare in R9.
-    ; Expect size of compared value on stack.
+    ; * Expectpointer to list in RCX.
+    ; * Expectamount of list records in RDX.
+    ; * Expectrecord length in R8.
+    ; * Expectoffset of value to compare in R9.
+    ; * Expectsize of compared value on stack.
     mov [rbp - 24], rcx
     mov [rbp - 32], r8
     mov [rbp - 40], r9
@@ -300,9 +300,9 @@ helper_change_position:
     push rbp
     mov rbp, rsp
 
-    ; Expect position in ECX.
-    ; Expect new X-Value (word) in DX.
-    ; Expect new Y-Value (word) in R8W.
+    ; * Expectposition in ECX.
+    ; * Expectnew X-Value (word) in DX.
+    ; * Expectnew Y-Value (word) in R8W.
     add cx, r8w
     ror rcx, 16
     add cx, dx
@@ -320,8 +320,8 @@ _get_digits_in_string:
     mov rbp, rsp
     sub rsp, 40
 
-    ; Expect pointer to string in RCX.
-    ; Expect number of possible digits in RDX.
+    ; * Expectpointer to string in RCX.
+    ; * Expectnumber of possible digits in RDX.
     mov rax, rcx
     xor rcx, rcx
 
@@ -357,14 +357,14 @@ _merge:
     mov [rbp - 40], r15
     mov [rbp - 48], rbx
 
-    ; Expect pointer to save merged list in RCX.
-    ; Expect pointer to left list in RDX.
-    ; Expect length of left list in R8.
-    ; Expect pointer to right list in R9.
-    ; Expect length of right list on Stack.
-    ; Expect record size on Stack.
-    ; Expect offset of value on Stack.
-    ; Expect size of compared record on Stack.
+    ; * Expectpointer to save merged list in RCX.
+    ; * Expectpointer to left list in RDX.
+    ; * Expectlength of left list in R8.
+    ; * Expectpointer to right list in R9.
+    ; * Expectlength of right list on Stack.
+    ; * Expectrecord size on Stack.
+    ; * Expectoffset of value on Stack.
+    ; * Expectsize of compared record on Stack.
     mov [rbp - 56], rcx
     mov [rbp - 64], rdx
     mov [rbp - 72], r8

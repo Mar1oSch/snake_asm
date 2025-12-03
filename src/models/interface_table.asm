@@ -15,8 +15,7 @@ interface_table_new:
     mov rbp, rsp
     sub rsp, 56
 
-    ; Expect pointer to vtable_drawable in RCX.
-    ; 0 if there is none.
+    ; * Expect pointer to vtable_drawable in RCX (0 if there is none).
     mov [rbp - 8], rcx
 
     mov rcx, interface_table_size
@@ -41,11 +40,11 @@ interface_table_new:
     ret
 
 interface_table_destroy:
+    ; * Expect pointer to interface table object in RCX.
     push rbp
     mov rbp, rsp
     sub rsp, 40
 
-    ; Expect pointer to INTERFACE_TABLE object in RCX.
     call free
 
     mov rsp, rbp

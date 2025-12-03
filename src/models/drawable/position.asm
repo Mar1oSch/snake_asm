@@ -20,12 +20,12 @@ section .text
 ; The position is getting created. 
 ; The constructor just needs to know, which X- and Y-coordinates the position is constituted of. 
 position_new:
+    ; * Expect X- and Y-coordinates in ECX.
     .set_up:
         ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 
-        ; Expect X- and Y-coordinates in ECX.
         ; Save ECX into the shadow space.
         mov [rbp + 16], ecx             
 
@@ -60,6 +60,7 @@ position_new:
         ret
 
 position_destroy:
+    ; * Expect pointer to position object in RCX
     .set_up:
         ; Set up stack frame without local variables.
         push rbp
@@ -69,7 +70,6 @@ position_destroy:
         sub rsp, 32
 
     .destroy_object:
-        ; Expect pointer to position object in RCX
         call free
 
     .complete:
@@ -85,7 +85,7 @@ position_destroy:
 
 _pos_malloc_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 

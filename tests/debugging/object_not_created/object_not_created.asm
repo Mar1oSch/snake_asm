@@ -7,7 +7,7 @@ section .text
     extern printf
 
 object_not_created:
-    ; Expect pointer to constructor_name in RCX.
+    ; * Expectpointer to constructor_name in RCX.
     push rbp
     mov rbp, rsp
     sub rsp, 40

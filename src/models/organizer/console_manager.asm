@@ -3,7 +3,7 @@
 
 ; This is the console manager, which is responsible for managing the basic communication with the console. Every interaction with it is handled here.
 
-global console_manager_new, console_manager_destroy, console_manager_clear_all, console_manager_write_char, console_manager_set_cursor, console_manager_clear_sequence, console_manager_write_word, console_manager_get_width_to_center_offset, console_manager_get_height_to_center_offset, console_manager_get_numeral_input, console_manager_get_literal_input, console_manager_set_buffer_size, console_manager_write_number, console_manager_repeat_char, console_manager_set_console_cursor_info
+global console_manager_new, console_manager_destroy, console_manager_clear_all, console_manager_write_char, console_manager_set_cursor, console_manager_clear_sequence, console_manager_write_word, console_manager_get_center_x_offset, console_manager_get_center_y_offset, console_manager_get_numeral_input, console_manager_get_literal_input, console_manager_set_buffer_size, console_manager_write_number, console_manager_repeat_char, console_manager_set_console_cursor_info
 
 section .rodata
     ;;;;;; ERASER ;;;;;;
@@ -67,8 +67,8 @@ section .text
 console_manager_new:
     .set_up:
         ; Set up stack frame.
-        ; 8 bytes local variables.
-        ; 8 bytes to keep stack 16-byte aligned.
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 16
@@ -231,9 +231,9 @@ console_manager_write_word:
     ; * Expect length of string in R8
     ; * Expect length of number in R9, if no number expect 0.
     .set_up:
-        ; Set up stack frame without.
-        ; 24 bytes local variables.
-        ; 8 bytes to keep stack 16-byte aligned.
+        ; Set up stack frame.
+        ; * 24 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 32
@@ -294,8 +294,8 @@ console_manager_write_number:
     ; * Expect digits to write in R8.
     .set_up:
         ; Set up stack frame.
-        ; 24 bytes local variables. 
-        ; 8 bytes to keep stack 16-byte aligned.
+        ; * 24 bytes local variables. 
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 32
@@ -354,8 +354,8 @@ console_manager_get_numeral_input:
     ; * Expect number of chars to read in RCX.
     .set_up:
         ; Set up stack frame.
-        ; 24 byte local variables.
-        ; 8 bytes to keep stack 16-byte aligned.
+        ; * 24 byte local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 32
@@ -580,13 +580,13 @@ console_manager_set_buffer_size:
 ;;;;;; GETTER ;;;;;;
 
 ; The methods to get the center points of the console screen.
-console_manager_get_width_to_center_offset:
+console_manager_get_center_x_offset:
     mov rax, [rel lcl_console_manager_ptr]
     movzx rax, word [rax + console_manager.window_size + 4]
     shr rax, 1
     ret
 
-console_manager_get_height_to_center_offset:
+console_manager_get_center_y_offset:
     mov rax, [rel lcl_console_manager_ptr]
     movzx rax, word [rax + console_manager.window_size + 6]
     shr rax, 1
@@ -676,7 +676,7 @@ _cm_read:
     ; * Expect number of bytes to read in RDX.
     .set_up:
         ; Set up stack frame.
-        ; 16 bytes local variables.
+        ; * 16 bytes local variables.
         push rbp
         mov rbp, rsp
 
@@ -736,8 +736,8 @@ _cm_read:
 _clear_buffer:
     .set_up:
         ; Set up stack frame.
-        ; 8 bytes local variables.
-        ; 8 bytes to keep stack 16-byte aligned.
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 8
@@ -919,7 +919,7 @@ _get_console_info:
 
 _cm_malloc_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 
@@ -939,7 +939,7 @@ _cm_malloc_failed:
 
 _cm_object_failed:
     .set_up:
-        ; Setting up stack frame without local variables.
+        ; Set up stack frame without local variables.
         push rbp
         mov rbp, rsp
 
