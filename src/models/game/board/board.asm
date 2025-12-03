@@ -623,23 +623,23 @@ _draw_fence:
     .draw_top_fence:
         ; The Fence at board(Y - 1).
         ; Setting up the params for "console_manager_repeat_char":
-        ; * - CL contains the char to repeat.
-        mov cl, [rel fence_char]
-
-        ; * - EDX contains the number of repetitions.
-        ror ebx, 16
-        movzx edx, bx
-        add edx, 3
-        rol ebx, 16
-
-        ; * - R8D contains the starting coordinates. (In this case: [board.width_offset - 1, board.height_offset - 1])
+        ; * - ECX contains the starting coordinates. (In this case: [board.width_offset - 1, board.height_offset - 1])
         ror r13d, 16
-        mov r8w, r13w
-        dec r8w
-        shl r8d, 16
+        mov cx, r13w
+        dec cx
+        shl ecx, 16
         rol r13d, 16
-        mov r8w, r13w
-        dec r8w
+        mov cx, r13w
+        dec cx
+
+        ; * - DL contains the char to repeat.
+        mov dl, [rel fence_char]
+
+        ; * - R8D contains the number of repetitions.
+        ror ebx, 16
+        movzx r8d, bx
+        add r8d, 3
+        rol ebx, 16
         call console_manager_repeat_char
 
     .draw_side_fence_loop:
@@ -692,22 +692,22 @@ _draw_fence:
     .draw_bottom_fence:
         ; The Fence at board(height + 1).
         ; Setting up the params for "console_manager_repeat_char":
-        ; * - CL contains the char to repeat.
-        mov cl, [rel fence_char]
-
-        ; * - EDX contains the number of repetitions.
-        ror ebx, 16
-        movzx edx, bx
-        add edx, 3
-
-        ; * - R8D contains the starting coordinates. (In this case: [board.width_offset - 1, board.height_offset + R12W])
+        ; * - ECX contains the starting coordinates. (In this case: [board.width_offset - 1, board.height_offset + R12W])
         ror r13d, 16
-        mov r8w, r13w
-        dec r8w
-        shl r8d, 16
+        mov cx, r13w
+        dec cx
+        shl ecx, 16
         rol r13d, 16
-        mov r8w, r13w
-        add r8w, r12w
+        mov cx, r13w
+        add cx, r12w
+
+        ; * - DL contains the char to repeat.
+        mov dl, [rel fence_char]
+
+        ; * - R8D contains the number of repetitions.
+        ror ebx, 16
+        movzx r8d, bx
+        add r8d, 3
         call console_manager_repeat_char
 
     .complete:

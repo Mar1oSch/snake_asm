@@ -41,7 +41,10 @@ section .bss
     lcl_console_manager_ptr resq 1
 
     ; A parameter to recieve the actual amount of chars written (it is passed into "WriteConsoleA")
-    lcl_chars_written resq 1
+    lcl_chars_written resd 1
+
+    ; A parameter to recieve the actual amount of chars read (it is passed into "ReadConsoleA")
+    lcl_chars_read resd 1
 
 section .text
     extern malloc, free
@@ -111,7 +114,7 @@ console_manager_new:
         mov [rbx + console_manager.input_handle], rax
 
         ; Get Screen buffer info.
-        call _cm_get_console_info
+        call _get_console_info
         lea rcx, [rel _console_screen_buffer_info]
 
         ; Save window dimensions into preserved memory space.
@@ -180,7 +183,7 @@ console_manager_write_char:
 
     .set_position:
         ; Coordinates are already in ECX.
-        call _cm_set_cursor_position
+        call _set_cursor_position
 
     .write_char:
         ; Get pointer to char into RCX.
@@ -213,7 +216,7 @@ console_manager_repeat_char:
         sub rsp, 32
 
     .call_function:
-        call _cm_write_char_multiple_times
+        call _repeat_char
 
     .complete:
         ; Restore old stack frame and return to caller.
@@ -256,7 +259,7 @@ console_manager_write_word:
         sub rsp, 32
 
     .set_position:
-        call _cm_set_cursor_position
+        call _set_cursor_position
 
     .check_for_number:
         test r13, r13
@@ -315,7 +318,7 @@ console_manager_write_number:
         sub rsp, 32
 
     .set_position:
-        call _cm_set_cursor_position
+        call _set_cursor_position
 
     .get_memory_space:
         mov rcx, r12
@@ -334,9 +337,9 @@ console_manager_write_number:
         mov rdx, r12
         call _cm_write
 
-    .free_memory_space:
-        mov rcx, [rbp - 24]
-        call free
+    ; .free_memory_space:
+    ;     mov rcx, [rbp - 24]
+    ;     call free
 
     .complete:
         ; Restore old stack frame and return to caller.
@@ -443,7 +446,7 @@ console_manager_clear_all:
         sub rsp, 32
 
     .call_function:
-        call _cm_empty_console
+        call _empty_console
 
     .complete:
         ; Restore old stack frame and return to caller.
@@ -471,7 +474,7 @@ console_manager_clear_sequence:
         sub rsp, 32
 
     .set_position:
-        call _cm_set_cursor_position
+        call _set_cursor_position
 
     .clear:
         lea rcx, [rel erase_char]
@@ -526,7 +529,7 @@ console_manager_set_cursor:
         sub rsp, 32
 
     .call_function:
-        call _cm_set_cursor_position
+        call _set_cursor_position
 
     .complete:
         ; Restore old stack frame and return to caller.
@@ -552,14 +555,16 @@ console_manager_set_buffer_size:
         sub rsp, 32
     
     .get_console_info:
-        call _cm_get_console_info
+        call _get_console_info
 
     .set_up_new_buffer_size:
         mov rcx, [rel lcl_console_manager_ptr]
         mov edx, [rbp + 16]
-        add dx, [rcx + console_manager.window_size + 6] + 1
+        add dx, [rcx + console_manager.window_size + 6]
+        inc dx
         ror edx, 16
-        add dx, [rcx + console_manager.window_size + 4] + 1
+        add dx, [rcx + console_manager.window_size + 4]
+        inc dx
         rol edx, 16
     
     .set_buffer_size:
@@ -590,193 +595,303 @@ console_manager_get_height_to_center_offset:
 
 
 ;;;;;; PRIVATE METHODS ;;;;;;;
-_cm_empty_console:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 56
 
-    cmp qword [rel lcl_console_manager_ptr], 0
-    je _cm_object_failed
+;;;;;; WRITE METHODS ;;;;;;
 
-    call _cm_get_console_info
+_repeat_char:
+    ; * Expect starting coordinates in ECX.
+    ; * Expect char to write in DL.
+    ; * Expect number of repetitions in R8D.
+    .set_up:
+        ; Set up stack frame without local variables.
+        ; 8 bytes for one parameter on the stack.
+        ; 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
 
-    mov cl, " "
-    movzx edx, word [rel _console_screen_buffer_info]
-    imul dx, word [rel _console_screen_buffer_info + 2]
-    xor r8, r8
-    call _cm_write_char_multiple_times
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
 
-    call _cm_set_cursor_start
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
+    
+    .repeat:
+        ; Setting up coodinates.
+        mov r9w, cx
+        shl r9d, 16
+        shr ecx, 16
+        mov r9w, cx
+        mov ecx, edx
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        mov rcx, [rel lcl_console_manager_ptr]
+        mov rcx, [rcx + console_manager.output_handle]
 
-_cm_write_char_multiple_times:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 56
+        lea r10, [rel lcl_chars_written]
+        mov qword [rsp + 32], r10
 
-    cmp qword [rel lcl_console_manager_ptr], 0
-    je _cm_object_failed
+        call FillConsoleOutputCharacterA
 
-    ; Expect char to write in CL.
-    ; Expect number of repetitions in EDX.
-    ; Expect starting coordinates in R8D
-    mov r9w, r8w
-    shl r9d, 16
-    shr r8d, 16
-    mov r9w, r8w
-    mov r8d, edx
-    mov dl, cl
-    mov rcx, [rel lcl_console_manager_ptr]
-    mov rcx, [rcx + console_manager.output_handle]
-    lea r10, [rel lcl_chars_written]
-    mov qword [rsp + 32], r10
-    call FillConsoleOutputCharacterA
-
-    mov rsp, rbp
-    pop rbp
-    ret
-
-_cm_get_console_info:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 56
-
-    cmp qword [rel lcl_console_manager_ptr], 0
-    je _cm_object_failed
-
-    mov r8, [rel lcl_console_manager_ptr]
-    mov rcx, [r8 + console_manager.output_handle]
-    lea rdx, [rel _console_screen_buffer_info]
-    call GetConsoleScreenBufferInfo
-
-.complete:
-    mov rcx, [rel lcl_console_manager_ptr]
-    lea rax, [rel _console_screen_buffer_info]
-    mov rdx, [rax + 10]
-    mov [rcx + console_manager.window_size], rdx
-
-    mov rsp, rbp
-    pop rbp
-    ret
-
-_cm_set_cursor_position:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 56
-
-    ; Expect COORD struct (2 words) in RCX.
-    cmp qword [rel lcl_console_manager_ptr], 0
-    je _cm_object_failed
-
-    mov word [rbp - 8], cx
-    shr rcx, 16
-    mov word [rbp - 16], cx
-
-    mov rcx, [rel lcl_console_manager_ptr]
-    mov rcx, [rcx + console_manager.output_handle]
-    mov dx, [rbp - 8]
-    shl rdx, 16
-    mov dx, [rbp - 16]
-    call SetConsoleCursorPosition
-
-    mov rsp, rbp
-    pop rbp
-    ret
-
-_cm_set_cursor_start:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
-
-    mov rcx, [rel lcl_console_manager_ptr]
-    mov rcx, [rcx + console_manager.output_handle]
-    xor rdx, rdx
-    call SetConsoleCursorPosition
-
-    mov rsp, rbp
-    pop rbp
-    ret
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _cm_write:
-    push rbp
-    mov rbp, rsp
-    sub rsp, (16+32)
+    ; * Expect pointer to string in RCX.
+    ; * Expect number of chars to write in RDX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    cmp qword [rel lcl_console_manager_ptr], 0
-    je _cm_object_failed
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
 
-    ; Expect pointer to string in RCX.
-    ; Expect number of chars to write in RDX.
-    mov r8, rdx
-    mov rdx, rcx
-    mov rcx, [rel lcl_console_manager_ptr]
-    mov rcx, [rcx + console_manager.output_handle]
-    mov r9, 0
-    xor rax, rax
-    call WriteConsoleA
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .write:
+        mov r8, rdx
+        mov rdx, rcx
+        mov rcx, [rel lcl_console_manager_ptr]
+        mov rcx, [rcx + console_manager.output_handle]
+        xor r9, r9
+        xor rax, rax
+        call WriteConsoleA
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+;;;;;; READ METHODS ;;;;;;
 
 _cm_read:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    ; * Expect pointer to save read bytes into in RCX.
+    ; * Expect number of bytes to read in RDX.
+    .set_up:
+        ; Set up stack frame.
+        ; 16 bytes local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; Expect pointer to save read bytes into in RCX.
-    ; Expect number of bytes to read in RDX.
-    mov [rbp - 8], rcx
-    mov [rbp - 16], rdx
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
 
-    mov r8, rdx
-    mov rdx, rcx
-    mov rcx, [rel lcl_console_manager_ptr]
-    mov rcx, [rcx + console_manager.input_handle]
-    lea r9, [rbp - 24]
-    call ReadConsoleA
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
 
-    mov eax, [rbp - 24]
-    cmp rax, [rbp - 16]
-    jb .complete
+        ; Save params into non-volatile regs.
+        mov rbx, rcx
+        mov r12, rdx
 
-    mov rdx, [rbp - 16]
-    dec rdx
-    mov rcx, [rbp - 8]
-    cmp byte [rcx + rdx], 0
-    je .complete
-    cmp byte [rcx + rdx], 10
-    je .complete
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    call _cm_clear_buffer
+    .read:
+        mov r8, r12
+        mov rdx, rbx
+        mov rcx, [rel lcl_console_manager_ptr]
+        mov rcx, [rcx + console_manager.input_handle]
+        lea r9, [rel lcl_chars_read]
+        call ReadConsoleA
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+    .check:
+        ; Check if bytes read is below bytes to read. If it is, complete.
+        mov eax, [rel lcl_chars_read]
+        cmp rax, r12
+        jb .complete
 
-_cm_clear_buffer:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 56
+        ; If not, check if read input + bytes to read - 1 is null (0).
+        dec r12
+        cmp byte [rbx + r12], 0
+        je .complete
 
-.loop:
-    lea rdx, [rbp - 8]
-    mov rcx, [rel lcl_console_manager_ptr]
-    mov rcx, [rcx + console_manager.input_handle]   
-    mov r8, 1
-    lea r9, [rbp - 16]
-    call ReadConsoleA
-    cmp byte [rbp - 8], 10
-    jne .loop
+        ; If not, check if read input + bytes to read - 1 is a Carriage Return (10).
+        cmp byte [rbx + r12], 10
+        je .complete
+    
+    ; If not, clear text input buffer.
+    .clear:
+        call _clear_buffer
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+    .complete:
+        ; Restore non-volatile regs.
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; The text input buffer needs to be cleared manually. Every user input is ending by a Carriage Return (10). So I loop through the input left over and check for a 10. If it reached the 10, the text input buffer is cleared.
+_clear_buffer:
+    .set_up:
+        ; Set up stack frame.
+        ; 8 bytes local variables.
+        ; 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 8
+
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
+
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
+
+    .clear_loop:
+        mov rcx, [rel lcl_console_manager_ptr]
+        mov rcx, [rcx + console_manager.input_handle]  
+        ; * First local variable: Pointer to stack to read input into.
+        lea rdx, [rbp - 8]
+        mov r8, 1
+        lea r9, [rel lcl_chars_read]
+        call ReadConsoleA
+
+    .clear_loop_handle:
+        cmp byte [rbp - 8], 10
+        jne .clear_loop
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+
+;;;;;; EMPTY CONSOLE ;;;;;;
+_empty_console:
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
+
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
+
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
+
+    .get_buffer_info:
+        ; Call function to retrieve console screen info.
+        call _get_console_info
+
+    .clear_screen:
+        xor ecx, ecx
+        mov dl, " "
+        movzx r8d, word [rel _console_screen_buffer_info]
+        imul r8w, [rel _console_screen_buffer_info + 2]
+        call _repeat_char
+
+    .set_position_start:
+        call _set_cursor_start
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+
+;;;;;; SETTER ;;;;;;
+
+_set_cursor_position:
+    ; * Expect coordinates in ECX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
+
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
+
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
+
+    .set_position:
+        mov dx, cx
+        shl rdx, 16
+        shr ecx, 16
+        mov dx, cx
+        mov rcx, [rel lcl_console_manager_ptr]
+        mov rcx, [rcx + console_manager.output_handle]
+        call SetConsoleCursorPosition
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+_set_cursor_start:
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
+
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
+
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
+
+    .set_position:
+        mov rcx, [rel lcl_console_manager_ptr]
+        mov rcx, [rcx + console_manager.output_handle]
+        xor rdx, rdx
+        call SetConsoleCursorPosition
+
+    .complete:
+        ; Restore old stack frame.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+;;;;;; GETTER ;;;;;;
+_get_console_info:
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
+
+        ; If console_manager is not created, let the user know.
+        cmp qword [rel lcl_console_manager_ptr], 0
+        je _cm_object_failed
+
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
+
+    .get_buffer_info:
+        mov rcx, [rel lcl_console_manager_ptr]
+        mov rcx, [rcx + console_manager.output_handle]
+        lea rdx, [rel _console_screen_buffer_info]
+        call GetConsoleScreenBufferInfo
+
+    .set_up_object:
+        lea rax, [rel _console_screen_buffer_info]
+        mov rax, [rax + WINDOW_SIZE_OFFSET]
+        mov rcx, [rel lcl_console_manager_ptr]
+        mov [rcx + console_manager.window_size], rax
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
 
 ; Change console attributes. Maybe it will get used some time later.
 
@@ -801,19 +916,42 @@ _cm_clear_buffer:
 
 
 ;;;;;; ERROR HANDLING ;;;;;;
-_cm_object_failed:
-    lea rcx, [rel constructor_name]
-    call object_not_created
-
-    mov rsp, rbp
-    pop rbp
-    ret
 
 _cm_malloc_failed:
-    lea rcx, [rel constructor_name]
-    mov rdx, rax
-    call malloc_failed
+    .set_up:
+        ; Setting up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+
+    .debug:
+        lea rcx, [rel constructor_name]
+        mov rdx, rax
+        call malloc_failed
+
+    .complete:
+        ; Restore old stack frame and leave debugging function.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+_cm_object_failed:
+    .set_up:
+        ; Setting up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
+
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+
+    .debug:
+        lea rcx, [rel constructor_name]
+        call object_not_created
+
+    .complete:
+        ; Restore old stack frame and leave debugging function.
+        mov rsp, rbp
+        pop rbp
+        ret

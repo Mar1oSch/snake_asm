@@ -46,7 +46,7 @@ section .text
     extern game_new, game_start, game_reset
     extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file, file_manager_update_table
     extern player_new, player_destroy
-    extern helper_get_digits_of_number, helper_get_digits_in_string, helper_is_input_just_numbers, helper_parse_string_to_int, helper_parse_saved_number_to_written_number
+    extern helper_get_digits_of_number, helper_get_digits_in_string, helper_parse_string_to_int, helper_parse_saved_number_to_written_number
     extern options_new, options_destroy
 
 interactor_new:
@@ -212,7 +212,7 @@ _create_player:
     call file_manager_get_num_of_entries
     test rax, rax
     jz .create_new_player
-
+    
     call _get_yes_no
     test rax, rax
     jnz .create_new_player

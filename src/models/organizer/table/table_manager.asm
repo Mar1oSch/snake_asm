@@ -46,6 +46,9 @@ section .text
     extern malloc, realloc, free
 
     extern malloc_failed, object_not_created
+
+;;;;;; PUBLIC METHODS ;;;;;;
+
 table_manager_create_table:
     ; * Expect amount of rows in ECX.
     .set_up:
@@ -169,9 +172,14 @@ table_manager_add_column:
     ; Realllocate memory space:
     ; Multiplicate column_format_size times column_count to get the amount of bytes needed for the array.
     .add:
-        mov rcx, [rel lcl_tm_column_format_list_ptr]
+        mov rcx, [rel lcl_table_ptr]
+
+        ; Set up right size for new pointer.
         mov edx, [rcx + table.column_count]
         imul rdx, column_format_size
+
+        ; Use the column format list pointer as pointer to update.
+        mov rcx, [rcx + table.column_format_list_ptr]
         call realloc
 
     ; Save the pointer into the table and locally for this file.
