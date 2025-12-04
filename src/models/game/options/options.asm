@@ -123,7 +123,7 @@ _get_delay:
 
     ; Get the delay by level.
     .invalid:
-        mov ax, 400
+        mov ax, 270
         jmp .complete
 
     .delay_table:
@@ -138,25 +138,25 @@ _get_delay:
         dq .nineth_level
 
     .first_level:  
-        mov ax, 400
-        jmp .complete
-    .second_level: 
-        mov ax, 330
-        jmp .complete
-    .third_level:  
         mov ax, 270
         jmp .complete
-    .fourth_level: 
-        mov ax, 220
+    .second_level: 
+        mov ax, 240
         jmp .complete
-    .fifth_level:  
+    .third_level:  
+        mov ax, 210
+        jmp .complete
+    .fourth_level: 
         mov ax, 180
         jmp .complete
+    .fifth_level:  
+        mov ax, 150
+        jmp .complete
     .sixth_level:  
-        mov ax, 140
+        mov ax, 120
         jmp .complete
     .seventh_level:
-        mov ax, 100
+        mov ax, 90
         jmp .complete
     .eighth_level: 
         mov ax, 60

@@ -1,2 +1,3 @@
 /src/leaderboard.bin
 *.dmp
+.vs

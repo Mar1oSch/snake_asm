@@ -181,7 +181,7 @@ designer_type_sequence:
         mov rcx, rbx
         mov rdx, [rcx + 8]
         mov rcx, [rcx]
-        mov r8, r15
+        mov r8w, r15w
         mov r9, r13
         call _write_char_by_char
 
@@ -260,303 +260,395 @@ designer_write_headline:
 ; I optimized that function for 3 parts, since I have one part for the pagination, one for the player name and one for the highscore.
 designer_write_table:
     ; * Expect pointer to table in RCX.
-.set_up:
-    ; Set up stack frame.
-    ; * 40 bytes local variables.
-    ; * 8 bytes to keep stack 16-byte aligned.
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
+    .set_up:
+        ; Set up stack frame.
+        ; * 72 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 80
 
-    ; Save non-volatile regs.
-    mov [rbp - 8], rbx
-    mov [rbp - 16], r12
-    mov [rbp - 24], r13
-    mov [rbp - 32], r14
-    mov [rbp - 40], r15
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
+        mov [rbp - 24], r13
+        mov [rbp - 32], r14
+        mov [rbp - 40], r15
 
-    ; Reserve 32 bytes shadow space for called functions.
-    sub rsp, 32
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-.set_up_loop_base:
-    ; I am setting up the base for the update loop:
-    ; * - RBX is going to be the content pointer.
-    ; * - R12D is the active column count.
-    ; * - R13D is the active row count.
-    ; * - R14D will hold the active coordinates. 
-    ; * - R15 will be the column format list pointer.
-    mov rbx, [rcx + table.content_ptr]                                                      ; Save table-pointer in rbx.
-    mov r12d, [rcx + table.column_count]
-    mov r13d, [rcx + table.row_count]
-    dec r13d
-    mov r15, [rcx + table.column_format_list_ptr]
+    .set_up_loop_base:
+        ; I am setting up the base for the update loop:
+        ; * - RBX is going to be the content pointer.
+        ; * - R12D is the active column count.
+        ; * - R13D is the active row count.
+        ; * - R14D will hold the active coordinates. 
+        ; * - R15 will be the column format list pointer.
+        mov rbx, [rcx + table.content_ptr]                                                      ; Save table-pointer in rbx.
+        mov r12d, [rcx + table.column_count]
+        mov r13d, [rcx + table.row_count]
+        dec r13d
+        mov r15, [rcx + table.column_format_list_ptr]
 
-    ; I have to set up three local variables for the loop, to get back to them every iteration:
-    ; * First local variable: Column count of table.
-    mov [rbp - 48], r12d
+        ; I have to set up three local variables for the loop, to get back to them every iteration:
+        ; * First local variable: Column count of table.
+        mov [rbp - 48], r12d
 
-    ; * Second local variable: Row count of table.
-    mov [rbp - 56], r13d
+        ; * Second local variable: Row count of table.
+        mov [rbp - 56], r13d
 
-    ; In every column loop, the format list is looped through again. That's why in the beginning of the row loop, I am always loading it's starting point(er) again into R15.
-    ; * Third local variable: Column format list pointer.
-    mov [rbp - 64], r15
+        ; In every column loop, the format list is looped through again. That's why in the beginning of the row loop, I am always loading it's starting point(er) again into R15.
+        ; * Third local variable: Column format list pointer.
+        mov [rbp - 64], r15
 
-.calculate_column_width:
-    ; Retrieving the width of the console window.
-    mov rax, [rel lcl_designer_ptr]
-    mov rax, [rax + designer.console_manager_ptr]
-    movzx rax, word [rax + console_manager.window_size + 4]
+    .calculate_column_width:
+        ; Retrieving the width of the console window.
+        mov rax, [rel lcl_designer_ptr]
+        mov rax, [rax + designer.console_manager_ptr]
+        movzx rax, word [rax + console_manager.window_size + 4]
 
-    ; Adding the column count + 1 for pagination.
-    mov ecx, r12d
-    inc rcx
+        ; Adding the column count + 1 for pagination.
+        mov ecx, r12d
+        inc rcx
 
-    ; Dividing the width / (column count + 1) to get n parts.
-    xor rdx, rdx
-    div rcx                                                             
+        ; Dividing the width / (column count + 1) to get n parts.
+        xor rdx, rdx
+        div rcx                                                             
 
-.starting_coordinates:
-    mov r14w, ax
-    shl r14d, 16
-    mov r14w, 2
+    .starting_coordinates:
+        mov r14w, ax
+        shl r14d, 16
+        mov r14w, 2
 
-.set_up_counters:
-    xor r12d, r12d
-    xor r13d, r13d
+    .set_up_counters:
+        xor r12d, r12d
+        xor r13d, r13d
 
-    ; Setting up correct buffer size, so the table is scrollable.
-    ; xor rcx, rcx
-    ; mov ecx, r13d
-    ; shl ecx, 1
-    ; add ecx, 2
-    ; call console_manager_set_buffer_size
-.row_loop:
-    ; Saving the starting point(er) of the column format list.
-    mov r15, [rbp - 64]
+        ; Setting up correct buffer size, so the table is scrollable.
+        ; xor rcx, rcx
+        ; mov ecx, r13d
+        ; shl ecx, 1
+        ; add ecx, 2
+        ; call console_manager_set_buffer_size
+    .row_loop:
+        ; Saving the starting point(er) of the column format list.
+        mov r15, [rbp - 64]
 
-    .column_loop:
-        ; Preparing coordinates in ECX.
-        ror r14d, 16
-        movzx ecx, r14w
-        mov edx, ecx
-        shr edx, 1
-        imul edx, r12d
-        add ecx, edx
-        shl ecx, 16
-        rol r14d, 16
-        mov cx, r14w
+        .column_loop:
+            ; Preparing coordinates in ECX.
+            ror r14d, 16
+            movzx ecx, r14w
+            mov edx, ecx
+            shr edx, 1
+            imul edx, r12d
+            add ecx, edx
+            shl ecx, 16
+            rol r14d, 16
+            mov cx, r14w
 
-        ; If R12D is 0 paginate.
-        test r12d, r12d
-        jz .handle_pagination
+            ; If R12D is 0 paginate.
+            test r12d, r12d
+            jz .handle_pagination
 
-        ; Let RDX point to active content.
-        mov rdx, rbx
+            ; Let RDX point to active content.
+            mov rdx, rbx
 
-        ; Point to active column format.
-        mov r9d, r12d
-        dec r9d
-        imul r9d, column_format_size
-        add r15, r9
-        mov r8d, [r15 + column_format.entry_length]
+            ; Point to active column format.
+            mov r9d, r12d
+            dec r9d
+            imul r9d, column_format_size
+            add r15, r9
+            mov r8d, [r15 + column_format.entry_length]
 
-        ; * Fourth local variable: Length of column entry.
-        mov [rbp - 72], r8d
+            ; * Fourth local variable: Length of column entry.
+            mov [rbp - 72], r8d
 
-        ; Check if entry is string or int.
-        ; If it is a int, handle it.
-        cmp dword [r15 + column_format.entry_type], 0
-        jne .handle_number
+            ; Check if entry is string or int.
+            ; If it is a int, handle it.
+            cmp dword [r15 + column_format.entry_type], 0
+            jne .handle_number
 
-        ; Else set R9 0 and write.
-        xor r9, r9
+            ; Else set R9 0 and write.
+            xor r9, r9
 
-    .write:   
-        call console_manager_write_word
+        .write:   
+            call console_manager_write_word
 
-    .column_loop_handle:
-        mov ecx, [rbp - 72]
-        add rbx, rcx
-        cmp r12d, [rbp - 48]
-        je .row_loop_handle
+        .column_loop_handle:
+            ; Mark entry as written.
+            mov ecx, [rbp - 72]
+            add rbx, rcx
+
+            ; Check if end of columns is reached.
+            cmp r12d, [rbp - 48]
+            je .row_loop_handle
+
+            ; If not, move to next column.
+            inc r12d
+            jmp .column_loop
+
+    .row_loop_handle:
+        ; Check if end of rows is reached.
+        cmp r13d, [rbp - 56]
+        je .complete
+
+        ; If not, move to next row.
+        inc r13d
+
+        ; Start from first column.
+        xor r12d, r12d
+
+        ; Move 2 in Y-coordinates.
+        add r14w, 2
+        jmp .row_loop
+
+    .handle_pagination:
+        mov rdx, r13
+        inc rdx
+        call _table_pagination
         inc r12d
         jmp .column_loop
 
-.row_loop_handle:
-    cmp r13d, [rbp - 56]
-    je .complete
-    inc r13d
-    xor r12d, r12d
-    add r14w, 2
-    jmp .row_loop
+    .handle_number:
+        mov r9, r8
+        jmp .write
 
-.handle_pagination:
-    mov rdx, r13
-    inc rdx
-    call _table_pagination
-    inc r12d
-    jmp .column_loop
+    .complete:
+        call console_manager_get_center_x_offset
+        mov rcx, rax
+        shl rcx, 16
+        mov cx, r14w
+        add cx, 2
+        call console_manager_set_cursor
 
-.handle_number:
-    mov r9, r8
-    jmp .write
+        ; Restore non-volatile regs.
+        mov r15, [rbp - 40]
+        mov r14, [rbp - 32]
+        mov r13, [rbp - 24]
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
 
-.complete:
-    call console_manager_get_center_x_offset
-    mov rcx, rax
-    shl rcx, 16
-    mov cx, r14w
-    add cx, 2
-    call console_manager_set_cursor
-
-    ; Restore non-volatile regs.
-    mov r15, [rbp - 40]
-    mov r14, [rbp - 32]
-    mov r13, [rbp - 24]
-    mov r12, [rbp - 16]
-    mov rbx, [rbp - 8]
-
-    ; Restore old stack frame and return to caller.
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 
 
 
 ;;;;;; PRIVATE METHODS ;;;;;;
 _show_headline:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up the stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    lea rcx, [rel headline_table]
-    mov rdx, HEADLINE_TABLE_SIZE
-    mov r8, 0
-    call designer_type_sequence
+        ; If designer is not created yet, print a debug message.
+        cmp qword [rel lcl_designer_ptr], 0
+        je _ds_object_failed
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+
+    .type_headline:
+        lea rcx, [rel headline_table]
+        mov rdx, HEADLINE_TABLE_SIZE
+        mov r8, 0
+        call designer_type_sequence
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _show_name:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
+    .set_up:
+        ; Set up the stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; Save non-volatile regs.
-    mov [rbp - 8], r15
+        ; If designer is not created yet, print a debug message.
+        cmp qword [rel lcl_designer_ptr], 0
+        je _ds_object_failed
 
-    mov r15, [rel lcl_designer_ptr]
-    mov r15, [r15 + designer.console_manager_ptr]
-    movzx rcx, word [r15 + console_manager.window_size + 4]
-    sub cx, BY_LENGTH + 1
-    shl rcx, 16
-    mov cx, word [r15 + console_manager.window_size + 6]
-    sub cx, 3
-    lea rdx, [rel by]
-    mov r8, BY_LENGTH
-    xor r9, r9 
-    call console_manager_write_word
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-.complete:
-    mov r15, [rbp - 8]
-    mov rsp, rbp
-    pop rbp
-    ret
+    .type_name:
+        mov rdx, [rel lcl_designer_ptr]
+        mov rdx, [rdx + designer.console_manager_ptr]
+        movzx rcx, word [rdx + console_manager.window_size + 4]
+        sub cx, BY_LENGTH + 1
+        shl rcx, 16
+        mov cx, word [rdx + console_manager.window_size + 6]
+        sub cx, 3
+        lea rdx, [rel by]
+        mov r8, BY_LENGTH
+        xor r9, r9 
+        call console_manager_write_word
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
 
 _table_pagination:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 64
+    ; * Expect X- and Y- Coordinates in ECX.
+    ; * Expect count in RDX.
+    .set_up:
+        ; Set up stack frame.
+        ; * 24 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
 
-    ; * ExpectX- and Y- Coordinates in ECX.
-    ; * Expectcount in RDX.
-    mov [rbp - 8], ecx
-    mov [rbp - 16], rdx
+        ; If designer is not created yet, print a debug message.
+        cmp qword [rel lcl_designer_ptr], 0
+        je _ds_object_failed
 
-    lea rdx, [rel opened_brace]
-    call console_manager_write_char
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
+        mov [rbp - 24], r11
 
-    mov rcx, [rbp - 16]
-    call helper_get_digits_of_number
-    mov [rbp - 24], rax
+        ; Save params into non-volatile regs.
+        mov ebx, ecx
+        mov r12, rdx
 
-    mov ecx, [rbp - 8]
-    mov rdx, 1
-    xor r8, r8
-    call helper_change_position
-    mov [rbp - 8], eax
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    mov ecx, eax
-    mov rdx, [rbp - 16]
-    mov r8, [rbp - 24]
-    call console_manager_write_number
+    .open_brace:
+        lea rdx, [rel opened_brace]
+        call console_manager_write_char
 
-    mov ecx, [rbp - 8]
-    mov rdx, [rbp - 24]
-    xor r8, r8
-    call helper_change_position
+    .write_number:
+        ; At first I calculate how many digits the number has to know how many bytes the string needs.
+        mov rcx, r12
+        call helper_get_digits_of_number
+        mov r11, rax
 
-    mov ecx, eax
-    lea rdx, [rel closed_brace]
-    call console_manager_write_char
+        ; Then the cursor gets moved.
+        mov ecx, ebx
+        mov rdx, 1
+        xor r8, r8
+        call helper_change_position
+        mov ebx, eax
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; And the number is written. It needs to know its position, the number itself and the amount of digits.
+        mov ecx, eax
+        mov rdx, r12
+        mov r8, r11
+        call console_manager_write_number
+
+    .close_brace:
+        mov ecx, ebx
+        mov rdx, r11
+        xor r8, r8
+        call helper_change_position
+
+        mov ecx, eax
+        lea rdx, [rel closed_brace]
+        call console_manager_write_char
+
+    .complete:
+        ; Restore non-volatile regs.
+        mov r11, [rbp - 24]
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _write_char_by_char:
     ; * Expect pointer to string in RCX.
     ; * Expect length of string in RDX.
     ; * Expect starting Y-Coordinate in R8W
     ; * Expect Sleep-Time in R9
-    push rbp
-    mov rbp, rsp
-    sub rsp, 88
+    .set_up:
+        ; Set up stack frame.
+        ; * 48 bytes local variables.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 48
 
-    ; Save non-volatile regs.
-    mov [rbp - 8], r15
+        ; If designer is not created yet, print a debug message.
+        cmp qword [rel lcl_designer_ptr], 0
+        je _ds_object_failed
 
-    ; Get Middle of Width from the console window.
-    mov r15, [rel lcl_designer_ptr]
-    mov r15, [r15 + designer.console_manager_ptr]
-    movzx r15, word [r15 + console_manager.window_size + 4]
-    shr r15, 1
-    mov [rbp - 16], r15w
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
+        mov [rbp - 24], r13
+        mov [rbp - 32], r14
+        mov [rbp - 40], r15
 
-    mov [rbp - 24], rcx
-    mov [rbp - 32], rdx
-    dec qword [rbp - 32]
-    mov [rbp - 40], r8w
-    mov [rbp - 48], r9
-    shr rdx, 1
-    sub [rbp - 16], dx
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-    xor r15, r15
-    movzx rcx, word [rbp - 16]
-.loop:
-    shl rcx, 16
-    mov cx, [rbp - 40]
-    mov rdx, [rbp - 24]
-    add rdx, r15
-    call console_manager_write_char
-    mov rcx, [rbp - 48]
-    call Sleep
-.loop_handle:
-    cmp r15, [rbp - 32]
-    jae .complete
-    inc r15
-    movzx rcx, word [rbp - 16]
-    add cx, r15w
-    jmp .loop
+    .set_up_loop_base:
+        ; I am setting up the base for the update loop:
+        ; * - RBX is going to be the pointer to the string.
+        ; * - R12 is the length of the string.
+        ; * - R13W is the starting Y-coordinate.
+        ; * - R14 will hold the sleep time before proceeding to the next iteration. 
+        ; * - R15 will be the loop counter.
 
-.complete:
-    mov r15, [rbp - 8]
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Move params into non-volatile regs.
+        mov rbx, rcx
+        mov r12, rdx
+        dec r12
+        mov r13w, r8w
+        mov r14, r9
+        shr rdx, 1
+        mov r15, rdx
+
+        ; Get Middle of Width from the console window.
+        call console_manager_get_center_x_offset
+        sub rax, r15
+        ; * First local variable: X-offset of string.
+        mov [rbp - 48], rax
+
+        ; Prepare loop counter.
+        xor r15, r15
+
+    .write_char_loop:
+        mov rcx, [rbp - 48]
+        add cx, r15w
+        shl rcx, 16
+        mov cx, r13w
+        mov rdx, rbx
+        add rdx, r15
+        call console_manager_write_char
+
+        mov rcx, r14
+        call Sleep
+
+    .write_char_loop_handle:
+        cmp r15, r12
+        jae .complete
+        inc r15
+        jmp .write_char_loop
+
+    .complete:
+        ; Restore non-volatile regs.
+        mov r15, [rbp - 40]
+        mov r14, [rbp - 32]
+        mov r13, [rbp - 24]
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 
 ;;;;;; ERROR HANDLING ;;;;;; 
