@@ -1,13 +1,13 @@
 ; Data:
-%include "../include/data/interactor_strings/interactor_strings.inc"
+%include "./include/data/interactor_strings/interactor_strings.inc"
 
 ; Strucs:
-%include "../include/strucs/organizer/interactor_struc.inc"
-%include "../include/strucs/organizer/file_manager_struc.inc"
-%include "../include/strucs/organizer/table/table_struc.inc"
-%include "../include/strucs/game/game_struc.inc"
-%include "../include/strucs/game/player_struc.inc"
-%include "../include/strucs/game/options_struc.inc"
+%include "./include/strucs/organizer/interactor_struc.inc"
+%include "./include/strucs/organizer/file_manager_struc.inc"
+%include "./include/strucs/organizer/table/table_struc.inc"
+%include "./include/strucs/game/game_struc.inc"
+%include "./include/strucs/game/player_struc.inc"
+%include "./include/strucs/game/options_struc.inc"
 
 global interactor_new, interactor_setup, interactor_create_game, interactor_start_game, interactor_destroy, interactor_replay_game
 

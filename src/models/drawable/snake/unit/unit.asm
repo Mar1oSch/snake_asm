@@ -1,7 +1,7 @@
 ; Strucs:
-%include "../include/strucs/interface_table_struc.inc"
-%include "../include/strucs/position_struc.inc"
-%include "../include/strucs/snake/unit_struc.inc"
+%include "./include/strucs/interface_table_struc.inc"
+%include "./include/strucs/position_struc.inc"
+%include "./include/strucs/snake/unit_struc.inc"
 
 ; This is the unit object a snake is built of.
 ; The unit is an object part of a singly linked list. It always points to the next unit.

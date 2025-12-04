@@ -1,5 +1,5 @@
 ; Strucs:
-%include "../include/strucs/organizer/console_manager_struc.inc"
+%include "./include/strucs/organizer/console_manager_struc.inc"
 
 ; This is the console manager, which is responsible for managing the basic communication with the console. Every interaction with it is handled here.
 

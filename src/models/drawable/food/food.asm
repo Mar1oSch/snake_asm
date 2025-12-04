@@ -1,6 +1,6 @@
 ; Strucs:
-%include "../include/strucs/food/food_struc.inc"
-%include "../include/strucs/position_struc.inc"
+%include "./include/strucs/food/food_struc.inc"
+%include "./include/strucs/position_struc.inc"
 
 ; This is the simple food-object the snake is consuming.
 ; It is purely passive and its usage is getting handled by the board and the game.

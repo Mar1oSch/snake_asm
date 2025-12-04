@@ -1,5 +1,5 @@
 ; Strucs:
-%include "../include/strucs/game/options_struc.inc"
+%include "./include/strucs/game/options_struc.inc"
 
 ; The board is a simple options object.
 ; It defines the player and the level of the game.

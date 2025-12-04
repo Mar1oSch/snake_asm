@@ -1,10 +1,10 @@
 ; Strucs:
-%include "../include/strucs/interface_table_struc.inc"
-%include "../include/strucs/position_struc.inc"
-%include "../include/strucs/game/board_struc.inc"
-%include "../include/strucs/food/food_struc.inc"
-%include "../include/strucs/snake/snake_struc.inc"
-%include "../include/strucs/snake/unit_struc.inc"
+%include "./include/strucs/interface_table_struc.inc"
+%include "./include/strucs/position_struc.inc"
+%include "./include/strucs/game/board_struc.inc"
+%include "./include/strucs/food/food_struc.inc"
+%include "./include/strucs/snake/snake_struc.inc"
+%include "./include/strucs/snake/unit_struc.inc"
 
 ; The board is both: active and passive. 
 ; Active in case of drawing the content: Drawing food, creating new food and position it inside the board, drawing the snake.

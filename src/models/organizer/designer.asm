@@ -1,11 +1,11 @@
 ; Data:
-%include "../include/data/designer_strings/designer_strings.inc"
+%include "./include/data/designer_strings/designer_strings.inc"
 
 ; Strucs:
-%include "../include/strucs/organizer/table/table_struc.inc"
-%include "../include/strucs/organizer/table/column_format_struc.inc"
-%include "../include/strucs/organizer/designer_struc.inc"
-%include "../include/strucs/organizer/console_manager_struc.inc"
+%include "./include/strucs/organizer/table/table_struc.inc"
+%include "./include/strucs/organizer/table/column_format_struc.inc"
+%include "./include/strucs/organizer/designer_struc.inc"
+%include "./include/strucs/organizer/console_manager_struc.inc"
 
 ; The object to manage the design of the game. It is responsible for centering the output, for writing the table and for typing sequences (if it is desired).
 

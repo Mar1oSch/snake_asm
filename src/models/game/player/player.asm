@@ -1,5 +1,5 @@
 ; Strucs:
-%include "../include/strucs/game/player_struc.inc"
+%include "./include/strucs/game/player_struc.inc"
 
 ; The player object. I decided to let the user create a player. The player is getting saved into a file with the highscore.
 ; If the user comes back, he can decide, if he already played and then choose the player he wants to.

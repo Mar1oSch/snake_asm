@@ -1,8 +1,8 @@
 ; Strucs:
-%include "../include/strucs/interface_table_struc.inc"
-%include "../include/strucs/position_struc.inc"
-%include "../include/strucs/snake/snake_struc.inc"
-%include "../include/strucs/snake/unit_struc.inc"
+%include "./include/strucs/interface_table_struc.inc"
+%include "./include/strucs/position_struc.inc"
+%include "./include/strucs/snake/snake_struc.inc"
+%include "./include/strucs/snake/unit_struc.inc"
 
 ; This is the snake object the player is maneuvering in the board.
 ; It is the primary instance of the game.

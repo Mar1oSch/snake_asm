@@ -1,6 +1,6 @@
 ; Strucs:
-%include "../include/strucs/organizer/table/table_struc.inc"
-%include "../include/strucs/organizer/table/column_format_struc.inc"
+%include "./include/strucs/organizer/table/table_struc.inc"
+%include "./include/strucs/organizer/table/column_format_struc.inc"
 
 ; This code implements a simple table management system in assembly.
 ; The table manager allows for creating tables, destroying them, 

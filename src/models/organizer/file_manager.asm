@@ -1,9 +1,9 @@
 ; Data:
-%include "../include/data/file_manager_data/file_manager_data.inc"
+%include "./include/data/file_manager_data/file_manager_data.inc"
 
 ; Strucs:
-%include "../include/strucs/organizer/file_manager_struc.inc"
-%include "../include/strucs/organizer/table/table_struc.inc"
+%include "./include/strucs/organizer/file_manager_struc.inc"
+%include "./include/strucs/organizer/table/table_struc.inc"
 
 ; The file manager handles the communication with the leaderboard.bin. It creates and updates players and their entries.
 ; 

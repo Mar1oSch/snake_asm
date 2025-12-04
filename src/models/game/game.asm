@@ -1,17 +1,17 @@
 ; Data:
-%include "../include/data/game_strings/game_strings.inc"
+%include "./include/data/game_strings/game_strings.inc"
 
 ; Strucs:
-%include "../include/strucs/organizer/interactor_struc.inc"
-%include "../include/strucs/organizer/designer_struc.inc"
-%include "../include/strucs/game/game_struc.inc"
-%include "../include/strucs/game/board_struc.inc"
-%include "../include/strucs/game/player_struc.inc"
-%include "../include/strucs/game/options_struc.inc"
-%include "../include/strucs/food/food_struc.inc"
-%include "../include/strucs/position_struc.inc"
-%include "../include/strucs/snake/unit_struc.inc"
-%include "../include/strucs/snake/snake_struc.inc"
+%include "./include/strucs/organizer/interactor_struc.inc"
+%include "./include/strucs/organizer/designer_struc.inc"
+%include "./include/strucs/game/game_struc.inc"
+%include "./include/strucs/game/board_struc.inc"
+%include "./include/strucs/game/player_struc.inc"
+%include "./include/strucs/game/options_struc.inc"
+%include "./include/strucs/food/food_struc.inc"
+%include "./include/strucs/position_struc.inc"
+%include "./include/strucs/snake/unit_struc.inc"
+%include "./include/strucs/snake/snake_struc.inc"
 
 ; This is one of the more complicated classes:
 ; The game itself. It has a board, which it delegates to draw the updated game.

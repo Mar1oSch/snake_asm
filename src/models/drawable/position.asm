@@ -1,5 +1,5 @@
 ; Strucs:
-%include "../include/strucs/position_struc.inc"
+%include "./include/strucs/position_struc.inc"
 
 ; The position object each drawable holds. 
 ; It defines the X-coordinate and Y-coordinate of the drawable.
