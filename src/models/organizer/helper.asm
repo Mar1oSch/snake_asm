@@ -186,11 +186,11 @@ helper_parse_string_to_int:
         push rbp
         mov rbp, rsp
 
-        ; Reserve 32 bytes shadow space for called functions.
-        sub rsp, 32
-
         ; Save params into shadow space.
         mov [rbp + 16], rcx
+
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
     .get_digits:
         call _get_digits_in_string
@@ -410,7 +410,7 @@ _merge:
     ; * Expect offset of value on Stack [rbp + 64].
 .set_up:
     ; Set up stack frame:
-    ; * 128 bytes local variables.
+    ; * 112 bytes local variables.
     push rbp
     mov rbp, rsp
     sub rsp, 128
@@ -418,19 +418,25 @@ _merge:
     ; Save non-volatile regs.
     mov [rbp - 8], rsi
     mov [rbp - 16], rdi
-    mov [rbp - 24], r13
-    mov [rbp - 32], r14
-    mov [rbp - 40], r15
-    mov [rbp - 48], rbx
+    mov [rbp - 24], rbx
+    mov [rbp - 32], r12
+    mov [rbp - 40], r13
+    mov [rbp - 48], r14
+    mov [rbp - 56], r15
 
-    mov [rbp - 56], rcx
-    mov [rbp - 64], rdx
-    mov [rbp - 72], r8
-    mov [rbp - 80], r9
+    ; Save params into shadow space.
+    mov [rbp + 16], rcx
+    mov [rbp + 24], rdx
+    mov [rbp + 32], r8
+    mov [rbp + 40], r9
 
+    ; Reserve 32 bytes shadow space for called functions.
+    sub rsp, 32
+
+.set_up_loop_base:
     xor r8, r8
-    mov [rbp - 120], r8
-    mov [rbp - 128], r8
+    mov [rbp - 88], r8
+    mov [rbp - 96], r8
 
     ; Save pointer to Targetlist in RDI.
     mov rdi, rcx
@@ -440,16 +446,16 @@ _merge:
     mov rbx, [rbp + 64]
 
     sub rsp, 32
-.loop:
+.merge_loop:
     ; Save pointer to left list into R13.
-    mov r13, [rbp - 64]
+    mov r13, [rbp + 24]
     ; Save pointer to right list into R14.
-    mov r14, [rbp - 80]
+    mov r14, [rbp + 40]
 
-    mov r8, [rbp - 120]
-    cmp r8, [rbp - 72]
+    mov r8, [rbp - 88]
+    cmp r8, [rbp + 32]
     je .add_right_rest
-    mov r8, [rbp - 128]
+    mov r8, [rbp - 96]
     cmp r8, [rbp + 48]
     je .add_left_rest
 
@@ -458,92 +464,93 @@ _merge:
     xor rdx, rdx
     .comparison_loop:
         ; Left list:
-        mov r8, [rbp - 120]
+        mov r8, [rbp - 88]
         mov r11, r8
         imul r11, r15
         add r11, rbx
         add r13, r11
         mov rcx, r13
         call helper_parse_saved_to_int
-        mov [rbp - 136], rax
+        mov [rbp - 104], rax
         ; Right list:
-        mov r8, [rbp - 128]
+        mov r8, [rbp - 96]
         mov r11, r8
         imul r11, r15
         add r11, rbx
         add r14, r11
         mov rcx, r14
         call helper_parse_saved_to_int
-        cmp rax, [rbp - 136]
+        cmp rax, [rbp - 104]
         ja .right_bigger
     .left_bigger:
         mov rcx, r15
-        mov r11, [rbp - 120]
+        mov r11, [rbp - 88]
         sub r13, rbx
         mov rsi, r13
         rep movsb
-        inc qword [rbp - 120]
-        jmp .loop
+        inc qword [rbp - 88]
+        jmp .merge_loop
     .right_bigger:
         mov rcx, r15
-        mov r11, [rbp - 128]
+        mov r11, [rbp - 96]
         sub r14, rbx
         mov rsi, r14
         rep movsb
-        inc qword [rbp - 128]
-        jmp .loop
+        inc qword [rbp - 96]
+        jmp .merge_loop
 
 .add_right_rest:
-    mov r11, [rbp - 128]
-    mov r14, [rbp - 80]
+    mov r11, [rbp - 96]
+    mov r14, [rbp + 40]
     imul r11, r15
     add r14, r11
     .add_right_rest_loop:
         mov rcx, r15
         mov rsi, r14
         rep movsb
-        inc qword [rbp - 128]
-        mov r11, [rbp - 128]
+        inc qword [rbp - 96]
+        mov r11, [rbp - 96]
         cmp r11, [rbp + 48]
         je .complete
         add r14, r15
         jmp .add_right_rest_loop
 
 .add_left_rest:
-    mov r11, [rbp - 120]
-    mov r13, [rbp - 64]
+    mov r11, [rbp - 88]
+    mov r13, [rbp + 24]
     imul r11, r15
     add r13, r11
     .add_left_rest_loop:
         mov rcx, r15
         mov rsi, r13
         rep movsb
-        inc qword [rbp - 120]
-        mov r11, [rbp - 120]
-        cmp r11, [rbp - 72]
+        inc qword [rbp - 88]
+        mov r11, [rbp - 88]
+        cmp r11, [rbp + 32]
         je .complete
         add r13, r15
         jmp .add_left_rest_loop
 
 .complete:
-    mov rcx, [rbp - 64]
+    mov rcx, [rbp + 24]
     call free
-    mov rcx, [rbp - 80]
+    mov rcx, [rbp + 40]
     call free
 
-    mov rcx, [rbp - 72]
+    mov rcx, [rbp + 32]
     add rcx, [rbp + 48]
     imul rcx, r15
     sub rdi, rcx
-    mov rax, [rbp - 56]
+    mov rax, [rbp + 16]
 
     ; Restore non-volatile regs.
-    mov rsi, [rbp - 8]
+    mov r15, [rbp - 56]
+    mov r14, [rbp - 48]
+    mov r13, [rbp - 40]
+    mov r12, [rbp - 32]
+    mov rbx, [rbp - 24]
     mov rdi, [rbp - 16]
-    mov r13, [rbp - 24]
-    mov r14, [rbp - 32]
-    mov r15, [rbp - 40]
-    mov rbx, [rbp - 48]
+    mov rsi, [rbp - 8]
 
     mov rsp, rbp
     pop rbp
