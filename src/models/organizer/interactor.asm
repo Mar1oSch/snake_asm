@@ -46,7 +46,7 @@ section .text
     extern game_new, game_start, game_reset
     extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_get_name, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_update_table
     extern player_new, player_destroy
-    extern helper_get_digits_of_number, helper_get_digits_in_string, helper_parse_string_to_int, helper_parse_saved_number_to_written_number
+    extern helper_get_digits_of_number, helper_get_digits_in_string, helper_parse_saved_to_int
     extern options_new, options_destroy
 
 interactor_new:
@@ -349,7 +349,7 @@ _get_player_index:
     mov rbp, rsp
     sub rsp, 72
 
-    ; * Expectnum of entries in RCX.
+    ; * Expect num of entries in RCX.
     mov [rbp - 8], rcx
 
     call helper_get_digits_of_number
@@ -382,11 +382,7 @@ _create_player_from_index:
 
     lea rcx, [rel player_from_file_struc + 16]
     mov rdx, 4
-    call helper_parse_saved_number_to_written_number
-    
-    mov rcx, rax
-    mov rdx, 4
-    call helper_parse_string_to_int
+    call helper_parse_saved_to_int
 
     lea rcx, [rel player_from_file_struc]
     mov rdx, rax

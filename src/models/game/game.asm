@@ -60,7 +60,7 @@ section .text
     extern console_manager_write_word, console_manager_write_number
     extern file_manager_update_highscore, file_manager_get_name
     extern designer_type_sequence
-    extern helper_change_position, helper_parse_int_to_string
+    extern helper_change_position
 
     extern malloc_failed, object_not_created
 

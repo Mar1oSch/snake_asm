@@ -51,7 +51,7 @@ section .text
 
     extern malloc_failed, object_not_created
 
-    extern helper_parse_saved_number_to_written_number, helper_is_input_just_numbers, helper_parse_string_to_int, helper_parse_int_to_string
+    extern helper_parse_saved_to_int, helper_is_input_just_numbers, helper_parse_string_to_int, helper_parse_int_to_string
 
     extern GetStdHandle
     extern SetConsoleCursorPosition, SetConsoleCursorInfo
@@ -267,7 +267,12 @@ console_manager_write_word:
     .handle_number:
         mov rcx, rbx
         mov rdx, r13
-        call helper_parse_saved_number_to_written_number
+        call helper_parse_saved_to_int
+        
+        mov rcx, rbx
+        mov rdx, rax
+        mov r8, r13
+        call helper_parse_int_to_string
         mov rbx, rax
 
     .write:
