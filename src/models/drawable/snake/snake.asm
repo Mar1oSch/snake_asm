@@ -135,8 +135,8 @@ snake_new:
 ; This function cascades down the unit objects and releases their memory spaces. Afterwards it destroys itself.It is used by the board to reset itself.
 snake_reset:
     .set_up:
-        ; Set up stack frame.
-        ; * 16 bytes for local variables.
+        ; Set up stack frame:
+        ; * 16 bytes local variables.
         push rbp
         mov rbp, rsp
         sub rsp, 16
@@ -193,8 +193,8 @@ snake_reset:
 ; The function which handles the addition of a new unit into the linked list. 
 snake_add_unit:
     .set_up:
-        ; Set up stack frame.
-        ; * 32 bytes for local variables.
+        ; Set up stack frame:
+        ; * 32 bytes local variables.
         push rbp
         mov rbp, rsp
         sub rsp, 32

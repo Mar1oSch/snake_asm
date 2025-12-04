@@ -32,9 +32,9 @@ section .data
         dw 0, 0
 
 section .bss
-    ; Memory space for the created game pointer.
-    ; Since there is always just one game in the game, I decided to create a kind of a singleton.
-    ; If this lcl_game_ptr is 0, the constructor will create a new game object.
+    ; Memory space for the created console manager pointer.
+    ; Since there is always just one console manager in the game, I decided to create a kind of a singleton.
+    ; If this lcl_console_manager_ptr is 0, the constructor will create a new console manager object.
     ; If it is not 0, it simply is going to return this pointer.
     ; This pointer is also used, to reference the object in the destructor and other functions.
     ; So it is not needed to pass a pointer to the object itself as function parameter.
@@ -52,7 +52,6 @@ section .text
     extern malloc_failed, object_not_created
 
     extern helper_parse_saved_number_to_written_number, helper_is_input_just_numbers, helper_parse_string_to_int, helper_parse_int_to_string
-    extern file_manager_get_num_of_entries
 
     extern GetStdHandle
     extern SetConsoleCursorPosition, SetConsoleCursorInfo
@@ -66,7 +65,7 @@ section .text
 ; Here the console manager gets created. 
 console_manager_new:
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 8 bytes local variables.
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
@@ -231,7 +230,7 @@ console_manager_write_word:
     ; * Expect length of string in R8
     ; * Expect length of number in R9, if no number expect 0.
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 24 bytes local variables.
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
@@ -293,7 +292,7 @@ console_manager_write_number:
     ; * Expect number in RDX.
     ; * Expect digits to write in R8.
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 24 bytes local variables. 
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
@@ -358,7 +357,7 @@ console_manager_write_number:
 console_manager_get_numeral_input:
     ; * Expect number of chars to read in RCX.
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 24 byte local variables.
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
@@ -680,7 +679,7 @@ _cm_read:
     ; * Expect pointer to save read bytes into in RCX.
     ; * Expect number of bytes to read in RDX.
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 16 bytes local variables.
         push rbp
         mov rbp, rsp
@@ -740,7 +739,7 @@ _cm_read:
 ; The text input buffer needs to be cleared manually. Every user input is ending by a Carriage Return (10). So I loop through the input left over and check for a 10. If it reached the 10, the text input buffer is cleared.
 _clear_buffer:
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 8 bytes local variables.
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp

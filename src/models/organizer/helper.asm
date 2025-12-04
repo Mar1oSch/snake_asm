@@ -1,4 +1,5 @@
 global helper_get_digits_of_number, helper_parse_saved_number_to_written_number, helper_is_input_just_numbers, helper_parse_string_to_int, helper_parse_int_to_string, helper_merge_sort_list, helper_change_position
+
 section .data
     convert_number db "0000", 0
 

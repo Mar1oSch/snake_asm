@@ -27,7 +27,7 @@ options_new:
     ; * Expect player pointer in RCX.
     ; * Expect lvl in EDX.
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 8 bytes local variables.
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp

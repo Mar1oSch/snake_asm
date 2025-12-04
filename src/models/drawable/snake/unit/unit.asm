@@ -43,8 +43,8 @@ unit_new:
     ; * Expect 1 if char is the head or 0 if not in R8.
     .set_up:
         ; Set up stack frame:
-        ; * 24 bytes space for local variables. 
-        ; * 8 bytes to keep the stack 16 byte aligned.
+        ; * 24 bytes local variables. 
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 32

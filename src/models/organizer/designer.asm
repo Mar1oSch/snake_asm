@@ -39,7 +39,7 @@ section .text
 
 designer_new:
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 8 bytes local variables.
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
@@ -141,7 +141,7 @@ designer_type_sequence:
     ; * Expect length of table in RDX.
     ; * Expect Sleep time in R8
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 40 bytes local variables.
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
@@ -261,7 +261,7 @@ designer_write_headline:
 designer_write_table:
     ; * Expect pointer to table in RCX.
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 72 bytes local variables.
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
@@ -500,7 +500,7 @@ _table_pagination:
     ; * Expect X- and Y- Coordinates in ECX.
     ; * Expect count in RDX.
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 24 bytes local variables.
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
@@ -573,7 +573,7 @@ _write_char_by_char:
     ; * Expect starting Y-Coordinate in R8W
     ; * Expect Sleep-Time in R9
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 48 bytes local variables.
         push rbp
         mov rbp, rsp

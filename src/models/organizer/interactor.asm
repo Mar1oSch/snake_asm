@@ -44,7 +44,7 @@ section .text
     extern console_manager_get_literal_input, console_manager_get_numeral_input, console_manager_clear_all, console_manager_set_console_cursor_info
     extern designer_new, designer_start_screen, designer_type_sequence, designer_write_table, designer_write_headline
     extern game_new, game_start, game_reset
-    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_find_name, file_manager_get_record_length, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file, file_manager_update_table
+    extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_get_name, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_update_table
     extern player_new, player_destroy
     extern helper_get_digits_of_number, helper_get_digits_in_string, helper_parse_string_to_int, helper_parse_saved_number_to_written_number
     extern options_new, options_destroy
@@ -408,7 +408,7 @@ _create_player_name:
     call _clear_player_name
 
     lea rcx, [rel INTERACTOR_PLAYER_NAME]
-    call file_manager_find_name
+    call file_manager_get_name
     cmp rax, -1
     jne .loop
 

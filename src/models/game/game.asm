@@ -58,7 +58,7 @@ section .text
     extern board_new, board_draw, board_setup, board_move_snake, board_create_new_food, board_reset, get_board_x_offset, get_board_y_offset, board_draw_food
     extern snake_add_unit
     extern console_manager_write_word, console_manager_write_number
-    extern file_manager_update_highscore, file_manager_find_name
+    extern file_manager_update_highscore, file_manager_get_name
     extern designer_type_sequence
     extern helper_change_position, helper_parse_int_to_string
 
@@ -72,9 +72,9 @@ game_new:
     ; * Expect options pointer in RDX.
     ; * Expect interactor pointer in R8.
     .set_up:
-        ; Set up stack frame.
-        ; 8 bytes for local variables.
-        ; 8 bytes to keep stack 16-byte aligned.
+        ; Set up stack frame:
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 16
@@ -265,9 +265,9 @@ _game_setup:
 ; This is the active game. It is organizing the rules and the mechanics.
 _game_play:
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 8 bytes local variables.
-        ; * 8 bytes to keep stack aligned.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 16
@@ -435,7 +435,7 @@ _pause:
 _update_snake:
     ; * Expect direction in CL
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 40 bytes local variables.
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
@@ -647,7 +647,7 @@ _collission_check:
 ; ! There also must be a better way to check that instead of looping through the whole list every time again.
 _check_snake_collission:
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 32 bytes local variables.
         push rbp
         mov rbp, rsp
@@ -848,7 +848,7 @@ _build_scoreboard:
 
 _print_player:
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 24 bytes local variables.
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
@@ -914,7 +914,7 @@ _print_player:
 
 _print_level:
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 8 bytes local variables.
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
@@ -976,7 +976,7 @@ _print_level:
 
 _print_points:
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 24 bytes local variables.
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
@@ -1036,7 +1036,7 @@ _print_points:
 _print_highscore:
     .set_up:
         .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 24 bytes local variables.
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
@@ -1141,7 +1141,7 @@ _game_over:
 ; Mechanic to possibly update the highscore of the player.
 _update_highscore:
     .set_up:
-        ; Set up stack frame.
+        ; Set up stack frame:
         ; * 8 bytes local variables.
         ; * 8 bytes to keep stack 16 byte aligned.
         push rbp
@@ -1178,7 +1178,7 @@ _update_highscore:
         call player_update_highscore
 
         mov rcx, [rbx + player.name]
-        call file_manager_find_name
+        call file_manager_get_name
 
         mov rdx, rax
         mov ecx, dword [rbx + player.highscore]

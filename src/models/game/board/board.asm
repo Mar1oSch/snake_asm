@@ -185,7 +185,7 @@ board_setup:
 board_reset:
     .set_up:
         ; Set up stack frame:
-        ; * 24 bytes for local variables.
+        ; * 24 bytes local variables.
         ; * 8 bytes to keep the stack 16 byte aligned.
         push rbp
         mov rbp, rsp
@@ -338,7 +338,7 @@ board_create_new_food:
 get_board_x_offset:
     .set_up:
         ; Set up stack frame:
-        ; * 8 bytes for local variables.
+        ; * 8 bytes local variables.
         ; * 8 bytes to keep stack 16 byte aligned.
         push rbp
         mov rbp, rsp
@@ -378,7 +378,7 @@ get_board_x_offset:
 get_board_y_offset:
     .set_up:
         ; Set up stack frame:
-        ; * 8 bytes for local variables.
+        ; * 8 bytes local variables.
         ; * 8 bytes to keep stack 16 byte aligned.
         push rbp
         mov rbp, rsp
@@ -809,7 +809,7 @@ _erase_snake_unit:
     ; * Expect position of old tail in ECX.
     .set_up:
         ; Set up stack frame:
-        ; * 8 bytes for local variables.
+        ; * 8 bytes local variables.
         ; * 8 bytes to keep stack 16 byte aligned.
         push rbp
         mov rbp, rsp
@@ -874,7 +874,7 @@ _erase_snake_unit:
 _create_random_position:
     .set_up:
         ; Set up stack frame:
-        ; * 16 bytes for local variables.
+        ; * 16 bytes local variables.
         push rbp
         mov rbp, rsp
         sub rsp, 16

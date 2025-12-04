@@ -35,7 +35,7 @@ food_new:
     ; * Expect X- and Y-Coordinates in ECX
     .set_up:
         ; Set up stack frame:
-        ; * 16 bytes space for local variables.
+        ; * 16 bytes local variables.
         push rbp
         mov rbp, rsp
         sub rsp, 16                                              
