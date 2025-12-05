@@ -248,9 +248,18 @@ helper_parse_string_to_int:
 
 ;;;;;; MERGE SORT ;;;;;;
 helper_merge_sort_list:
+    ; * Expect pointer to list in RCX.
+    ; * Expect amount of list records in RDX.
+    ; * Expect record length in R8.
+    ; * Expect offset of value to compare in R9.
+    ; * Expect size of compared value on stack [rbp + 48].
+.set_up:
+    ; Set up stack frame:
+    ; * 72 bytes local variables.
+    ; * 24 bytes function params.
     push rbp
     mov rbp, rsp
-    sub rsp, 200
+    sub rsp, 96
 
     ; Define basecase:
     cmp rdx, 1
@@ -259,108 +268,153 @@ helper_merge_sort_list:
     ; Save non-volatile regs.
     mov [rbp - 8], rsi
     mov [rbp - 16], rdi
+    mov [rbp - 24], rbx
+    mov [rbp - 32], r12
+    mov [rbp - 40], r13
+    mov [rbp - 48], r14
+    mov [rbp - 56], r15
 
-    ; * Expect pointer to list in RCX.
-    ; * Expect amount of list records in RDX.
-    ; * Expect record length in R8.
-    ; * Expect offset of value to compare in R9.
-    ; * Expect size of compared value on stack [rbp + 48].
-    mov [rbp - 24], rcx
-    mov [rbp - 32], r8
-    mov [rbp - 40], r9
-    mov r10, [rbp + 48]
-    mov [rbp - 48], r10
+    ; Make RBX point to the initial list.
+    mov rbx, rcx
 
+    ; Make R12 the length of each list record.
+    mov r12, r8
+
+    ; Make R13 the offset of the value to compare.
+    mov r13, r9
+
+    ; Reserve 32 bytes shadow space for called functions.
+    sub rsp, 32
+
+.prepare_median_value:
+    ; Calculate the median.
     mov rax, rdx 
-    shr rax, 1                                  ; Length of first list.
-    sub rdx, rax                                ; Length of second list.
+    shr rax, 1
+    sub rdx, rax
 
-    ; Save Length of lists.
-    mov [rbp - 56], rdx
-    mov [rbp - 64], rax
+    ; Make R14 length of left list.
+    mov r14, rdx
 
-.create_first_list:
-    ; Create first list:
-    mov rcx, [rbp - 56]
-    imul rcx, [rbp - 32]
+    ; Make R15 length of right list.
+    mov r15, rax
+
+.create_left_list:
+    ; To get the size needed for first list: length of left list * record length.
+    mov rcx, r14
+    imul rcx, r12
+
+    ; * First local variable: bytes of left list.
+    mov [rbp - 64], rcx
+
+    ; Get memory space.
     call malloc
 
+    ; Set up RDI as newly created memory space.
+    ; Set up RSI as initial list.
     mov rdi, rax
-    mov rsi, [rbp - 24]
-    mov rcx, [rbp - 56]
-    imul rcx, [rbp - 32]
+    mov rsi, rbx
+
+    ; Use earlier calculated amount of bytes to know, how many bytes have to be copied into new list.
+    mov rcx, [rbp - 64]
     cld
     rep movsb
 
-    mov rcx, [rbp - 56]
-    imul rcx, [rbp - 32]
+    ; Reset RDI to starting point.
+    mov rcx, [rbp - 64]
     sub rdi, rcx
-    mov [rbp - 72], rdi
 
+    ; Set up params for next recursion:
+    ; * RCX now holds the created left list as initial list.
+    ; * RDX holds the calculated length of left list.
+    ; * R8 is the length of each record.
+    ; * R9 will be the value offset.
+    ; * On the stack [rsp + 32] is the size of the compared value.
     mov rcx, rdi
-    mov rdx, [rbp - 56]
-    mov r8, [rbp - 32]
-    mov r9, [rbp - 40]
-    mov r10, [rbp - 48]
+    mov rdx, r14
+    mov r8, r12
+    mov r9, r13
+    mov r10, [rbp + 48]
     mov [rsp + 32], r10
     call helper_merge_sort_list
+
+    ; * Second local variable: Created left list.
     mov [rbp - 72], rax
 
-.create_second_list:
-    ; Create second list:
-    mov rcx, [rbp - 64]
-    imul rcx, [rbp - 32]
+.create_right_list:
+    ; To get the size needed for first list: length of right list * record length.
+    mov rcx, r15
+    imul rcx, r12
+
+    ; * Update first local variable: bytes of right list.
+    mov [rbp - 64], rcx
+
+    ; Get memory space.
     call malloc
 
+    ; Set up RDI as newly created memory space.
+    ; RSI is already at the perfect place from first move.
     mov rdi, rax
-    mov rsi, [rbp - 24]
-    mov rcx, [rbp - 56]
-    imul rcx, [rbp - 32]
-    add rsi, rcx
 
+    ; Use earlier calculated amount of bytes to know, how many bytes have to be copied into new list. 
     mov rcx, [rbp - 64]
-    imul rcx, [rbp - 32]
     cld
     rep movsb
 
+    ; Reset RDI to starting point.
     mov rcx, [rbp - 64]
-    imul rcx, [rbp - 32]
     sub rdi, rcx
-    mov [rbp - 80], rdi
 
+    ; Set up params for next recursion:
+    ; * RCX now holds the created right list as initial list.
+    ; * RDX holds the calculated length of right list.
+    ; * R8 is the length of each record.
+    ; * R9 will be the value offset.
+    ; * On the stack [rsp + 32] is the size of the compared value.
     mov rcx, rdi
-    mov rdx, [rbp - 64]
-    mov r8, [rbp - 32]
-    mov r9, [rbp - 40]
-    mov r10, [rbp - 48]
+    mov rdx, r15
+    mov r8, r12
+    mov r9, r13
+    mov r10, [rbp + 48]
     mov [rsp + 32], r10
     call helper_merge_sort_list
-    mov [rbp - 80], rax
+    ; Right list is in RAX now.
 
-    mov rcx, [rbp - 24]
+.merge:
+    ; Set up params for _merge.
+    mov rcx, rbx
     mov rdx, [rbp - 72]
-    mov r8, [rbp - 56]
-    mov r9, [rbp - 80]
-    mov r10, [rbp - 64]
-    mov [rsp + 32], r10
-    mov r10, [rbp - 32]
-    mov [rsp + 40], r10
-    mov r10, [rbp - 40]
-    mov [rsp + 48], r10
+    mov r8, r14
+    mov r9, rax
+    mov [rsp + 32], r15
+    mov [rsp + 40], r12
+    mov [rsp + 48], r13
     call _merge
+    ; Merged list is in RAX now and will be returned.
 
 .complete:
-    mov rsi, [rbp - 8]
+    ; Restore non-volatile regs.
+    mov r15, [rbp - 56]
+    mov r14, [rbp - 48]
+    mov r13, [rbp - 40]
+    mov r12, [rbp - 32]
+    mov rbx, [rbp - 24]
     mov rdi, [rbp - 16]
+    mov rsi, [rbp - 8]
 
+    ; Restore old stack frame and return to caller.
     mov rsp, rbp
     pop rbp
     ret
 
 .base_case:
+    ; Base case:
+    ; Initial list is the returned list.
     mov rax, rcx
+
+    ; Restore old stack frame and end recursion.
     mov rsp, rbp
-    jmp .complete
+    pop rbp
+    ret
 
 
 
@@ -518,35 +572,47 @@ _merge:
             inc r13
             jmp .merge_loop
 
-    .add_right_rest:
-        mov rcx, rbx
-        mov rax, r13
-        mul rcx
-        add r15, rax
-        .add_right_rest_loop:
-            mov rsi, r15
-            rep movsb
-            inc r13
-            cmp r13, [rbp + 48]
-            je .complete
-            mov rcx, rbx
-            add r15, rcx
-            jmp .add_right_rest_loop
-
     .add_left_rest:
+        ; Prepare pointer to the first record of rest.
         mov rcx, rbx
         mov rax, r12
         mul rcx
-        add r14, rax
+
         .add_left_rest_loop:
-            mov rsi, r14
+            ; Make RSI point to active record and transfer to RDI.
+            lea rsi, [r14 + rax]
             rep movsb
+
+            ; Increment counter and check, if length of right list is reached.
             inc r12
             cmp r12, [rbp + 32]
             je .complete
+
+            ; If not, reset RCX as copy counter and add it to RAX to get to next entry.
             mov rcx, rbx
-            add r14, rcx
+            add rax, rcx
             jmp .add_left_rest_loop
+
+    .add_right_rest:
+        ; Prepare pointer to the first record of rest.
+        mov rcx, rbx
+        mov rax, r13
+        mul rcx
+
+        .add_right_rest_loop:
+            ; Make RSI point to active record and transfer to RDI.
+            lea rsi, [r15 + rax]
+            rep movsb
+
+            ; Increment counter and check, if length of right list is reached.
+            inc r13
+            cmp r13, [rbp + 48]
+            je .complete
+
+            ; If not, reset RCX as copy counter and add it to RAX to get to next entry.
+            mov rcx, rbx
+            add rax, rcx
+            jmp .add_right_rest_loop
 
     .complete:
         ; Free the memory space of created sublists.
