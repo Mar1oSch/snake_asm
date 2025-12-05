@@ -247,6 +247,8 @@ helper_parse_string_to_int:
         ret
 
 ;;;;;; MERGE SORT ;;;;;;
+
+; TODO: Intersting to do here: Find a solution to modify list in place! That should be possible. :)
 helper_merge_sort_list:
     ; * Expect pointer to list in RCX.
     ; * Expect amount of list records in RDX.
