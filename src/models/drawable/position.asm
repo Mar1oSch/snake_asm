@@ -69,8 +69,10 @@ position_destroy:
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
-    .destroy_object:
-        call free
+    ; ? Also here I am sometimes running into a segfault. I need to find a way to check, if a pointer is still valid before calling free. 
+    ; ? But at the moment I can't really see, where I would pass an invalid pointer.
+    ; .destroy_object:
+    ;     call free
 
     .complete:
         ; Restore old stack frame and return from destructor.

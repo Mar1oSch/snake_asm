@@ -210,26 +210,26 @@ designer_write_headline:
     ; * Expect pointer to headline in RCX.
     ; * Expect length of headline in RDX.
     .set_up:
-            ; Set up the stack frame.
-            ; * 16 bytes local variables.
-            push rbp
-            mov rbp, rsp
-            sub rsp, 16
+        ; Set up the stack frame.
+        ; * 16 bytes local variables.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
 
-            ; If designer is not created yet, print a debug message.
-            cmp qword [rel lcl_designer_ptr], 0
-            je _ds_object_failed
+        ; If designer is not created yet, print a debug message.
+        cmp qword [rel lcl_designer_ptr], 0
+        je _ds_object_failed
 
-            ; Save non-volatile regs.
-            mov [rbp - 8], rbx
-            mov [rbp - 16], r12
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
 
-            ; Save params into non-volatile regs.
-            mov rbx, rcx
-            mov r12, rdx
+        ; Save params into non-volatile regs.
+        mov rbx, rcx
+        mov r12, rdx
 
-            ; Reserve 32 bytes shadow space for called functions.
-            sub rsp, 32
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
     .prepare_x:
         call console_manager_get_center_x_offset

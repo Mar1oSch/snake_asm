@@ -260,11 +260,11 @@ helper_merge_sort_list:
     mov [rbp - 8], rsi
     mov [rbp - 16], rdi
 
-    ; * Expectpointer to list in RCX.
-    ; * Expectamount of list records in RDX.
-    ; * Expectrecord length in R8.
-    ; * Expectoffset of value to compare in R9.
-    ; * Expectsize of compared value on stack [rbp + 48].
+    ; * Expect pointer to list in RCX.
+    ; * Expect amount of list records in RDX.
+    ; * Expect record length in R8.
+    ; * Expect offset of value to compare in R9.
+    ; * Expect size of compared value on stack [rbp + 48].
     mov [rbp - 24], rcx
     mov [rbp - 32], r8
     mov [rbp - 40], r9
@@ -408,150 +408,167 @@ _merge:
     ; * Expect length of right list on Stack [rbp + 48].
     ; * Expect record size on Stack [rbp + 56].
     ; * Expect offset of value on Stack [rbp + 64].
-.set_up:
-    ; Set up stack frame:
-    ; * 112 bytes local variables.
-    push rbp
-    mov rbp, rsp
-    sub rsp, 128
+    .set_up:
+        ; Set up stack frame:
+        ; * 64 bytes local variables.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 64
 
-    ; Save non-volatile regs.
-    mov [rbp - 8], rsi
-    mov [rbp - 16], rdi
-    mov [rbp - 24], rbx
-    mov [rbp - 32], r12
-    mov [rbp - 40], r13
-    mov [rbp - 48], r14
-    mov [rbp - 56], r15
+        ; Save non-volatile regs.
+        mov [rbp - 8], rsi
+        mov [rbp - 16], rdi
+        mov [rbp - 24], rbx
+        mov [rbp - 32], r12
+        mov [rbp - 40], r13
+        mov [rbp - 48], r14
+        mov [rbp - 56], r15
 
-    ; Save params into shadow space.
-    mov [rbp + 16], rcx
-    mov [rbp + 24], rdx
-    mov [rbp + 32], r8
-    mov [rbp + 40], r9
+        ; Save params into shadow space.
+        mov [rbp + 16], rcx
+        mov [rbp + 24], rdx
+        mov [rbp + 32], r8
+        mov [rbp + 40], r9
 
-    ; Reserve 32 bytes shadow space for called functions.
-    sub rsp, 32
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
-.set_up_loop_base:
-    xor r8, r8
-    mov [rbp - 88], r8
-    mov [rbp - 96], r8
+    .set_up_loop_base:
+        ; I am setting up the base for the update loop:
+        ; * - RDI will point to the targetlist, which will be filled during the merge process.
+        ; * - RSI will holt the pointer to the list part, which is written into RDI next.
+        ; * - RBX is the record size.
+        ; * - R12 is the index for the left list.
+        ; * - R13 is the index for the right list.
+        ; * - R14 is the pointer to the left list.
+        ; * - R15 is the pointer to the right list.
 
-    ; Save pointer to Targetlist in RDI.
-    mov rdi, rcx
-    ; Save record size into R15.
-    mov r15, [rbp + 56]
-    ; Save offset into RBX.
-    mov rbx, [rbp + 64]
+        ; Save pointer to Targetlist in RDI.
+        mov rdi, rcx
 
-    sub rsp, 32
-.merge_loop:
-    ; Save pointer to left list into R13.
-    mov r13, [rbp + 24]
-    ; Save pointer to right list into R14.
-    mov r14, [rbp + 40]
+        ; Save pointer to left list into R13.
+        mov r14, rdx
 
-    mov r8, [rbp - 88]
-    cmp r8, [rbp + 32]
-    je .add_right_rest
-    mov r8, [rbp - 96]
-    cmp r8, [rbp + 48]
-    je .add_left_rest
+        ; Save pointer to right list into R14.
+        mov r15, r9
 
-    ; Compare values of both lists:
-    xor rax, rax
-    xor rdx, rdx
-    .comparison_loop:
-        ; Left list:
-        mov r8, [rbp - 88]
-        mov r11, r8
-        imul r11, r15
-        add r11, rbx
-        add r13, r11
-        mov rcx, r13
-        call helper_parse_saved_to_int
-        mov [rbp - 104], rax
-        ; Right list:
-        mov r8, [rbp - 96]
-        mov r11, r8
-        imul r11, r15
-        add r11, rbx
-        add r14, r11
-        mov rcx, r14
-        call helper_parse_saved_to_int
-        cmp rax, [rbp - 104]
-        ja .right_bigger
-    .left_bigger:
-        mov rcx, r15
-        mov r11, [rbp - 88]
-        sub r13, rbx
-        mov rsi, r13
-        rep movsb
-        inc qword [rbp - 88]
-        jmp .merge_loop
-    .right_bigger:
-        mov rcx, r15
-        mov r11, [rbp - 96]
-        sub r14, rbx
-        mov rsi, r14
-        rep movsb
-        inc qword [rbp - 96]
-        jmp .merge_loop
+        ; Save record size into RBX.
+        mov rbx, [rbp + 56]
 
-.add_right_rest:
-    mov r11, [rbp - 96]
-    mov r14, [rbp + 40]
-    imul r11, r15
-    add r14, r11
-    .add_right_rest_loop:
-        mov rcx, r15
-        mov rsi, r14
-        rep movsb
-        inc qword [rbp - 96]
-        mov r11, [rbp - 96]
-        cmp r11, [rbp + 48]
-        je .complete
-        add r14, r15
-        jmp .add_right_rest_loop
+        ; Set loop counter to zero.
+        xor r12, r12
+        xor r13, r13
 
-.add_left_rest:
-    mov r11, [rbp - 88]
-    mov r13, [rbp + 24]
-    imul r11, r15
-    add r13, r11
-    .add_left_rest_loop:
-        mov rcx, r15
-        mov rsi, r13
-        rep movsb
-        inc qword [rbp - 88]
-        mov r11, [rbp - 88]
-        cmp r11, [rbp + 32]
-        je .complete
-        add r13, r15
-        jmp .add_left_rest_loop
+    .merge_loop:
+        ; Check if end of left list is reached. If yes, add the right rest to target.
+        cmp r12, [rbp + 32]
+        je .add_right_rest
 
-.complete:
-    mov rcx, [rbp + 24]
-    call free
-    mov rcx, [rbp + 40]
-    call free
+        ; Check if end of right list is reached. If yes, add the left rest to target.
+        cmp r13, [rbp + 48]
+        je .add_left_rest
 
-    mov rcx, [rbp + 32]
-    add rcx, [rbp + 48]
-    imul rcx, r15
-    sub rdi, rcx
-    mov rax, [rbp + 16]
+        ; Compare values of both lists:
+        .comparison_loop:
+            ; Get left value:
+            mov rax, r12
+            mul rbx
+            add rax, [rbp + 64]
+            lea rcx, [r14 + rax]
+            call helper_parse_saved_to_int
+            mov [rbp - 64], rax
 
-    ; Restore non-volatile regs.
-    mov r15, [rbp - 56]
-    mov r14, [rbp - 48]
-    mov r13, [rbp - 40]
-    mov r12, [rbp - 32]
-    mov rbx, [rbp - 24]
-    mov rdi, [rbp - 16]
-    mov rsi, [rbp - 8]
+            ; Get right value:
+            mov rax, r13
+            mul rbx
+            add rax, [rbp + 64]
+            lea rcx, [r15 + rax]
+            call helper_parse_saved_to_int
 
-    mov rsp, rbp
-    pop rbp
-    ret
+            ; Prepare record size for copying string.
+            mov rcx, rbx
+
+            ; Compare values. If RAX is bigger than RBX, right value is bigger.
+            cmp rax, [rbp - 64]
+            ja .right_bigger
+
+        .left_bigger:
+            ; Multiplicate left counter with record size.
+            mov rax, r12
+            mul rcx
+
+            ; Load pointer at [base address + counter * record size] and transfer record to target.
+            lea rsi, [r14 + rax]
+            rep movsb
+
+            ; Increment counter and loop again.
+            inc r12
+            jmp .merge_loop
+
+        .right_bigger:
+            ; Multiplicate right counter with record size.
+            mov rax, r13
+            mul rcx
+
+            ; Load pointer at [base address + counter * record size] and transfer record to target.
+            lea rsi, [r15 + rax]
+            rep movsb
+
+            ; Increment counter and loop again.
+            inc r13
+            jmp .merge_loop
+
+    .add_right_rest:
+        mov rcx, rbx
+        mov rax, r13
+        mul rcx
+        add r15, rax
+        .add_right_rest_loop:
+            mov rsi, r15
+            rep movsb
+            inc r13
+            cmp r13, [rbp + 48]
+            je .complete
+            mov rcx, rbx
+            add r15, rcx
+            jmp .add_right_rest_loop
+
+    .add_left_rest:
+        mov rcx, rbx
+        mov rax, r12
+        mul rcx
+        add r14, rax
+        .add_left_rest_loop:
+            mov rsi, r14
+            rep movsb
+            inc r12
+            cmp r12, [rbp + 32]
+            je .complete
+            mov rcx, rbx
+            add r14, rcx
+            jmp .add_left_rest_loop
+
+    .complete:
+        ; Free the memory space of created sublists.
+        mov rcx, [rbp + 24]
+        call free
+        mov rcx, [rbp + 40]
+        call free
+
+        ; Restore non-volatile regs.
+        mov r15, [rbp - 56]
+        mov r14, [rbp - 48]
+        mov r13, [rbp - 40]
+        mov r12, [rbp - 32]
+        mov rbx, [rbp - 24]
+        mov rdi, [rbp - 16]
+        mov rsi, [rbp - 8]
+
+        ; Return the merges list in RAX.
+        mov rax, [rbp + 16]
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+

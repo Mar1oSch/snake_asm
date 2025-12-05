@@ -859,6 +859,9 @@ _erase_snake_unit:
         mov rdx, 1
         call console_manager_clear_sequence
 
+        ; ! Draw food again, since it is possibly deleted at this point. (Should find a better solution for that.)
+        call _draw_food
+
     .complete:
         ; Restore non-volatile regs.
         mov rbx, [rbp - 8]
