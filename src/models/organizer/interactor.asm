@@ -770,9 +770,15 @@ _show_options_table:
 _handle_options:
     ; * Expect pointer to old options in RCX.
     .set_up:
+        ; Set up stack frame.
+        ; * 16 bytes local variables.
         push rbp
         mov rbp, rsp
-        sub rsp, 72
+        sub rsp, 16
+
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
         ; Save non-volatile regs.
         mov [rbp - 8], rbx
@@ -780,6 +786,9 @@ _handle_options:
 
         ; Make RBX point to old options object.
         mov rbx, rcx
+
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
     .options_loop:
         ; Clearing the screen.
