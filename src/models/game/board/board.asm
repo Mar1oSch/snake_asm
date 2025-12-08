@@ -1,5 +1,6 @@
 ; Constants:
 %include "./include/data/game/board/board_constants.inc"
+%include "./include/data/snake/snake_constants.inc"
 
 ; Strucs:
 %include "./include/strucs/interface_table_struc.inc"
@@ -13,7 +14,7 @@
 ; Active in case of drawing the content: Drawing food, creating new food and position it inside the board, drawing the snake.
 ; Passive in that way, that it is getting told by the game, when it should draw the snake, when it should create new food, when the old food gets destroyed and so on.
 
-global board_new, board_setup, board_move_snake, board_create_new_food, board_draw_food, board_reset, get_board_x_offset, get_board_y_offset
+global board_methods_vtable, board_getter_vtable, board_new
 
 section .rodata
     fence_char db "#"
@@ -40,13 +41,25 @@ section .text
     extern Sleep
     extern GetSystemTimeAsFileTime
 
-    extern snake_new, snake_update, snake_reset
+    extern snake_new
     extern console_manager_write_char,  console_manager_clear_all, console_manager_clear_sequence, console_manager_repeat_char, console_manager_get_center_y_offset, console_manager_get_center_x_offset
     extern food_new, food_destroy
 
     extern DRAWABLE_VTABLE_X_POSITION_OFFSET, DRAWABLE_VTABLE_Y_POSITION_OFFSET, DRAWABLE_VTABLE_CHAR_PTR_OFFSET
 
     extern malloc_failed, object_not_created
+
+;;;;;; VTABLES ;;;;;;
+board_methods_vtable:
+    dq board_setup
+    dq board_move_snake
+    dq board_create_new_food
+    dq board_draw_food
+    dq board_reset
+
+board_getter_vtable:
+    dq get_board_x_offset
+    dq get_board_y_offset
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 
@@ -78,6 +91,8 @@ board_new:
 
     .create_object:
         ; Creating the board, containing space for:
+        ; * - Methods vtable pointer. (8 bytes)
+        ; * - Getter vtable pointer. (8 bytes)
         ; * - Snake pointer. (8 bytes)
         ; * - Food pointer. (8 bytes)
         ; * - Console manager pointer. (8 bytes)
@@ -101,6 +116,14 @@ board_new:
         ; Use the second parameter and save the console manager pointer into the preserved memory space.
         mov rcx, [rbp + 24]
         mov [rbx + board.console_manager_ptr], rcx
+
+        ; Move pointer to methods vtable into its preserved memory space.
+        lea rcx, [rel board_methods_vtable]
+        mov [rbx + board.methods_vtable_ptr], rcx
+
+        ; Move pointer to getter vtable into ints preserved memory space.
+        lea rcx, [rel board_getter_vtable]
+        mov [rbx + board.getter_vtable_ptr], rcx
 
         ; Use the first parameter to define size of created board.
         mov ecx, [rbp + 16]
@@ -223,8 +246,12 @@ board_reset:
         ; At first: Get the pointer of the food still existing and destroy it.
         mov rcx, [rbx + board.food_ptr]
         call food_destroy
+
         ; Then: Make the snake destroy all its constituting objects.
-        call snake_reset
+        mov r10, [rbx + board.snake_ptr]
+        mov r10, [r10 + snake.methods_vtable_ptr]
+        call [r10 + SNAKE_METHODS_VTABLE_RESET_OFFSET]
+
         ; Finally destroy the board itself.
         call _board_destroy
 

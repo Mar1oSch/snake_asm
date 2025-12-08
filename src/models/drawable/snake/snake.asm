@@ -15,7 +15,7 @@
 ; The snake as whole has no direction, since every unit has it's own direction. I am passing down the direction each update through the units in the list. 
 ; The length of the snake is then used to check, if the player finished the game: If length of snake = board.width * board.height, player gets 100 bonus points.
 
-global snake_new, snake_add_unit, snake_update,  snake_reset
+global snake_new
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
@@ -36,6 +36,11 @@ section .text
     extern unit_new, unit_update, unit_destroy
 
     extern malloc_failed, object_not_created
+
+;;;;;; METHODS VTABLE ;;;;;;
+snake_methods_vtable:
+    dq snake_reset
+    dq snake_add_unit
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 
@@ -79,6 +84,7 @@ snake_new:
 
     .create_object:
         ; Creating the snake itself, containing space for:
+        ; * - Methods vtable pointer. (8 bytes)
         ; * - Length of snake. (8 bytes)
         ; * - A pointer to the head unit. (8 bytes)
         ; * - A pointer to the tail unit. (8 bytes)
@@ -99,6 +105,10 @@ snake_new:
         ; Save it as head and tail now, since the unit just created is the first of the snake.
         mov [rax + snake.head_ptr], rcx
         mov [rax + snake.tail_ptr], rcx
+
+        ; Save vtable into its preserved memory space.
+        lea rcx, [rel snake_methods_vtable]
+        mov [rax + snake.methods_vtable_ptr], rcx
 
         ; Initial snake length is one.
         mov qword [rax + snake.length], 1
