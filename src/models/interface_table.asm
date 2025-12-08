@@ -28,6 +28,9 @@ interface_table_new:
     ; Save params into shadow space.
     mov [rbp + 16], rcx
 
+    ; Reserve 32 bytes shadow space for called functions.
+    sub rsp, 32
+
 .create_object:
     ; Creating the interface_table, containing space for:
     ; * - DRAWABLE interface pointer (8 bytes).
