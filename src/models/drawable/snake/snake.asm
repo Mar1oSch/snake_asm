@@ -1,5 +1,6 @@
 ; Constants:
 %include "./include/data/snake/snake_constants.inc"
+%include "./include/data/snake/unit/unit_constants.inc"
 
 ; Strucs:
 %include "./include/strucs/interface_table_struc.inc"
@@ -33,11 +34,11 @@ section .bss
 section .text
     extern malloc, free
 
-    extern unit_new, unit_update, unit_destroy
+    extern unit_new
 
     extern malloc_failed, object_not_created
 
-;;;;;; METHODS VTABLE ;;;;;;
+;;;;;; VTABLES ;;;;;;
 snake_methods_vtable:
     dq snake_reset
     dq snake_add_unit
@@ -175,17 +176,15 @@ snake_reset:
     .loop:
         ; Destroy unit by unit.
         mov rcx, rbx
-        mov r8, [rbx + unit.next_unit_ptr]
-        mov [rbp - 24], r8
-        call unit_destroy
+        mov rbx, [rbx + unit.next_unit_ptr]
+        mov r10, [rcx + unit.methods_vtable_ptr]
+        call [r10 + UNIT_METHODS_VTABLE_DESTRUCTOR_OFFSET]
 
     .loop_handle:
         ; Check if unit is tail. If it is, the process is done.
         cmp rbx, [rbp - 16]
         je .complete
 
-        ; Use next unit and repeat.
-        mov rbx, [rbp - 24]
         jmp .loop
 
     .complete:

@@ -4,7 +4,6 @@ nasm -f win64 -g .\tests\debugging\object_not_created\object_not_created.asm -o 
 nasm -f win64 -g .\src\models\drawable\food\food.asm -o .\src\models\drawable\food\food.obj
 nasm -f win64 -g .\src\models\drawable\snake\unit\unit.asm -o .\src\models\drawable\snake\unit\unit.obj
 nasm -f win64 -g .\src\models\drawable\snake\snake.asm -o .\src\models\drawable\snake\snake.obj
-nasm -f win64 -g .\src\models\drawable\drawable_vtable.asm -o .\src\models\drawable\drawable_vtable.obj
 nasm -f win64 -g .\src\models\drawable\position.asm -o .\src\models\drawable\position.obj
 nasm -f win64 -g .\src\models\game\board\board.asm -o .\src\models\game\board\board.obj
 nasm -f win64 -g .\src\models\game\player\player.asm -o .\src\models\game\player\player.obj
@@ -16,4 +15,4 @@ nasm -f win64 -g .\src\models\organizer\designer.asm -o .\src\models\organizer\d
 nasm -f win64 -g .\src\models\organizer\interactor.asm -o .\src\models\organizer\interactor.obj
 nasm -f win64 -g .\src\models\organizer\helper.asm -o .\src\models\organizer\helper.obj
 nasm -f win64 -g .\src\models\interface_table.asm -o .\src\models\interface_table.obj
-nasm -f win64 -g .\src\models\organizer\table\table_manager.asm -o .\src\models\organizer\table\table_manager.obj
+nasm -f win64 -g .\src\models\organizer\table\table.asm -o .\src\models\organizer\table\table.obj

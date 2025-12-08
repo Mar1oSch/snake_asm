@@ -1,5 +1,6 @@
 ; Constants:
-%include "./include/data/organizer/file_manager/file_manager_constants.inc"
+%include "./include/data/organizer/file_manager_constants.inc"
+%include "./include/data/organizer/table/table_constants.inc"
 
 ; Strucs:
 %include "./include/strucs/organizer/file_manager_struc.inc"
@@ -51,7 +52,7 @@ section .text
     extern ReadFile, WriteFile
     extern GetFileSizeEx, SetFilePointerEx
 
-    extern table_manager_create_table, table_manager_add_column, table_manager_add_content, table_manager_destroy_table
+    extern table_new
     extern helper_merge_sort_list
 
     extern malloc_failed, object_not_created
@@ -75,6 +76,7 @@ file_manager_new:
 
     .create_object:
         ; Creating the file_manager, containing space for:
+        ; * - Table pointer. (8 bytes)
         ; * - File handle. (8 bytes)
         mov rcx, file_manager_size
         call malloc
@@ -96,9 +98,17 @@ file_manager_new:
         mov dword [rsp + 40], FILE_ATTRIBUTE_NORMAL         ; dwFlagsAndAttributes
         mov dword [rsp + 48], 0                             ; hTemplateFile (optional)
         call CreateFileA
+        ; * First local variable: File handle.
+        mov [rbp - 8], rax
+
+    .create_dependend_objects:
+        call file_manager_create_table_from_file
 
     .set_up_object:
         mov rcx, [rel lcl_file_manager_ptr]
+        mov [rcx + file_manager.table_ptr], rax
+
+        mov rax, [rbp - 8]
         mov [rcx + file_manager.file_handle], rax
 
     .complete:
@@ -149,6 +159,10 @@ file_manager_create_table_from_file:
         cmp qword [rel lcl_file_manager_ptr], 0
         je _fm_object_failed
 
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
+
         ; Reserve 32 bytes shadow space for called functions. 
         sub rsp, 32
     
@@ -166,34 +180,41 @@ file_manager_create_table_from_file:
         mov rcx, rax
         call _get_all_records
         ; * First local variable: String containing all records.
-        mov [rbp - 8], rax
+        mov r12, rax
 
     .get_rows:
         call file_manager_get_num_of_entries
 
     .create_object:
         mov rcx, rax
-        call table_manager_create_table
+        call table_new
         ; * Second local variable: Pointer to created table.
-        mov [rbp - 16], rax
+        mov rbx, rax
 
     .add_first_column:
         mov ecx, FILE_NAME_SIZE
         xor rdx, rdx
-        call table_manager_add_column
+        mov r10, [rbx + table.methods_vtable_ptr]
+        call [r10 + TABLE_METHODS_VTABLE_ADD_COLUMN_OFFSET]
 
     .add_second_column:
         mov ecx, FILE_HIGHSCORE_SIZE
         mov edx, 1
-        call table_manager_add_column
+        mov r10, [rbx + table.methods_vtable_ptr]
+        call [r10 + TABLE_METHODS_VTABLE_ADD_COLUMN_OFFSET]
 
     .add_content:
-        mov rcx, [rbp - 8]
-        call table_manager_add_content
+        mov rcx, r12
+        mov r10, [rbx + table.methods_vtable_ptr]
+        call [r10 + TABLE_METHODS_VTABLE_ADD_CONTENT_OFFSET]
 
     .complete:
         ; Return pointer to table in RAX.
-        mov rax, [rbp - 16]
+        mov rax, rbx
+
+        ; Restore non-volatile regs.
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
 
         ; Restore old stack frame and return to caller.
         mov rsp, rbp
@@ -215,7 +236,10 @@ file_manager_destroy_table_from_file:
         sub rsp, 32
 
     .destroy_object:
-        call table_manager_destroy_table
+        mov rcx, [rel lcl_file_manager_ptr]
+        mov rcx, [rcx + file_manager.table_ptr]
+        mov r10, [rcx + table.methods_vtable_ptr]
+        call [r10 + TABLE_METHODS_VTABLE_DESTRUCTOR_OFFSET]
 
     .complete:
         ; Restore old stack frame and return to caller.
@@ -313,7 +337,6 @@ file_manager_update_highscore:
 
 ; Updating the table with new leaderboard entries.
 file_manager_update_table:
-    ; * Expect pointer to table in RCX.
     .set_up:
         ; Set up stack frame:
         ; * 16 bytes local variables.
@@ -321,16 +344,17 @@ file_manager_update_table:
         mov rbp, rsp
         sub rsp, 16
 
+        ; If file_manager is not created, let the user know.
+        cmp qword [rel lcl_file_manager_ptr], 0
+        je _fm_object_failed
+
         ; Save non-volatile regs.
         mov [rbp - 8], rbx
         mov [rbp - 16], r12
 
         ; Save pointer to table in RBX.
-        mov rbx, rcx
-
-        ; If file_manager is not created, let the user know.
-        cmp qword [rel lcl_file_manager_ptr], 0
-        je _fm_object_failed
+        mov rbx, [rel lcl_file_manager_ptr]
+        mov rbx, [rbx + file_manager.table_ptr]
 
         ; Reserve 32 bytes shadow space for called functions. 
         sub rsp, 32

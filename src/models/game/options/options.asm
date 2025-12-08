@@ -5,7 +5,7 @@
 ; It defines the player and the level of the game.
 ; I decided to work with an options object, because it made 
 
-global options_new, options_destroy
+global options_new
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
@@ -17,6 +17,9 @@ section .text
     extern malloc_failed
 
 
+;;;;;; VTABLES ;;;;;;
+options_methods_vtable:
+    dq options_destroy
 
 
 ;;;;;; PUBLIC METHODS ;;;;;;
@@ -43,6 +46,7 @@ options_new:
 
     .create_object:
         ; Creating the options, containing space for:
+        ; * - Methods vtable pointer. (8 bytes)
         ; * - Player pointer. (8 bytes)
         ; * - Lvl. (2 bytes)
         mov rcx, options_size
@@ -56,6 +60,10 @@ options_new:
         mov [rbp - 8], rax
 
     .set_up_object:
+        ; Save the pointer to the methods vtable into its preserved memory space.
+        lea rcx, [rel options_methods_vtable]
+        mov [rax + options.methods_vtable_ptr], rcx
+
         ; Use the first parameter and save it into reserved space for player pointer.
         mov rcx, [rbp + 16]
         mov [rax + options.player_ptr], rcx

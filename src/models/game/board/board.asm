@@ -1,6 +1,8 @@
 ; Constants:
 %include "./include/data/game/board/board_constants.inc"
+%include "./include/data/drawable_vtable/drawable_vtable_constants.inc"
 %include "./include/data/snake/snake_constants.inc"
+%include "./include/data/food/food_constants.inc"
 
 ; Strucs:
 %include "./include/strucs/interface_table_struc.inc"
@@ -14,7 +16,7 @@
 ; Active in case of drawing the content: Drawing food, creating new food and position it inside the board, drawing the snake.
 ; Passive in that way, that it is getting told by the game, when it should draw the snake, when it should create new food, when the old food gets destroyed and so on.
 
-global board_methods_vtable, board_getter_vtable, board_new
+global board_new
 
 section .rodata
     fence_char db "#"
@@ -43,9 +45,7 @@ section .text
 
     extern snake_new
     extern console_manager_write_char,  console_manager_clear_all, console_manager_clear_sequence, console_manager_repeat_char, console_manager_get_center_y_offset, console_manager_get_center_x_offset
-    extern food_new, food_destroy
-
-    extern DRAWABLE_VTABLE_X_POSITION_OFFSET, DRAWABLE_VTABLE_Y_POSITION_OFFSET, DRAWABLE_VTABLE_CHAR_PTR_OFFSET
+    extern food_new
 
     extern malloc_failed, object_not_created
 
@@ -245,7 +245,8 @@ board_reset:
     .destroy_old_objects:
         ; At first: Get the pointer of the food still existing and destroy it.
         mov rcx, [rbx + board.food_ptr]
-        call food_destroy
+        mov r10, [rcx + food.methods_vtable_ptr]
+        call [r10 + FOOD_METHODS_VTABLE_DESTRUCTOR_OFFSET]
 
         ; Then: Make the snake destroy all its constituting objects.
         mov r10, [rbx + board.snake_ptr]
@@ -262,6 +263,9 @@ board_reset:
         call board_new
 
     .complete:
+        ; Restore non-volatile regs.
+        mov rbx, [rbp - 8]
+
         ; Return pointer to the new board in RAX.
         ; Restore old stack frame and return to caller.
         mov rsp, rbp
@@ -322,7 +326,8 @@ board_create_new_food:
     .destroy_old_food:
         ; On the surface, the old food is consumed and erased. But the memory space is still reserved for it. Since the program won't ever use it again, it is now time to set it free. Therefore I load the pointer to the old food object, which is still saved in the board struc, into RCX and let it get set free.
         mov rcx, [rbx + board.food_ptr]
-        call food_destroy
+        mov r10, [rcx + food.methods_vtable_ptr]
+        call [r10 + FOOD_METHODS_VTABLE_DESTRUCTOR_OFFSET]
 
     .randomize_new_position_loop:
         ; Here a position object with randomized X- and Y-coordinates is created.

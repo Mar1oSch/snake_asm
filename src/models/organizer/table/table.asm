@@ -13,17 +13,17 @@
 ;   - column_format: Defines the structure for each column, including the length of entries and the type of entries.
 
 ; Global Functions:
-;   - table_manager_create_table: Creates a new table, allocating memory for the table structure and setting the row count.
-;   - table_manager_destroy_table: Frees memory allocated for a table.
-;   - table_manager_add_content: Adds a pointer to content (e.g., data) to a table.
-;   - table_manager_add_column: Adds a new column to the table, either by allocating new memory for column formats or reallocating 
+;   - table_new: Creates a new table, allocating memory for the table structure and setting the row count.
+;   - table_destroy: Frees memory allocated for a table.
+;   - table_add_content: Adds a pointer to content (e.g., data) to a table.
+;   - table_add_column: Adds a new column to the table, either by allocating new memory for column formats or reallocating 
 ;     existing memory to accommodate new columns.
 
 ; Table and column format structures are included from external files:
 ;   - table_struc.inc: Defines the table structure, including row count, column count, content pointer, and column format pointer.
 ;   - column_format_struc.inc: Defines the column format structure, including entry length and entry type.
 
-global table_manager_create_table, table_manager_destroy_table, table_manager_add_column, table_manager_add_content
+global table_new
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
@@ -47,9 +47,15 @@ section .text
 
     extern malloc_failed, object_not_created
 
+;;;;;; VTABLES ;;;;;;
+table_methods_vtable:
+    dq table_add_content
+    dq table_add_column
+    dq table_destroy
+
 ;;;;;; PUBLIC METHODS ;;;;;;
 
-table_manager_create_table:
+table_new:
     ; * Expect amount of rows in ECX.
     .set_up:
         ; Set up stack frame without local variables.
@@ -63,7 +69,8 @@ table_manager_create_table:
         sub rsp, 32
 
     .create_object:
-        ; Creating the snake itself, containing space for:
+        ; Creating the table, containing space for:
+        ; * - Methods vtable pointer. (8 bytes)
         ; * - Content pointer. (8 bytes)
         ; * - Column format pointer. (8 bytes)
         ; * - Column count. (4 bytes)
@@ -79,6 +86,10 @@ table_manager_create_table:
         mov [rel lcl_table_ptr], rax
 
     .set_up_object:
+        ; Save methods vtable into its preserved memory space.
+        lea rcx, [rel table_methods_vtable]
+        mov [rax + table.methods_vtable_ptr], rcx
+
         ; Add the row count passed in ECX.
         mov ecx, [rbp + 16]
         mov [rax + table.row_count], ecx
@@ -92,7 +103,7 @@ table_manager_create_table:
         pop rbp
         ret
 
-table_manager_destroy_table:
+table_destroy:
     .set_up:
         ; Set up stack frame without local variables.
         push rbp
@@ -117,7 +128,7 @@ table_manager_destroy_table:
         pop rbp
         ret
 
-table_manager_add_content:
+table_add_content:
     ; * Expect pointer to content in RCX.
     .set_up:
         ; Set up stack frame without local variables.
@@ -138,7 +149,7 @@ table_manager_add_content:
         pop rbp
         ret
 
-table_manager_add_column:
+table_add_column:
     ; * Expect length of entries in column in ECX.
     ; * Expect type of entries in column in EDX.
     .set_up:

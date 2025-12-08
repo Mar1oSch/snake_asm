@@ -4,6 +4,7 @@
 ; Constants:
 %include "./include/data/snake/snake_constants.inc"
 %include "./include/data/game/board/board_constants.inc"
+%include "./include/data/game/player/player_constants.inc"
 
 ; Strucs:
 %include "./include/strucs/organizer/interactor_struc.inc"
@@ -22,7 +23,7 @@
 ; It has options, how it handles the player and the level.
 ; And it has points. Each game ,the player reaches some points. At the end, the game compares the highscore of the current player with the points of that round. If this round the player reached more points than the acutal highscore, the points are the new highscore.
 
-global game_new, game_destroy, game_start, game_reset
+global game_new
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
@@ -52,13 +53,18 @@ section .text
     extern printf
 
     extern board_new
-    extern player_update_highscore, get_player_name_length
     extern console_manager_write_word, console_manager_write_number
     extern file_manager_update_highscore, file_manager_get_name
     extern designer_type_sequence
     extern helper_change_position
 
     extern malloc_failed, object_not_created
+
+
+;;;;;; VTABLES ;;;;;;
+game_methods_vtable:
+    dq game_start
+    dq game_reset
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 
@@ -96,6 +102,7 @@ game_new:
 
     .create_object:
         ; Creating the game itself, containing space for:
+        ; * - Methods vtable pointer. (8 bytes)
         ; * - Options pointer. (8 bytes)
         ; * - Board pointer. (8 bytes)
         ; * - Points. (4 bytes)
@@ -111,6 +118,10 @@ game_new:
         mov [rel lcl_game_ptr], rax
 
     .set_up_object:
+        ; Save methods vtable into its preserved memory space.
+        lea rcx, [rel game_methods_vtable]
+        mov [rax + game.methods_vtable_ptr], rcx
+
         ; Save board pointer into reserved space.
         mov rcx, [rbp - 8]
         mov [rax + game.board_ptr], rcx
@@ -127,32 +138,6 @@ game_new:
         mov rax, qword [rel lcl_game_ptr]
 
         ; Restore the old stack frame and leave the constructor.
-        mov rsp, rbp
-        pop rbp
-        ret
-
-; Simple destructor to free memory space.
-game_destroy:
-    .set_up:
-        ; Set up stack frame without local variables.
-        push rbp
-        mov rbp, rsp
-
-        ; If game is not created, let the user know.
-        cmp qword [rel lcl_game_ptr], 0
-        je _g_object_failed
-
-        ; Reserve 32 bytes shadow space for called functions. 
-        sub rsp, 32
-
-    .destroy_object:
-        ; Use the local lcl_game_ptr to free the memory space and set it back to 0.
-        mov rcx, [rel lcl_game_ptr]
-        call free
-        mov qword [rel lcl_game_ptr], 0
-
-    .complete:
-        ; Restore old stack frame and leave destructor.
         mov rsp, rbp
         pop rbp
         ret
@@ -230,6 +215,32 @@ game_reset:
 
 
 ;;;;;; PRIVATE METHODS ;;;;;;
+
+; Simple destructor to free memory space.
+_game_destroy:
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
+
+        ; If game is not created, let the user know.
+        cmp qword [rel lcl_game_ptr], 0
+        je _g_object_failed
+
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
+
+    .destroy_object:
+        ; Use the local lcl_game_ptr to free the memory space and set it back to 0.
+        mov rcx, [rel lcl_game_ptr]
+        call free
+        mov qword [rel lcl_game_ptr], 0
+
+    .complete:
+        ; Restore old stack frame and leave destructor.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 ; Another wrapper function, which is demanding the board to setup and then builds the scoreboard.
 _game_setup:
@@ -912,8 +923,11 @@ _print_player:
 
     ; Find out, how many bytes have to been written.
     .get_name_length:
-        call get_player_name_length
-        ; Prepare 3 parameter for write function. (Amount of bytes to write)
+        mov r10, [rbx + game.options_ptr]
+        mov r10, [r10 + options.player_ptr]
+        mov r10, [r10 + player.getter_vtable_ptr]
+        call [r10 + PLAYER_GETTER_VTABLE_NAME_LENGTH_OFFSET]
+        ; Prepare third parameter for write function. (Amount of bytes to write)
         mov r8, rax
 
     .write_name:
@@ -1216,7 +1230,8 @@ _update_highscore:
         jbe .complete
 
     .update_highscore:
-        call player_update_highscore
+        mov r10, [rbx + player.methods_vtable_ptr]
+        call [r10 + PLAYER_METHODS_VTABLE_UPDATE_HIGHSCORE_OFFSET]
 
         mov rcx, [rbx + player.name]
         call file_manager_get_name

@@ -1,5 +1,6 @@
 ; Constants:
 %include "./include/data/snake/unit/unit_constants.inc"
+%include "./include/data/position_constants.inc"
 
 ; Strucs:
 %include "./include/strucs/interface_table_struc.inc"
@@ -12,9 +13,7 @@
 ; Because it is moving (in difference to food), it needs to know the direction it is moving.
 ; Since it also is a drawable object, it gets told, where on the board it is positioned at the moment.
 
-global unit_new, unit_destroy, unit_get_char_ptr, unit_get_x_position, unit_get_y_position
-
-
+global unit_new
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
@@ -23,11 +22,20 @@ section .rodata
 section .text
     extern malloc, free
 
-    extern position_new, position_destroy
+    extern position_new
     extern interface_table_new, interface_table_destroy
-    extern drawable_vtable_unit
 
     extern malloc_failed
+
+
+;;;;;; VTABLES ;;;;;;
+unit_methods_vtable:
+    dq unit_destroy
+
+unit_drawable_vtable:
+    dq unit_get_char_ptr
+    dq unit_get_x_position
+    dq unit_get_y_position
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 
@@ -66,7 +74,7 @@ unit_new:
 
         ; Creating the interface table.
         ; The unit is a drawable.
-        lea rcx, [rel drawable_vtable_unit]
+        lea rcx, [rel unit_drawable_vtable]
         call interface_table_new
         ; Second local variable:
         ; * Interface table pointer.
@@ -82,6 +90,7 @@ unit_new:
 
     .create_object:
         ; Creating the unit itself, containing space for:
+        ; * - A pointer to the methods vtable. (8 bytes)
         ; * - A pointer to the position object created earlier. (8 bytes)
         ; * - A pointer to the interface table object created earlier. (8 bytes)
         ; * - A pointer to the next unit in the list. (Singly linked list) (8 bytes)
@@ -96,13 +105,17 @@ unit_new:
         jz _u_malloc_failed
 
     .set_up_object:
+        ; Save pointer to methods vtable into its preserved memory space.
+        lea rcx, [rel unit_methods_vtable]
+        mov [rax + unit.methods_vtable_ptr], rcx
+
         ; Getting pointer to interface table into RCX and move it into the reserved memory space of created food object.
         mov rcx, [rbp - 16]
-        mov qword [rax + unit.interface_table_ptr], rcx
+        mov [rax + unit.interface_table_ptr], rcx
 
         ; Same as above with position pointer.
         mov rcx, [rbp - 8]
-        mov qword [rax + unit.position_ptr], rcx
+        mov [rax + unit.position_ptr], rcx
         
         ; Save the direction into its preserved space.
         mov cl, [rbp + 16]
@@ -139,7 +152,8 @@ unit_destroy:
     .destroy_dependend_objects:
         ; Free memory space of linked position object.
         mov rcx, [rcx + unit.position_ptr]
-        call position_destroy
+        mov r10, [rcx + position.methods_vtable_ptr]
+        call [r10 + POSITION_METHODS_VTABLE_DESTRUCTOR_OFFSET]
 
         ; Free memory space of linked interface table object.
         mov rcx, [rbp + 16]

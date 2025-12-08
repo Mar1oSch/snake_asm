@@ -1,5 +1,5 @@
 ; Constants:
-%include "./include/data/organizer/console_manager/console_manager_constants.inc"
+%include "./include/data/organizer/console_manager_constants.inc"
 
 ; Strucs:
 %include "./include/strucs/organizer/console_manager_struc.inc"

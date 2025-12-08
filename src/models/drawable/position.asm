@@ -4,7 +4,7 @@
 ; The position object each drawable holds. 
 ; It defines the X-coordinate and Y-coordinate of the drawable.
 
-global position_new, position_destroy
+global position_new
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
@@ -14,6 +14,10 @@ section .text
     extern malloc, free
 
     extern malloc_failed
+
+;;;;;; VTABLES ;;;;;;
+position_methods_vtable:
+    dq position_destroy
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 
@@ -45,6 +49,10 @@ position_new:
         jz _pos_malloc_failed
 
     .set_up_object:
+        ; Save the methods vtable pointer into its preserved memory space.
+        lea rcx, [rel position_methods_vtable]
+        mov [rax + position.methods_vtable_ptr], rcx
+
         ; Load the X- and Y-coordinates from the shadow space.
         mov ecx, [rbp + 16]
         ; Save them into the X- and Y-fields of the object.

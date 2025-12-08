@@ -1,8 +1,11 @@
 ; Constants:
-%include "./include/data/organizer/interactor/interactor_constants.inc"
+%include "./include/data/organizer/interactor_constants.inc"
+%include "./include/data/game/game_constants.inc"
+%include "./include/data/game/player/player_constants.inc"
+%include "./include/data/game/options/options_constants.inc"
 
 ; Data:
-%include "./include/data/organizer/interactor/interactor_strings.inc"
+%include "./include/data/organizer/interactor_strings.inc"
 
 ; Strucs:
 %include "./include/strucs/organizer/interactor_struc.inc"
@@ -45,11 +48,11 @@ section .text
 
     extern console_manager_get_literal_input, console_manager_get_numeral_input, console_manager_clear_all, console_manager_set_console_cursor_info
     extern designer_new, designer_start_screen, designer_type_sequence, designer_write_table, designer_write_headline
-    extern game_new, game_start, game_reset
+    extern game_new
     extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_get_name, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_update_table
-    extern player_new, player_destroy
+    extern player_new
     extern helper_get_digits_of_number, helper_get_digits_in_string, helper_parse_saved_to_int
-    extern options_new, options_destroy
+    extern options_new
 
     extern malloc_failed, object_not_created
 
@@ -100,9 +103,6 @@ interactor_new:
 
         call file_manager_new
         mov [rbx + interactor.file_manager_ptr], rax
-
-        call file_manager_create_table_from_file
-        mov [rbx + interactor.table_ptr], rax
 
     .complete:
         ; Restore non-volatile regs.
@@ -261,7 +261,10 @@ interactor_start_game:
         xor ecx, ecx
         call console_manager_set_console_cursor_info
 
-        call game_start
+        mov r10, [rel lcl_interactor_ptr]
+        mov r10, [r10 + interactor.game_ptr]
+        mov r10, [r10 + game.methods_vtable_ptr]
+        call [r10 + GAME_METHODS_VTABLE_START_OFFSET]
 
     .complete:
         ; Restore old stack frame and return to caller.
@@ -283,6 +286,13 @@ interactor_replay_game:
         cmp qword [rel lcl_interactor_ptr], 0
         je _i_object_failed
 
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+
+        ; Make RBX to game pointer.
+        mov rbx, [rel lcl_interactor_ptr]
+        mov rbx, [rbx + interactor.game_ptr]
+
         ; Reserve 32 bytes shadow space for called functions. 
         sub rsp, 32
 
@@ -292,9 +302,7 @@ interactor_replay_game:
         call console_manager_set_console_cursor_info
 
         ; Change options.
-        mov rcx, [rel lcl_interactor_ptr]
-        mov rcx, [rcx + interactor.game_ptr]
-        mov rcx, [rcx + game.options_ptr]
+        mov rcx, [rbx + game.options_ptr]
         call _handle_options
 
         ; If user chooses to exit game, break loop.
@@ -302,22 +310,30 @@ interactor_replay_game:
         jz .complete
 
         ; * First local variables: Option pointer.
-        mov [rbp - 8], rax
+        mov [rbp - 16], rax
 
         ; Make cursor invisible.
         xor ecx, ecx
         call console_manager_set_console_cursor_info
 
         ; Reset game with new options.
-        mov rcx, [rbp - 8]
-        call game_reset
+        mov rcx, [rbp - 16]
 
+    .reset_game:
+        ; Make RBX point to the game methods vtable.
+        mov rbx, [rbx + game.methods_vtable_ptr]
+        call [rbx + GAME_METHODS_VTABLE_RESET_OFFSET]
+
+    .start_game:
         ; Start game.
-        call game_start
+        call [rbx + GAME_METHODS_VTABLE_START_OFFSET]
 
         jmp .restart_loop
 
     .complete:
+        ; Restore non-volatile regs.
+        mov rbx, [rbp - 8]
+
         ; Restore old stack frame and return to caller.
         mov rsp, rbp
         pop rbp
@@ -416,7 +432,12 @@ _change_player:
         sub rsp, 32
     
     .destroy_old_player:
-        call player_destroy
+        mov r10, [rel lcl_interactor_ptr]
+        mov r10, [r10 + interactor.game_ptr]
+        mov r10, [r10 + game.options_ptr]
+        mov r10, [r10 + options.player_ptr]
+        mov r10, [r10 + player.methods_vtable_ptr]
+        call [r10 + PLAYER_METHODS_VTABLE_DESTRUCTOR_OFFSET]
 
     .clear_screen:
         call console_manager_clear_all
@@ -568,8 +589,6 @@ _show_leaderboard:
         sub rsp, 32
 
     .update_leaderboard:
-        mov rcx, [rel lcl_interactor_ptr]
-        mov rcx, [rcx + interactor.table_ptr]
         call file_manager_update_table
 
     .write_leaderboard:
@@ -838,7 +857,8 @@ _handle_options:
 
         ; Destroying the old options object.
         mov rcx, rbx
-        call options_destroy
+        mov r10, [rcx + options.methods_vtable_ptr]
+        call [r10 + OPTIONS_METHODS_VTABLE_DESTRUCTOR_OFFSET]
 
         ; Returning the new options object in RAX.
         mov rax, r12
@@ -858,7 +878,8 @@ _handle_options:
 
         ; Destroying the old options object.
         mov rcx, rbx
-        call options_destroy
+        mov r10, [rcx + options.methods_vtable_ptr]
+        call [r10 + OPTIONS_METHODS_VTABLE_DESTRUCTOR_OFFSET]
 
         ; Returning the new options object in RAX.
         mov rax, r12
@@ -883,7 +904,8 @@ _handle_options:
 
         ; Destroy old options object.
         mov rcx, rbx
-        call options_destroy
+        mov r10, [rcx + options.methods_vtable_ptr]
+        call [r10 + OPTIONS_METHODS_VTABLE_DESTRUCTOR_OFFSET]
 
         ; Return new options object in RAX.
         mov rax, r12

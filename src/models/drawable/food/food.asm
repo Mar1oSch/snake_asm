@@ -1,5 +1,6 @@
 ; Constants:
 %include "./include/data/food/food_constants.inc"
+%include "./include/data/position_constants.inc"
 
 ; Strucs:
 %include "./include/strucs/food/food_struc.inc"
@@ -9,7 +10,7 @@
 ; It is purely passive and its usage is getting handled by the board and the game.
 ; That's why it needs to get to know its position when it is constructed.
 
-global food_new, food_destroy, food_get_char_ptr, food_get_x_position, food_get_y_position
+global food_new
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
@@ -18,11 +19,21 @@ section .rodata
 section .text
     extern malloc, free
 
-    extern position_new, position_destroy
+    extern position_new
     extern interface_table_new, interface_table_destroy
-    extern drawable_vtable_food
 
     extern malloc_failed
+
+
+
+;;;;;; VTABLES ;;;;;;
+food_methods_vtable:
+    dq food_destroy
+
+food_drawable_vtable:
+    dq food_get_char_ptr 
+    dq food_get_x_position
+    dq food_get_y_position
 
 ;;;;;;PUBLIC METHODS ;;;;;;
 
@@ -51,13 +62,14 @@ food_new:
 
         ; Creating an interface table. 
         ; The food object is a drawable. 
-        lea rcx, [rel drawable_vtable_food]
+        lea rcx, [rel food_drawable_vtable]
         call interface_table_new
         ; * Second local variable: Interface table pointer.
         mov [rbp - 16], rax
 
     .create_object:
         ; Creating the food itself, containing space for:
+        ; * A pointer to the methods vtable. (8 bytes)
         ; * A pointer to the position object created earlier. (8 bytes)
         ; * A pointer to the interface table object created earlier. (8 bytes)
         ; * The char it is represented by on the board. (1 byte)
@@ -70,13 +82,17 @@ food_new:
         jz _f_malloc_failed
 
     .set_up_object:
+        ; Save pointer to methods vtable in its preserved memory space.
+        lea rcx, [rel food_methods_vtable]
+        mov [rax + food.methods_vtable_ptr], rcx
+
         ; Getting pointer to interface table into RCX and move it into the reserved memory space of created food object.
         mov rcx, [rbp - 16]
-        mov qword [rax + food.interface_table_ptr], rcx
+        mov [rax + food.interface_table_ptr], rcx
 
         ; Same as above with position pointer.
         mov rcx, [rbp - 8]
-        mov qword [rax + food.position_ptr], rcx
+        mov [rax + food.position_ptr], rcx
 
         ; Save defined FOOD_CHAR into reserved memory space.
         mov byte [rax + food.char], FOOD_CHAR 
@@ -104,7 +120,8 @@ food_destroy:
     .destroy_dependend_objects:
         ; Free the space of the position object owned by the food object which is going to be destroyed.
         mov rcx, [rcx + food.position_ptr]
-        call position_destroy
+        mov r10, [rcx + position.methods_vtable_ptr]
+        call [r10 + POSITION_METHODS_VTABLE_DESTRUCTOR_OFFSET]
 
         ; Also free the space of the interface table.
         mov rcx, [rbp + 16]

@@ -4,7 +4,7 @@
 ; The player object. I decided to let the user create a player. The player is getting saved into a file with the highscore.
 ; If the user comes back, he can decide, if he already played and then choose the player he wants to.
 ; The points of a game are stored in the game object. If the actual points are higher than the actual highscore of the player, it is getting updated.
-global player_new, player_destroy, get_player_points, get_player_name_length, player_update_highscore
+global player_new
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
@@ -24,6 +24,17 @@ section .text
     extern malloc, free
 
     extern malloc_failed, object_not_created
+
+;;;;;; VTABLES ;;;;;;
+player_methods_vtable:
+    dq player_update_highscore
+    dq player_destroy
+
+player_getter_vtable:
+    dq get_player_name_length
+
+
+;;;;;; PUBLIC METHODS ;;;;;;
 
 ; Here the player object is created and memory space for it allocated. 
 ; It needs to know the name of the player and the actual highscore.
@@ -49,7 +60,10 @@ player_new:
 
     .create_object:
         ; Creating the player, containing space for:
+        ; * - Methods vtable pointer. (8 bytes)
+        ; * - Getter vtable pointer. (8 bytes)
         ; * - Name pointer. (8 bytes)
+        ; * - Name. (16 bytes)
         ; * - Highscore. (2 bytes)
         mov rcx, player_size
         call malloc
@@ -61,6 +75,14 @@ player_new:
         mov [rel lcl_player_ptr], rax
 
     .set_up_object:
+        ; Move pointer to methods vtable into its preserved memory space.
+        lea rcx, [rel player_methods_vtable]
+        mov [rax + player.methods_vtable_ptr], rcx
+
+        ; Move pointer to getter vtable into its preserved memory space.
+        lea rcx, [rel player_getter_vtable]
+        mov [rax + player.getter_vtable_ptr], rcx
+
         ; Take first param and save it into reserved space.
         mov rcx, [rbp + 16]
         mov [rax + player.name], rcx
