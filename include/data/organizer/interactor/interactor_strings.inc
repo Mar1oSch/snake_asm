@@ -1,20 +1,20 @@
-;;;;;; INTRODUCTION ;;;;;;
-introduction:
+;;;;;; NEW OR FILE PLAYER ;;;;;;
+new_or_file_player:
     .string1 db "Hello, fellow friend! Welcome to your snake adventure."    
-    .string2 db "Is this the first time you are entering this dangerous territory?"
+    .string2 db "Are you a new player?"
     .string3 db "[Y]es / [N]o"
     .string4 db 0
     .string5 db 0
-introduction_end:
+new_or_file_player_end:
 
-intro_table:
-    dq introduction.string1, (introduction.string2 - introduction.string1)
-    dq introduction.string2, (introduction.string3 - introduction.string2)
-    dq introduction.string3, (introduction.string4 - introduction.string3)
-    dq introduction.string4, (introduction.string5 - introduction.string4)
-    dq introduction.string5, (introduction_end - introduction.string5)
-intro_table_end:
-intro_table_size equ (intro_table_end - intro_table) /16
+new_or_file_player_table:
+    dq new_or_file_player.string1, (new_or_file_player.string2 - new_or_file_player.string1)
+    dq new_or_file_player.string2, (new_or_file_player.string3 - new_or_file_player.string2)
+    dq new_or_file_player.string3, (new_or_file_player.string4 - new_or_file_player.string3)
+    dq new_or_file_player.string4, (new_or_file_player.string5 - new_or_file_player.string4)
+    dq new_or_file_player.string5, (new_or_file_player_end - new_or_file_player.string5)
+new_or_file_player_table_end:
+new_or_file_player_table_size equ (new_or_file_player_table_end - new_or_file_player_table) /16
 
 ;;;;;; PLAYER CREATION ;;;;;;
 new_player:
@@ -117,9 +117,9 @@ level_change_table_size equ (level_change_table_end - level_change_table) /16
 
 ;;;;;; PLAYER CHANGE ;;;;;;
 player_change:
-    .string1 db "Change to a(n):"
+    .string1 db "Create a new player?"
     .string2 db 0
-    .string3 db "[N]ew Player / [E]xisting Player"
+    .string3 db "[Y]es / [N]o"
     .string4 db 0
     .string5 db 0
 player_change_end:

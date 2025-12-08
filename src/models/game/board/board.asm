@@ -1,3 +1,6 @@
+; Constants:
+%include "./include/data/game/board/board_constants.inc"
+
 ; Strucs:
 %include "./include/strucs/interface_table_struc.inc"
 %include "./include/strucs/position_struc.inc"
@@ -11,9 +14,6 @@
 ; Passive in that way, that it is getting told by the game, when it should draw the snake, when it should create new food, when the old food gets destroyed and so on.
 
 global board_new, board_setup, board_move_snake, board_create_new_food, board_draw_food, board_reset, get_board_x_offset, get_board_y_offset
-
-;;;;;; CONSTANTS ;;;;;;
-STARTING_DIRECTION equ 2
 
 section .rodata
     fence_char db "#"

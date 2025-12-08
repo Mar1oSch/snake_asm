@@ -1,5 +1,5 @@
 ; Data:
-%include "./include/data/designer_strings/designer_strings.inc"
+%include "./include/data/organizer/designer/designer_strings.inc"
 
 ; Strucs:
 %include "./include/strucs/organizer/table/table_struc.inc"

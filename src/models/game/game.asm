@@ -1,5 +1,5 @@
 ; Data:
-%include "./include/data/game_strings/game_strings.inc"
+%include "./include/data/game/game_strings.inc"
 
 ; Strucs:
 %include "./include/strucs/organizer/interactor_struc.inc"
@@ -21,13 +21,6 @@
 global game_new, game_destroy, game_start, game_reset
 
 section .rodata
-    ;;;;;; SCOREBOARD STRINGS ;;;;;;
-    lvl_format db "Lvl:", 0
-    LVL_LENGTH equ $ - lvl_format
-
-    best_format db "Best:", 0
-    BEST_LENGTH equ $ - best_format  
-
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "game_new", 0
     direction_error db "Direction is illegal: %d", 0
@@ -220,9 +213,6 @@ game_reset:
 
         ; The new game is initialized with 0 points.
         mov dword [rcx + game.points], 0
-
-    .start_game:        
-        call game_start
 
     .complete:
         ; Restore old stack frame and return to caller.

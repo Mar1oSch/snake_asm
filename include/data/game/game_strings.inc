@@ -1,3 +1,11 @@
+;;;;;; SCOREBOARD STRINGS ;;;;;;
+lvl_format db "Lvl:", 0
+LVL_LENGTH equ $ - lvl_format
+
+best_format db "Best:", 0
+BEST_LENGTH equ $ - best_format 
+
+
 game_over:
     .string1 db " GAME OVER "
 game_over_end:

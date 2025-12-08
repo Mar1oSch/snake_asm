@@ -1,3 +1,6 @@
+; Constants:
+%include "./include/data/snake/unit/unit_constants.inc"
+
 ; Strucs:
 %include "./include/strucs/interface_table_struc.inc"
 %include "./include/strucs/position_struc.inc"
@@ -11,9 +14,7 @@
 
 global unit_new, unit_destroy, unit_get_char_ptr, unit_get_x_position, unit_get_y_position
 
-;;;;;; CONSTANTS ;;;;;;
-UNIT_CHAR equ "O"
-HEAD_CHAR equ "@"
+
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;

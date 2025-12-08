@@ -1,3 +1,6 @@
+; Constants:
+%include "./include/data/organizer/console_manager/console_manager_constants.inc"
+
 ; Strucs:
 %include "./include/strucs/organizer/console_manager_struc.inc"
 
@@ -8,11 +11,6 @@ global console_manager_new, console_manager_destroy, console_manager_clear_all, 
 section .rodata
     ;;;;;; ERASER ;;;;;;
     erase_char db " "
-
-    ;;;;; CONSTANTS ;;;;;;
-    STD_OUTPUT_HANDLE equ -11
-    STD_INPUT_HANDLE equ -10
-    WINDOW_SIZE_OFFSET equ 10
 
     ;;;;; DEBUGGING ;;;;;;
     constructor_name db "console_manager", 13, 10, 0

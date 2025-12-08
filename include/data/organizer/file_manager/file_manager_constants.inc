@@ -1,4 +1,4 @@
-  ;;;;;; BIN Header ;;;;;;
+;;;;;; BIN Header ;;;;;;
 header_template:
     magic db "LDB1"
     version dw 1

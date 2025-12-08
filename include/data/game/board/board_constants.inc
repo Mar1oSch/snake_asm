@@ -1,0 +1,2 @@
+;;;;;; CONSTANTS ;;;;;;
+STARTING_DIRECTION equ 2

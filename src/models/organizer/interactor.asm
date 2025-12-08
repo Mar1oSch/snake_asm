@@ -1,5 +1,8 @@
+; Constants:
+%include "./include/data/organizer/interactor/interactor_constants.inc"
+
 ; Data:
-%include "./include/data/interactor_strings/interactor_strings.inc"
+%include "./include/data/organizer/interactor/interactor_strings.inc"
 
 ; Strucs:
 %include "./include/strucs/organizer/interactor_struc.inc"
@@ -9,29 +12,28 @@
 %include "./include/strucs/game/player_struc.inc"
 %include "./include/strucs/game/options_struc.inc"
 
+; This is the interactor, which is simply managing all the interaction with the user. It is the only object visible to the main function of the program.
+; It is handling the player and game creation and managing every option after the game.
+
 global interactor_new, interactor_setup, interactor_create_game, interactor_start_game, interactor_destroy, interactor_replay_game
 
 section .rodata
-    ;;;;;; CONSTANTS ;;;;;;
-    DEFAULT_BOARD_HEIGHT equ 10             ; 0 indexed - so: 11
-    DEFAULT_BOARD_WIDTH equ 19              ; 0 indexed - so: 20
-    PLAYER_NAME_LENGTH equ 16               ; 15 signs, 0 terminated.
-
     ;;;;;; DEBUGGING ;;;;;;
-    recieved_char db "%c", 0
-    player_name db "%s", 13, 10, 0
-    return_value db "%d", 0
-
-    ;;;;;; FORMATS ;;;;;;;
-    char_format db "%c", 0
-    name_string_format db "%15s", 0
-    digit_format db "%d", 0
+    constructor_name db "interactor_new", 0
 
 section .bss
-    INTERACTOR_PTR resq 1
-    INTERACTOR_PLAYER_NAME resb PLAYER_NAME_LENGTH
-    INTERACTOR_YES_NO resq 1
+    ; Memory space for the created interactor pointer.
+    ; Since there is always just one interactor in the game, I decided to create a kind of a singleton.
+    ; If this lcl_interactor_ptr is 0, the constructor will create a new interactor object.
+    ; If it is not 0, it simply is going to return this pointer.
+    ; This pointer is also used, to reference the object in the destructor and other functions.
+    ; So it is not needed to pass a pointer to the object itself as function parameter.
+    lcl_interactor_ptr resq 1
 
+    ; Preserved memory space for the player name which will be entered in user input.
+    lcl_player_name resb PLAYER_NAME_LENGTH
+
+    ; Local player struc to recieve the information from the leaderboard and create the player object based on that struc.
     player_from_file_struc:
         .name resb PLAYER_NAME_LENGTH
         .highscore resd 1
@@ -49,587 +51,938 @@ section .text
     extern helper_get_digits_of_number, helper_get_digits_in_string, helper_parse_saved_to_int
     extern options_new, options_destroy
 
+    extern malloc_failed, object_not_created
+
+;;;;;; PUBLIC METHODS ;;;;;;
+
+; The constructor of the interactor. It is constructing all of the other needed organizers in a cascade as well.
 interactor_new:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
+    .set_up:
+        ; Set up stack frame.
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
 
-    cmp qword [rel INTERACTOR_PTR], 0
-    jne .complete
+        ; Check if a game already exists. If yes, return the pointer to it.
+        cmp qword [rel lcl_interactor_ptr], 0
+        jne .complete
 
-    ; Save non-volatile regs.
-    mov [rbp - 8], rbx
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
 
-    mov rcx, interactor_size
-    call malloc
-    mov [rel INTERACTOR_PTR], rax
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    call designer_new
-    mov rbx, [rel INTERACTOR_PTR]
-    mov [rbx + interactor.designer_ptr], rax
+    .create_object:
+        ; Creating the interactor itself, containing space for:
+        ; * - Game pointer. (8 bytes)
+        ; * - Table pointer. (8 bytes)
+        ; * - Designer pointer. (8 bytes)
+        ; * - File manager pointer. (8 bytes)
+        mov rcx, interactor_size
+        call malloc
+        ; Pointer to interactor object is stored in RAX now.
+        ; Check if return of malloc is 0 (if it is, it failed).
+        ; If it failed, it will get printed into the console.
+        test rax, rax
+        jz _i_malloc_failed
 
-    call file_manager_new
-    mov [rbx + interactor.file_manager_ptr], rax
+        ; Save pointer to initially reserved space. Object is "officially" created now.
+        mov [rel lcl_interactor_ptr], rax
 
-    call file_manager_create_table_from_file
-    mov [rbx + interactor.table_ptr], rax
+        ; Save pointer to RBX, to set the object up.
+        mov rbx, rax
 
-.complete:
-    ; Restore non-volatile regs.
-    mov rbx, [rbp - 8]
+    .create_dependend_objects:
+        call designer_new
+        mov [rbx + interactor.designer_ptr], rax
 
-    mov rax, [rel INTERACTOR_PTR]
-    mov rsp, rbp
-    pop rbp
-    ret
+        call file_manager_new
+        mov [rbx + interactor.file_manager_ptr], rax
 
+        call file_manager_create_table_from_file
+        mov [rbx + interactor.table_ptr], rax
+
+    .complete:
+        ; Restore non-volatile regs.
+        mov rbx, [rbp - 8]
+
+        ; Use the pointer to the game object as return value of this constructor.
+        mov rax, qword [rel lcl_interactor_ptr]
+        
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; Simple destructor to free memory space.
 interactor_destroy:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    mov rcx, [rel INTERACTOR_PTR]
-    call free
-    mov qword [rel INTERACTOR_PTR], 0
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
+    .destroy_object:
+        ; Use the local lcl_interactor_ptr to free the memory space and set it back to 0.
+        mov rcx, [rel lcl_interactor_ptr]
+        call free
+        mov qword [rel lcl_interactor_ptr], 0
+
+    .complete:
+        ; Restore old stack frame and leave destructor.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; This method is setting up the introduction and checks, if user wants to create new player or choose a created player.
 interactor_setup:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    call designer_start_screen
-    mov rcx, 1000
-    call Sleep
-    call console_manager_clear_all
-    mov ecx, 1
-    call console_manager_set_console_cursor_info
-    call _introduction
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
+    .start_screen:
+        ; Showing the "SNAKE" screen for 1 second.
+        call designer_start_screen
+        mov rcx, 1000
+        call Sleep
+
+    .clear_screen:
+        call console_manager_clear_all
+
+    .cursor_visibility:
+        ; Let console cursor be visible.
+        mov ecx, 1
+        call console_manager_set_console_cursor_info
+
+    .new_or_file_player_dialogue:
+        call _new_or_file_player
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; Here the game object gets created by user inputs.
 interactor_create_game:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
+    ; * Expect 0 if player should be loaded or 1 if new player should be created in RCX.
+    .set_up:
+        ; Set up stack frame.
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
 
-    call _create_player
-    mov [rbp - 8], rax
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-    call _create_level
-    mov rdx, rax
-    mov rcx, [rbp - 8]
-    call options_new
-    mov [rbp - 8], rax
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    xor rcx, rcx
-    mov cx, DEFAULT_BOARD_WIDTH                   ; Moving width into CX  (So: ECX = 0, width)
-    shl rcx, 16                                   ; Shifting rcx 16 bits left (So : ECX = width, 0)
-    mov cx, DEFAULT_BOARD_HEIGHT                  ; Moving height into CX (So: ECX = width, height)
+    .create_player:
+        call _create_player
+        ; * First local variable: Player pointer.
+        mov [rbp - 8], rax
 
-    mov rdx, [rbp - 8]
-    mov r8, [rel INTERACTOR_PTR]
+    .create_level:
+        lea rcx, [rel level_creation_table]
+        mov rdx, level_creation_table_size
+        call _get_level
 
-    call game_new
+    .create_options:
+        ; Use the created player and level to set up the options for the game.
+        mov rcx, [rbp - 8]
+        mov rdx, rax
+        call options_new
+        ; * Use first local variable: Options pointer.
+        mov [rbp - 8], rax
 
-    mov rcx, [rel INTERACTOR_PTR]
-    mov [rcx + interactor.game_ptr], rax
+    .create_game:
+        ; Set up the width and height of the board in ECX.
+        ; (The plan was to also make the board user dependend. But then the highscore wouldn't make sense anymore.)
+        mov cx, DEFAULT_BOARD_WIDTH
+        shl ecx, 16
+        mov cx, DEFAULT_BOARD_HEIGHT
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Pass the options pointer in RDX.
+        mov rdx, [rbp - 8]
 
+        ; And the interactor in R8.
+        mov r8, [rel lcl_interactor_ptr]
+
+        call game_new
+
+    .set_up_object:
+        ; Move the created game into the preserved memory space.
+        mov rcx, [rel lcl_interactor_ptr]
+        mov [rcx + interactor.game_ptr], rax
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; After creating the game, the game is ready to start.
+; The interactor is managing it.
 interactor_start_game:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    xor ecx, ecx
-    call console_manager_set_console_cursor_info
-    call game_start
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
+
+    .call_functions:
+        ; Make console cursor invisible.
+        xor ecx, ecx
+        call console_manager_set_console_cursor_info
+
+        call game_start
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
 
 interactor_replay_game:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame.
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
 
-.loop:
-    mov ecx, 1
-    call console_manager_set_console_cursor_info
-    sub rsp, 32
-    mov rcx, [rel INTERACTOR_PTR]
-    mov rcx, [rcx + interactor.game_ptr]
-    mov rcx, [rcx + game.options_ptr]
-    call _handle_options
-    test rax, rax
-    jz .complete
-    mov [rbp - 8], rax
-    xor ecx, ecx
-    call console_manager_set_console_cursor_info
-    mov rcx, [rbp - 8]
-    call game_reset
-    jmp .loop
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
+
+    .restart_loop:
+        ; Make cursor visible.
+        mov ecx, 1
+        call console_manager_set_console_cursor_info
+
+        ; Change options.
+        mov rcx, [rel lcl_interactor_ptr]
+        mov rcx, [rcx + interactor.game_ptr]
+        mov rcx, [rcx + game.options_ptr]
+        call _handle_options
+
+        ; If user chooses to exit game, break loop.
+        test rax, rax
+        jz .complete
+
+        ; * First local variables: Option pointer.
+        mov [rbp - 8], rax
+
+        ; Make cursor invisible.
+        xor ecx, ecx
+        call console_manager_set_console_cursor_info
+
+        ; Reset game with new options.
+        mov rcx, [rbp - 8]
+        call game_reset
+
+        ; Start game.
+        call game_start
+
+        jmp .restart_loop
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 
 ;;;;;; PRIVATE METHODS ;;;;;;
-_introduction:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+_new_or_file_player:
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; Clear console before writing new sequence.
-    call console_manager_clear_all
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-    lea rcx, [rel intro_table]
-    mov rdx, intro_table_size
-    mov r8, 0
-    call designer_type_sequence
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+    .clear_screen:
+        ; Clear console before writing new sequence.
+        call console_manager_clear_all
 
+    .new_or_file_player:
+        lea rcx, [rel new_or_file_player_table]
+        mov rdx, new_or_file_player_table_size
+        mov r8, 0
+        call designer_type_sequence
+
+    .check_for_answer:
+        call _get_yes_no
+
+    .complete:
+        ; Return answer in RAX.
+        ; 0 if "No" => Create player from file.
+        ; 1 if "Yes" => Create new player.
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+; The wrapper function to create a player.
+; Either a new one or from the leaderboard.
 _create_player:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    ; * Expect 0 if player should be loaded or 1 if new player should be created in RCX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    call file_manager_get_num_of_entries
-    test rax, rax
-    jz .create_new_player
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
+
+        ; Save params into shadow space.
+        mov [rbp + 16], rcx
+
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
+
+    .check_for_players:
+        ; If the leaderboard doesn't contain any player, create a new one.
+        call file_manager_get_num_of_entries
+        test rax, rax
+        jz .create_new_player
     
-    call _get_yes_no
-    test rax, rax
-    jnz .create_new_player
+    .get_player_creation:
+        cmp qword [rbp + 16], 0
+        jne .create_new_player
 
-.create_file_player:
-    call _create_player_from_file
-    jmp .complete
+    .create_file_player:
+        call _create_player_from_file
+        jmp .complete
 
-.create_new_player:
-    call _create_new_player
+    .create_new_player:
+        call _create_new_player
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+    .complete:
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _change_player:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    call player_destroy
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-    call console_manager_clear_all
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
+    
+    .destroy_old_player:
+        call player_destroy
 
-    lea rcx, [rel player_change_table]
-    mov rdx, player_change_table_size
-    xor r8, r8
-    call designer_type_sequence
+    .clear_screen:
+        call console_manager_clear_all
 
-.loop:
-    lea rcx, [rbp - 8]
-    mov rdx, 1
-    call console_manager_get_literal_input
-    mov al, [rbp - 8]
-    and al, 0xDF
-    cmp al, "N"
-    je .change_new_player
-    cmp al, "E"
-    je .change_existing_player
-    jmp .loop
+    .change_dialogue:
+        lea rcx, [rel player_change_table]
+        mov rdx, player_change_table_size
+        xor r8, r8
+        call designer_type_sequence
 
-.change_existing_player:
-    call _create_player_from_file
-    jmp .complete
+    .get_player_creation:
+        call _get_yes_no
 
-.change_new_player:
-    call _create_new_player
+        test rax, rax
+        jnz .change_new_player
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+    .change_existing_player:
+        call _create_player_from_file
+        jmp .complete
+
+    .change_new_player:
+        call _create_new_player
+
+    .complete:
+        ; Return pointer to new player in RAX.
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _create_player_from_file:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
+    .set_up:
+        ; Set up stack frame.
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
 
-    call console_manager_clear_all
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-    lea rcx, [rel file_player_headline]
-    mov rdx, file_player_headline_length
-    call designer_write_headline
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
 
-    call _show_leaderboard
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    call file_manager_get_num_of_entries
-    mov [rbp - 8], rax
+    .clear_screen:
+        call console_manager_clear_all
 
-.loop:
-    mov rcx, [rbp - 8]
-    call _get_player_index
-    cmp rax, [rbp - 8]
-    ja .loop
-    cmp rax, 0
-    jb .loop
+    .write_headline:
+        lea rcx, [rel file_player_headline]
+        mov rdx, file_player_headline_length
+        call designer_write_headline
 
-    dec rax
-    mov rcx, rax
-    call _create_player_from_index
+    .show_leaderboard:
+        call _show_leaderboard
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .check_for_entries:
+        call file_manager_get_num_of_entries
+        mov rbx, rax
+
+    .get_index_loop:
+        mov rcx, rax
+        call _get_player_index
+        cmp rax, rbx
+        ja .get_index_loop
+        cmp rax, 0
+        jb .get_index_loop
+    
+    .create_player_from_index:
+        mov rcx, rax
+        call _create_player_from_index
+
+    .complete:
+        ; Return pointer to created player in RAX.
+
+        ; Restore non-volatile regs.
+        mov rbx, [rbp - 8]
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _create_new_player:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
+    .set_up:
+        ; Set up stack frame.
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
 
-    ; Clear console before writing new sequence.
-    call console_manager_clear_all
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-    lea rcx, [rel new_player_table]
-    mov rdx, new_player_table_size
-    mov r8, 0
-    call designer_type_sequence
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    call _create_player_name
+    .clear_screen:
+        call console_manager_clear_all
 
-    lea rcx, [rel INTERACTOR_PLAYER_NAME]
-    xor rdx, rdx
-    call player_new
-    mov [rbp - 8], rax
+    .get_name:
+        lea rcx, [rel new_player_table]
+        mov rdx, new_player_table_size
+        mov r8, 0
+        call designer_type_sequence
 
-    lea rcx, [rel INTERACTOR_PLAYER_NAME]
-    xor rdx, rdx
-    call file_manager_add_leaderboard_record
+        call _get_player_name
 
-    mov rax, [rbp - 8]
-    mov rsp, rbp
-    pop rbp
-    ret
+    .create_player:
+        lea rcx, [rel lcl_player_name]
+        xor rdx, rdx
+        call player_new
+
+        ; * First local variable: Player pointer.
+        mov [rbp - 8], rax
+
+    .add_player_to_file:
+        lea rcx, [rel lcl_player_name]
+        xor rdx, rdx
+        call file_manager_add_leaderboard_record
+
+    .complete:
+        ; Return created player in RAX.
+        mov rax, [rbp - 8]
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _show_leaderboard:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    mov rcx, [rel INTERACTOR_PTR]
-    mov rcx, [rcx + interactor.table_ptr]
-    call file_manager_update_table
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-    mov rcx, rax
-    call designer_write_table
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .update_leaderboard:
+        mov rcx, [rel lcl_interactor_ptr]
+        mov rcx, [rcx + interactor.table_ptr]
+        call file_manager_update_table
+
+    .write_leaderboard:
+        mov rcx, rax
+        call designer_write_table
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _get_player_index:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 72
-
     ; * Expect num of entries in RCX.
-    mov [rbp - 8], rcx
+    .set_up:
+        ; Set up stack frame.
+        ; * 16 bytes local variables.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
 
-    call helper_get_digits_of_number
-    mov [rbp - 16], rax
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-.loop:
-    mov rcx, [rbp - 16]
-    call console_manager_get_numeral_input
-    cmp rax, [rbp - 8]
-    ja .loop
-    cmp rax, 1
-    jb .loop
-    mov [rbp - 24], rax
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
 
-.complete:
-    mov rax, [rbp - 24]
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Save num of entries in RBX.
+        mov rbx, rcx
+
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
+
+    .get_digits:
+        call helper_get_digits_of_number
+        mov r12, rax
+
+    .loop:
+        mov rcx, r12
+        call console_manager_get_numeral_input
+        cmp rax, rbx
+        ja .loop
+        cmp rax, 1
+        jb .loop
+
+    .complete:
+        ; Decrement RAX, so it is the actual index and return it.
+        dec rax
+
+        ; Restore non-volatile regs.
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _create_player_from_index:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    ; * Expect index of player in RCX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; * Expectindex of player in RCX.
-    mov rdx, rcx
-    lea rcx, [rel player_from_file_struc]
-    call file_manager_get_record_by_index
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-    lea rcx, [rel player_from_file_struc + 16]
-    mov rdx, 4
-    call helper_parse_saved_to_int
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    lea rcx, [rel player_from_file_struc]
-    mov rdx, rax
-    call player_new
+    .get_player_record:
+        mov rdx, rcx
+        lea rcx, [rel player_from_file_struc]
+        call file_manager_get_record_by_index
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .parse_highscore:
+        lea rcx, [rel player_from_file_struc + 16]
+        mov rdx, 4
+        call helper_parse_saved_to_int
 
-_create_player_name:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .create_player:
+        lea rcx, [rel player_from_file_struc]
+        mov rdx, rax
+        call player_new
 
-.loop:
-    lea rcx, [rel INTERACTOR_PLAYER_NAME]
-    mov rdx, 15
-    call console_manager_get_literal_input
-    call _clear_player_name
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
-    lea rcx, [rel INTERACTOR_PLAYER_NAME]
-    call file_manager_get_name
-    cmp rax, -1
-    jne .loop
+_get_player_name:
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-_create_level:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    ; Clear console before writing new sequence.
-    call console_manager_clear_all
+    .name_loop:
+        lea rcx, [rel lcl_player_name]
+        mov rdx, PLAYER_NAME_LENGTH - 1
+        call console_manager_get_literal_input
 
-    lea rcx, [rel level_creation_table]
-    mov rdx, level_creation_table_size
-    mov r8, 0
-    call designer_type_sequence
+        ; Zero out the memory space which is not used.
+        call _clear_player_name
 
-.loop:              
-    mov rcx, 1
-    call console_manager_get_numeral_input
-    cmp rax, 9
-    ja .loop
-    cmp rax, 1
-    jb .loop
+        ; It is not valid if name already exists.
+        lea rcx, [rel lcl_player_name]
+        call file_manager_get_name
+        cmp rax, -1
+        jne .name_loop
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
-_change_level:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+_get_level:
+    ; * Expect pointer to string table in RCX.
+    ; * Expect size of table in RDX.
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    call console_manager_clear_all
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-    lea rcx, [rel level_change_table]
-    mov rdx, level_change_table_size
-    xor r8, r8
-    call designer_type_sequence
+        ; Save params into shadow space.
+        mov [rbp + 16], rcx
+        mov [rbp + 24], rdx
 
-.loop:
-    mov rcx, 1
-    call console_manager_get_numeral_input
-    cmp rax, 9
-    ja .loop
-    cmp rax, 1
-    jb .loop
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+    .clear_screen:
+        call console_manager_clear_all
+
+    .level_creation_dialogue:
+        mov rcx, [rbp + 16]
+        mov rdx, [rbp + 24]
+        xor r8, r8
+        call designer_type_sequence
+
+    .level_loop:              
+        mov rcx, 1
+        call console_manager_get_numeral_input
+        cmp rax, 9
+        ja .level_loop
+        cmp rax, 1
+        jb .level_loop
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _show_options_table:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 32
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
 
-    ; Clear console before writing new sequence.
-    call console_manager_clear_all
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-    lea rcx, [rel after_game_table]
-    mov rdx, after_game_table_size
-    xor r8, r8
-    call designer_type_sequence
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    mov rsp, rbp
-    pop rbp
-    ret
+    .clear_screen:
+        call console_manager_clear_all
+
+    .show_options:
+        lea rcx, [rel after_game_table]
+        mov rdx, after_game_table_size
+        xor r8, r8
+        call designer_type_sequence
+
+    .complete:
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _handle_options:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 72
+    ; * Expect pointer to old options in RCX.
+    .set_up:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 72
 
-    ; Save non-volatile regs.
-    mov [rbp - 8], rbx
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
 
-    ; * Expectpointer to old options in RCX.
-    mov [rbp - 16], rcx
+        ; Make RBX point to old options object.
+        mov rbx, rcx
 
-    mov rbx, rcx
-.loop:
-    call console_manager_clear_all
+    .options_loop:
+        ; Clearing the screen.
+        call console_manager_clear_all
 
-    call _show_options_table
+        ; Showing the options table.
+        call _show_options_table
 
-    mov rcx, 1
-    call console_manager_get_numeral_input
-    cmp rax, 6
-    ja .loop
+        ; Get one byte numeral input.
+        mov rcx, 1
+        call console_manager_get_numeral_input
 
-    lea rdx, [rel .options_table]
-    dec rax
-    mov rax, [rdx + rax * 8]
-    jmp rax
+        ; Check if RAX is in bounds of options.
+        cmp rax, 1
+        jb .options_loop
+        cmp rax, OPTIONS_LENGTH
+        ja .options_loop
 
-.options_table:
-    dq .handle_replay
-    dq .handle_change_player
-    dq .handle_change_level
-    dq .handle_change_both
-    dq .handle_show_leaderboard
-    dq .handle_exit
+    .prepare_options_handle:
+        lea rdx, [rel .options_table]
+        dec rax
+        mov rax, [rdx + rax * 8]
+        jmp rax
 
-.handle_replay:
-    mov rax, [rbp - 16]
-    jmp .complete
+    .options_table:
+        dq .handle_replay
+        dq .handle_change_player
+        dq .handle_change_level
+        dq .handle_change_both
+        dq .handle_show_leaderboard
+        dq .handle_exit
 
-.handle_change_player:
-    call _change_player
-    mov rcx, rax
-    mov edx, [rbx + options.lvl]
-    call options_new
-    mov [rbp - 24], rax
+    .handle_replay:
+        ; No changes. Old Options are new options.
+        mov rax, rbx
+        jmp .complete
 
-    mov rcx, [rbp - 16]
-    call options_destroy
+    .handle_change_player:
+        ; Creating a new player.
+        call _change_player
 
-    mov rax, [rbp - 24]
-    jmp .complete
+        ; Creating new options, based on the new player.
+        mov rcx, rax
+        mov edx, [rbx + options.lvl]
+        call options_new
+        mov r12, rax
 
-.handle_change_level:
-    call _change_level
-    mov rcx, [rbx + options.player_ptr]
-    mov rdx, rax
-    call options_new
-    mov [rbp - 24], rax
+        ; Destroying the old options object.
+        mov rcx, rbx
+        call options_destroy
 
-    mov rcx, [rbp - 16]
-    call options_destroy
+        ; Returning the new options object in RAX.
+        mov rax, r12
+        jmp .complete
 
-    mov rax, [rbp - 24]
-    jmp .complete
+    .handle_change_level:
+        ; Let the user choose the new level.
+        lea rcx, [rel level_change_table]
+        mov rdx, level_change_table_size
+        call _get_level
 
-.handle_change_both:
-    call _change_player
-    mov [rbp - 24], rax
+        ; Creationg new options, based on the new level.
+        mov rcx, [rbx + options.player_ptr]
+        mov rdx, rax
+        call options_new
+        mov r12, rax
 
-    call _change_level
-    mov rdx, rax
+        ; Destroying the old options object.
+        mov rcx, rbx
+        call options_destroy
 
-    mov rcx, [rbp - 24]
-    mov rdx, rax
-    call options_new
-    mov [rbp - 24], rax
+        ; Returning the new options object in RAX.
+        mov rax, r12
+        jmp .complete
 
-    mov rcx, [rbp - 16]
-    call options_destroy
+    .handle_change_both:
+        ; Creating a new player.
+        call _change_player
+        mov r12, rax
 
-    mov rax, [rbp - 24]
-    jmp .complete
+        ; Let the user choose the new level.
+        lea rcx, [rel level_change_table]
+        mov rdx, level_change_table_size
+        call _get_level
+        mov rdx, rax
 
-.handle_show_leaderboard:
-    call console_manager_clear_all
+        ; Create new options, based on new player and new level.
+        mov rcx, r12
+        mov rdx, rax
+        call options_new
+        mov r12, rax
 
-    lea rcx, [rel leaderboard_headline]
-    mov rdx, leaderboard_headline_length
-    call designer_write_headline
+        ; Destroy old options object.
+        mov rcx, rbx
+        call options_destroy
 
-    call _show_leaderboard
+        ; Return new options object in RAX.
+        mov rax, r12
+        jmp .complete
 
-    lea rcx, [rbp - 32]
-    mov rdx, 1
-    call console_manager_get_literal_input
+    .handle_show_leaderboard:
+        ; Clear screen.
+        call console_manager_clear_all
 
-    jmp .loop
+        ; Write headline of leaderboard.
+        lea rcx, [rel leaderboard_headline]
+        mov rdx, leaderboard_headline_length
+        call designer_write_headline
 
-.handle_exit:
-    xor rax, rax
+        ; Showing the leaderboard.
+        call _show_leaderboard
 
-.complete:
-    ; Restore non-volatile regs.
-    mov rbx, [rbp - 8]
+        ; Waiting for a "Enter" of the user.
+        lea rcx, [rbp - 24]
+        mov rdx, 1
+        call console_manager_get_literal_input
 
-    mov rsp, rbp
-    pop rbp
-    ret
+        ; Go back to after game screen.
+        jmp .options_loop
+
+    .handle_exit:
+        ; Exit the game.
+        xor rax, rax
+
+    .complete:
+        ; Restore non-volatile regs.
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
+
+        mov rsp, rbp
+        pop rbp
+        ret
 
 _get_yes_no:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 40
+    .set_up:
+        ; Set up stack frame.
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
 
-.loop:
-    lea rcx, [rel INTERACTOR_YES_NO]
-    mov rdx, 1
-    call console_manager_get_literal_input
-.afterwards:
-    mov al, [rel INTERACTOR_YES_NO]
-    and al, 0xDF
-    cmp al, "Y"
-    je .yes
-    cmp al, "N"
-    je .no
-    jmp .loop
+        ; If interactor is not created, let the user know.
+        cmp qword [rel lcl_interactor_ptr], 0
+        je _i_object_failed
 
-.yes:
-    mov rax, 1
-    jmp .complete
-.no:
-    xor rax, rax
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-.complete:
-    mov rsp, rbp
-    pop rbp
-    ret
+    .yes_no_loop:
+        ; Get one byte input.
+        lea rcx, [rbp - 8]
+        mov rdx, 1
+        call console_manager_get_literal_input
+
+        ; Check if input is a "Y" or a "N"
+        mov al, [rbp - 8]
+        and al, 0xDF
+        cmp al, "Y"
+        je .yes
+        cmp al, "N"
+        je .no
+
+        ; If not loop again.
+        jmp .yes_no_loop
+
+    .yes:
+        ; Return 1 in RAX.
+        mov rax, 1
+        jmp .complete
+
+    .no:
+        ; Return 0 in RAX.
+        xor rax, rax
+
+    .complete:
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
+
 
 _clear_player_name:
-    push rbp
-    mov rbp, rsp
+.set_up:
+    ; No stack frame required.
+    ; No local variables.
+    ; No function calls.
 
+    ; Prepare name and its length.
     mov rcx, PLAYER_NAME_LENGTH
-    lea rdx, [rel INTERACTOR_PLAYER_NAME]
+    lea rdx, [rel lcl_player_name]
+
+    ; Last value of name is 0.
     mov byte [rdx + rcx], 0
-.loop:
+
+; Loop through the name and change all values, which are not part of it to 0.
+; If the loop is facing a 10 (Carriage Return) or a 13 (Line Feed), it knows, that these signs are the first values after the name. So it is handling them specially.
+.clearing_loop:
     cmp byte [rdx + rcx], 10
     je .clear_cr
     cmp byte [rdx + rcx], 13
     je .clear_lf
-    loop .loop
+    loop .clearing_loop
     jmp .complete
 
 .clear_cr:
@@ -641,6 +994,47 @@ _clear_player_name:
     mov byte [rdx + rcx], 0
 
 .complete:
-    mov rsp, rbp
-    pop rbp
+    ; Return to caller.
     ret
+
+
+
+;;;;;; ERROR HANDLING ;;;;;;
+_i_malloc_failed:
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
+
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+
+    .debug:
+        lea rcx, [rel constructor_name]
+        mov rdx, rax
+        call malloc_failed
+
+    .complete:
+        ; Restore old stack frame and leave debugging function.
+        mov rsp, rbp
+        pop rbp
+        ret
+
+_i_object_failed:
+    .set_up:
+        ; Set up stack frame without local variables.
+        push rbp
+        mov rbp, rsp
+
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
+
+    .debug:
+        lea rcx, [rel constructor_name]
+        call object_not_created
+
+    .complete:
+        ; Restore old stack frame and leave debugging function.
+        mov rsp, rbp
+        pop rbp
+        ret

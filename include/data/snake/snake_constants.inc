@@ -1,0 +1,2 @@
+;;;;;; CONSTANTS ;;;;;;
+STARTING_LENGTH equ 8

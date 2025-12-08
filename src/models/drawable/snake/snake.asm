@@ -1,3 +1,6 @@
+; Constants:
+%include "./include/data/snake/snake_constants.inc"
+
 ; Strucs:
 %include "./include/strucs/interface_table_struc.inc"
 %include "./include/strucs/position_struc.inc"
@@ -13,9 +16,6 @@
 ; The length of the snake is then used to check, if the player finished the game: If length of snake = board.width * board.height, player gets 100 bonus points.
 
 global snake_new, snake_add_unit, snake_update,  snake_reset
-
-;;;;;; CONSTANTS ;;;;;;
-STARTING_LENGTH equ 8
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;

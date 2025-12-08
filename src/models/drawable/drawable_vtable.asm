@@ -1,3 +1,6 @@
+; Constants:
+%include "./include/data/drawable_vtable/drawable_vtable_constants.inc"
+
 ; The DRAWABLE interface.
 ; It handles the operation with objects, which are drawn into the board.
 
@@ -5,11 +8,6 @@
 
 global DRAWABLE_VTABLE_CHAR_PTR_OFFSET, DRAWABLE_VTABLE_X_POSITION_OFFSET, DRAWABLE_VTABLE_Y_POSITION_OFFSET
 global drawable_vtable_food, drawable_vtable_unit
-
-;;;;;; CONSTANTS ;;;;;;
-DRAWABLE_VTABLE_CHAR_PTR_OFFSET equ 0
-DRAWABLE_VTABLE_X_POSITION_OFFSET equ 8
-DRAWABLE_VTABLE_Y_POSITION_OFFSET equ 16
 
 section .text
     extern food_get_char_ptr, food_get_x_position, food_get_y_position

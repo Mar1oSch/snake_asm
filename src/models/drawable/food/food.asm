@@ -1,3 +1,6 @@
+; Constants:
+%include "./include/data/food/food_constants.inc"
+
 ; Strucs:
 %include "./include/strucs/food/food_struc.inc"
 %include "./include/strucs/position_struc.inc"
@@ -7,9 +10,6 @@
 ; That's why it needs to get to know its position when it is constructed.
 
 global food_new, food_destroy, food_get_char_ptr, food_get_x_position, food_get_y_position
-
-;;;;;; CONSTANTS ;;;;;;
-FOOD_CHAR equ "*"
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;

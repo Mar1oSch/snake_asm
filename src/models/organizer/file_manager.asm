@@ -1,5 +1,5 @@
-; Data:
-%include "./include/data/file_manager_data/file_manager_data.inc"
+; Constants:
+%include "./include/data/organizer/file_manager/file_manager_constants.inc"
 
 ; Strucs:
 %include "./include/strucs/organizer/file_manager_struc.inc"
