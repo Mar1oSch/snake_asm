@@ -899,59 +899,80 @@ _update_leaderboard_in_file:
 ;;;;;; INIT HEADER ;;;;;;
 
 _ensure_header_initialized:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
+    .set_up:
+        ; Set up stack frame:
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
 
-    ; Save non-volatile registers.
-    mov [rbp - 8], rbx
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
 
-    mov rbx, [rel lcl_file_manager_ptr]
-    mov rbx, [rbx + file_manager.file_handle]
+        ; If file_manager is not created, let the user know.
+        cmp qword [rel lcl_file_manager_ptr], 0
+        je _fm_object_failed
 
-    mov rcx, rbx
-    lea rdx, [rel lcl_file_size_large_int]
-    call GetFileSizeEx
-    test eax, eax
-    jz .init_header
+        ; Reserve 32 bytes shadow space for called functions. 
+        sub rsp, 32
 
-    mov rax, [rel lcl_file_size_large_int]
-    cmp rax, HEADER_SIZE
-    jb .init_header
+        ; Set up file handle in RBX.
+        mov rbx, [rel lcl_file_manager_ptr]
+        mov rbx, [rbx + file_manager.file_handle]
 
-    call _set_pointer_start
+    .check_file_size_for_zero:
+        mov rcx, rbx
+        lea rdx, [rel lcl_file_size_large_int]
+        call GetFileSizeEx
+        test eax, eax
+        jz .init_header
 
-    lea rcx, [rel lcl_fm_header]
-    mov rdx, HEADER_SIZE
-    call _fm_read
-    test eax, eax
-    jz .init_header
+    .check_file_size_for_header:
+        mov rax, [rel lcl_file_size_large_int]
+        cmp rax, HEADER_SIZE
+        jb .init_header
 
-    mov eax, [rel lcl_fm_header]
-    cmp eax, [rel magic]
-    jne .init_header
+    .set_position:
+        call _set_pointer_start
 
-    movzx eax, word [rel lcl_fm_header + 8]
-    cmp ax, FILE_RECORD_SIZE
-    jne .init_header
+    .read_header:
+        lea rcx, [rel lcl_fm_header]
+        mov rdx, HEADER_SIZE
+        call _fm_read
+        test eax, eax
+        jz .init_header
 
-    xor rax, rax
-    jmp .complete
+    .check_magic:
+        mov eax, [rel lcl_fm_header]
+        cmp eax, [rel magic]
+        jne .init_header
 
-.init_header:
-    call _set_pointer_start
+    .check_record_size:
+        movzx eax, word [rel lcl_fm_header + 8]
+        cmp ax, FILE_RECORD_SIZE
+        jne .init_header
 
-    lea rcx, [rel header_template]
-    mov rdx, HEADER_SIZE
-    call _fm_write
+        jmp .complete
 
-    xor rax, rax
+    .init_header:
+        call _set_pointer_start
 
-.complete:
-    mov rbx, [rbp - 8]
-    mov rsp, rbp
-    pop rbp
-    ret
+        lea rcx, [rel header_template]
+        mov rdx, HEADER_SIZE
+        call _fm_write
+
+    .complete:
+        ; Restore non-volatile regs.
+        mov rbx, [rbp - 8]
+
+        ; Return 0 in RAX.
+        xor rax, rax
+
+        ; Restore old stack frame and return to caller.
+        mov rsp, rbp
+        pop rbp
+        ret
 
 
 ;;;;;; ERROR HANDLING ;;;;;;
