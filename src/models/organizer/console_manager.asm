@@ -6,7 +6,7 @@
 
 ; This is the console manager, which is responsible for managing the basic communication with the console. Every interaction with it is handled here.
 
-global console_manager_new, console_manager_destroy, console_manager_clear_all, console_manager_write_char, console_manager_set_cursor, console_manager_clear_sequence, console_manager_write_word, console_manager_get_center_x_offset, console_manager_get_center_y_offset, console_manager_get_numeral_input, console_manager_get_literal_input, console_manager_set_buffer_size, console_manager_write_number, console_manager_repeat_char, console_manager_set_console_cursor_info
+global console_manager_new, console_manager_destroy, console_manager_clear_all, console_manager_write_char, console_manager_set_cursor, console_manager_clear_sequence, console_manager_write_word, console_manager_get_center_x_offset, console_manager_get_center_y_offset, console_manager_recieve_numeral_input, console_manager_recieve_literal_input, console_manager_set_buffer_size, console_manager_write_number, console_manager_repeat_char, console_manager_set_console_cursor_info
 
 section .rodata
     ;;;;;; ERASER ;;;;;;
@@ -58,6 +58,29 @@ section .text
     extern SetConsoleScreenBufferSize
     extern FillConsoleOutputCharacterA
 
+
+;;;;;; VTABLES ;;;;;;
+console_manager_methods_vtable:
+    dq console_manager_write_char
+    dq console_manager_repeat_char
+    dq console_manager_write_word
+    dq console_manager_write_number
+    dq console_manager_recieve_numeral_input
+    dq console_manager_recieve_literal_input
+    dq console_manager_clear_all
+    dq console_manager_clear_sequence
+    dq console_manager_destroy
+
+console_manager_getter_vtable:
+    dq console_manager_get_center_x_offset
+    dq console_manager_get_center_y_offset
+
+console_manager_setter_vtable:
+    dq console_manager_set_console_cursor_info
+    dq console_manager_set_cursor
+    dq console_manager_set_buffer_size
+
+
 ;;;;;; PUBLIC METHODS ;;;;;;
 
 ; Here the console manager gets created. 
@@ -100,6 +123,18 @@ console_manager_new:
         mov rbx, rax
 
     .set_up_object:
+        ; Save methods vtable into preserved memory space.
+        lea rcx, [rel console_manager_methods_vtable]
+        mov [rbx + console_manager.methods_vtable_ptr], rcx
+        
+        ; Save getter vtable into preserved memory space.
+        lea rcx, [rel console_manager_getter_vtable]
+        mov [rbx + console_manager.getter_vtable_ptr], rcx
+        
+        ; Save setter vtable into preserved memory space.
+        lea rcx, [rel console_manager_setter_vtable]
+        mov [rbx + console_manager.setter_vtable_ptr], rcx
+        
         ; Save output handle into preserved memory space.
         mov rcx, STD_OUTPUT_HANDLE
         call GetStdHandle
@@ -354,10 +389,10 @@ console_manager_write_number:
         pop rbp
         ret
 
-;;;;;; GET INPUT METHODS ;;;;;;
+;;;;;; RECIEVE INPUT METHODS ;;;;;;
 
 ; Function to recieve a numeral input by user.
-console_manager_get_numeral_input:
+console_manager_recieve_numeral_input:
     ; * Expect number of chars to read in RCX.
     .set_up:
         ; Set up stack frame:
@@ -412,7 +447,7 @@ console_manager_get_numeral_input:
         ret
 
 ; Recieve a literal input.
-console_manager_get_literal_input:
+console_manager_recieve_literal_input:
     ; * Expect pointer to save string to in RCX.
     ; * Expect number of chars to read in RDX.
     .set_up:

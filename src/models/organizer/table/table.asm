@@ -12,7 +12,7 @@
 ;   - table: Stores the table's row and column counts, along with a pointer to its content and column format.
 ;   - column_format: Defines the structure for each column, including the length of entries and the type of entries.
 
-; Global Functions:
+; Public Functions:
 ;   - table_new: Creates a new table, allocating memory for the table structure and setting the row count.
 ;   - table_destroy: Frees memory allocated for a table.
 ;   - table_add_content: Adds a pointer to content (e.g., data) to a table.

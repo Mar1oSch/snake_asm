@@ -46,7 +46,7 @@ section .text
     extern malloc, free
     extern Sleep
 
-    extern console_manager_get_literal_input, console_manager_get_numeral_input, console_manager_clear_all, console_manager_set_console_cursor_info
+    extern console_manager_recieve_literal_input, console_manager_recieve_numeral_input, console_manager_clear_all, console_manager_set_console_cursor_info
     extern designer_new, designer_start_screen, designer_type_sequence, designer_write_table, designer_write_headline
     extern game_new
     extern file_manager_new, file_manager_add_leaderboard_record, file_manager_get_record_by_index, file_manager_get_num_of_entries, file_manager_get_name, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_update_table
@@ -630,7 +630,7 @@ _get_player_index:
 
     .loop:
         mov rcx, r12
-        call console_manager_get_numeral_input
+        call console_manager_recieve_numeral_input
         cmp rax, rbx
         ja .loop
         cmp rax, 1
@@ -700,7 +700,7 @@ _get_player_name:
     .name_loop:
         lea rcx, [rel lcl_player_name]
         mov rdx, PLAYER_NAME_LENGTH - 1
-        call console_manager_get_literal_input
+        call console_manager_recieve_literal_input
 
         ; Zero out the memory space which is not used.
         call _clear_player_name
@@ -747,7 +747,7 @@ _get_level:
 
     .level_loop:              
         mov rcx, 1
-        call console_manager_get_numeral_input
+        call console_manager_recieve_numeral_input
         cmp rax, 9
         ja .level_loop
         cmp rax, 1
@@ -818,7 +818,7 @@ _handle_options:
 
         ; Get one byte numeral input.
         mov rcx, 1
-        call console_manager_get_numeral_input
+        call console_manager_recieve_numeral_input
 
         ; Check if RAX is in bounds of options.
         cmp rax, 1
@@ -926,7 +926,7 @@ _handle_options:
         ; Waiting for a "Enter" of the user.
         lea rcx, [rbp - 24]
         mov rdx, 1
-        call console_manager_get_literal_input
+        call console_manager_recieve_literal_input
 
         ; Go back to after game screen.
         jmp .options_loop
@@ -964,7 +964,7 @@ _get_yes_no:
         ; Get one byte input.
         lea rcx, [rbp - 8]
         mov rdx, 1
-        call console_manager_get_literal_input
+        call console_manager_recieve_literal_input
 
         ; Check if input is a "Y" or a "N"
         mov al, [rbp - 8]
