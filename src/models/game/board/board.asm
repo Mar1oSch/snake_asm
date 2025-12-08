@@ -1,5 +1,6 @@
 ; Constants:
 %include "./include/data/game/board/board_constants.inc"
+%include "./include/data/´organizer/console_manager_constants.inc"
 %include "./include/data/drawable_vtable/drawable_vtable_constants.inc"
 %include "./include/data/snake/snake_constants.inc"
 %include "./include/data/food/food_constants.inc"
@@ -44,7 +45,7 @@ section .text
     extern GetSystemTimeAsFileTime
 
     extern snake_new
-    extern console_manager_write_char,  console_manager_clear_all, console_manager_clear_sequence, console_manager_repeat_char, console_manager_get_center_y_offset, console_manager_get_center_x_offset
+    extern console_manager_clear_all, console_manager_clear_sequence, console_manager_repeat_char, console_manager_get_center_y_offset, console_manager_get_center_x_offset
     extern food_new
 
     extern malloc_failed, object_not_created
@@ -180,10 +181,6 @@ board_setup:
         ; If board is not created yet, print a debug message.
         cmp qword [rel lcl_board_ptr], 0
         je _b_object_failed
-
-    .clear_screen:
-        ; Clear console screen.
-        call console_manager_clear_all
 
     .draw_board:
         ; Calling all three draw functions to prepare the board:
@@ -584,8 +581,11 @@ _draw_snake:
             ; * - ECX holds the X- and Y-position.
             ; * - RDX holds the pointer to the char.
             mov ecx, r13d                                    
-            mov rdx, rax  
-            call console_manager_write_char
+            mov rdx, rax
+            mov r10, [rel lcl_board_ptr]
+            mov r10, [r10 + board.console_manager_ptr]
+            mov r10, [r10 + console_manager.methods_vtable_ptr]
+            call [r10 + CONSOLE_MANAGER_METHODS_VTABLE_WRITE_CHAR_OFFSET]
         
     .draw_loop_handle:
         ; At first it gets checked, if R12 ist the tail now.
@@ -613,13 +613,9 @@ _draw_snake:
 _draw_fence:
     .set_up:
         ; Set up stack frame:
-        ; * 24 bytes local variables.
-        ; * 8 bytes to keep stack 16 byte aligned.
+        ; * 32 bytes local variables.
         push rbp
         mov rbp, rsp
-        sub rsp, 32
-
-        ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
         
         ; If board is not created yet, print a debug message.
@@ -630,12 +626,18 @@ _draw_fence:
         mov [rbp - 8], rbx
         mov [rbp - 16], r12
         mov [rbp - 24], r13
+        mov [rbp - 32], r14
+
+        ; Reserve 32 bytes shadow space for called functions.
+        sub rsp, 32
 
     .set_up_loop_base:
         ; I am setting up the base for the drawing loop:
         ; * - EBX will hold the width and the height of the board [width, height].
         ; * - R12 will be the height counter for the loop [X-offset, Y-offset].
         ; * - R13 will hold the X- and Y-offsets of the board.
+        ; * - R14 points to methods vtable of console manager.
+    
         mov rcx, [rel lcl_board_ptr]
         ; Setting up EBX containing the width and height of board.
         mov bx, [rcx + board.width]
@@ -649,9 +651,12 @@ _draw_fence:
         call get_board_y_offset
         mov r13w, ax
 
+        ; Setting up R14 containing console manager methods vtable.
+        mov r14, [rcx + board.console_manager_ptr]
+        mov r14, [r14 + console_manager.methods_vtable_ptr]
+
         ; Set height counter to 0.
         xor r12w, r12w
-
     .draw_top_fence:
         ; The Fence at board(Y - 1).
         ; Setting up the params for "console_manager_repeat_char":
@@ -672,7 +677,7 @@ _draw_fence:
         movzx r8d, bx
         add r8d, 3
         rol ebx, 16
-        call console_manager_repeat_char
+        call [r14 + CONSOLE_MANAGER_METHODS_VTABLE_REPEAT_CHAR_OFFSET]
 
     .draw_side_fence_loop:
         ; Preparing coordinates of the left fence piece. 
@@ -690,7 +695,7 @@ _draw_fence:
         ; Finally the pointer to the fence char get's loaded into RDX.
         ; Parameters are set up.
         lea rdx, [rel fence_char] 
-        call console_manager_write_char
+        call [r14 + CONSOLE_MANAGER_METHODS_VTABLE_WRITE_CHAR_OFFSET]
 
         ; Preparing coordinates of the right fence piece.
         ; The X-coordinate is board.x-offset + board.width + 1
@@ -709,7 +714,7 @@ _draw_fence:
         ; Loading again the pointer to the fence char into RDX.
         ; Parameters are set up.
         lea rdx, [rel fence_char] 
-        call console_manager_write_char
+        call [r14 + CONSOLE_MANAGER_METHODS_VTABLE_WRITE_CHAR_OFFSET]
 
     .draw_side_fence_loop_handle:
         ; The loop handles sets EBX back into set up [width, height] and increments the height counter.
@@ -740,11 +745,10 @@ _draw_fence:
         ror ebx, 16
         movzx r8d, bx
         add r8d, 3
-        call console_manager_repeat_char
+        call call [r14 + CONSOLE_MANAGER_METHODS_VTABLE_REPEAT_CHAR_OFFSET]
 
     .complete:
         ; Restore non-volatile regs.
-        mov r15, [rbp - 40]
         mov r14, [rbp - 32]
         mov r13, [rbp - 24]
         mov r12, [rbp - 16]
@@ -759,13 +763,11 @@ _draw_fence:
 _draw_food:
     .set_up:
         ; Set up stack frame:
-        ; * 24 bytes local variables.
-        ; * 8 bytes to keep stack 16 byte aligned.
+        ; * 32 bytes local variables.
         push rbp
         mov rbp, rsp
         sub rsp, 32
 
-        
         ; If board is not created yet, print a debug message.
         cmp qword [rel lcl_board_ptr], 0
         je _b_object_failed
@@ -774,9 +776,16 @@ _draw_food:
         mov [rbp - 8], rbx
         mov [rbp - 16], r12
         mov [rbp - 24], r13
+        mov [rbp - 32], r14
 
-        ; RBX becomes food pointer.
+        ; RBX becomes board pointer first.
         mov rbx, [rel lcl_board_ptr]
+
+        ; R14 becomes pointer to console manager methods vtable.
+        mov r14, [rbx + board.console_manager_ptr]
+        mov r14, [r14 + console_manager.methods_vtable_ptr]
+
+        ; Now RBX gets the food pointer.
         mov rbx, [rbx + board.food_ptr]
 
         ; R12 becomes pointer to DRAWABLE vtable.
@@ -823,7 +832,7 @@ _draw_food:
 
         ; * - RDX contains pointer to char.
         mov rdx, rax
-        call console_manager_write_char
+        call [r14 + CONSOLE_MANAGER_METHODS_VTABLE_WRITE_CHAR_OFFSET]
 
     .complete:
         ; Restore non-volatile regs.
