@@ -8,13 +8,17 @@ That means:
 * Encapsulate methods and attributes into independend "objects" (in this case: grouped memory cells)
 * Trying to implement at least one kind of interface (in this case: drawable-interface for objects, participating in the game board [which was kind of unneccessary, since I am not handling a list of drawables, but drawing them seperately of each other])
 
-After some time in the project I realised following:
-A better way to work object oriented would have been, to implement a public VTABLE, containing the pointers to the public methods of each object. Always accessible by the pointer to the object and the offset of the method. It is on the list to change that way. At the moment I am handling all methods by themselves in either realising them to the public or keeping them private inside the file. That doesn't seem to bee really object oriented. But it worked so far. I will change it in the future.
+I am handling methods with vtables:
+Every class is handling the constructor via a static_vtable.
+Public methods are either packed into a method_vtable, a getter_vtable or a setter_vtable. So it could be, that an object reserves memory space for three vtables. The static_vtable is the only global part of a class. The method_vtable points to every public method of the object.
+The getter_vtable - for sure - points to their getter and the setter_vtable to their setter.
+I wanted to achieve real object orientation by encapsulating the code and just offer vtables as access points into the methods. 
 
 My goal was to create a file system, saving the created players and their highscores. When a player is starting the game, the player is able to choose, if a new player should be created or loading an already created one from the file. The file is sorted descending by highscore (for practice reasons, I am using a Merch Sort algorithm).
 
 ## Windows ABI: 
 I am writing in NASM Windows ABI.
+
 Parameters:
 1. <b>RCX</b>
 2. <b>RDX</b>
@@ -35,7 +39,7 @@ Non Volatile Regs:
 
 Shadow Space:
 * Every caller has to reserve 32 bytes of shadow space for the callee.
-* I am using that shadow space to save the parameters into.
+* I am using that shadow space to save the parameters into (if I don't save them into non-volatile registers for usage beyond function calls and reduce the amount of accessing memory space).
 * Local variables are saved into the stack space, which will be reserved at the beginning of the function.
 
 ## Classes:
