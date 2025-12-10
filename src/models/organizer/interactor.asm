@@ -1,4 +1,5 @@
 ; Constants:
+%include "./include/data/organizer/helper_constants.inc"
 %include "./include/data/organizer/console_manager/console_manager_constants.inc"
 %include "./include/data/organizer/designer/designer_constants.inc"
 %include "./include/data/organizer/file_manager/file_manager_constants.inc"
@@ -23,11 +24,24 @@
 ; This is the interactor, which is simply managing all the interaction with the user. It is the only object visible to the main function of the program.
 ; It is handling the player and game creation and managing every option after the game.
 
-global interactor_new
+global interactor_static_vtable
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "interactor_new", 0
+
+    ;;;;;; VTABLES ;;;;;;
+    interactor_static_vtable:
+        dq interactor_new
+
+    ;;;;;; VTABLES ;;;;;;
+    interactor_methods_vtable:
+        dq interactor_setup
+        dq interactor_create_game
+        dq interactor_start_game
+        dq interactor_replay_game
+        dq interactor_update_player_highscore_in_file
+        dq interactor_destroy
 
 section .bss
     ; Memory space for the created interactor pointer.
@@ -51,23 +65,16 @@ section .text
     extern malloc, free
     extern Sleep
 
-    extern designer_new
-    extern game_new
-    extern file_manager_new
-    extern player_new
-    extern helper_get_digits_of_number, helper_get_digits_in_string, helper_parse_saved_to_int
-    extern options_new
+    extern designer_static_vtable
+    extern game_static_vtable
+    extern file_manager_static_vtable
+    extern player_static_vtable
+    extern helper_static_vtable
+    extern options_static_vtable
 
     extern malloc_failed, object_not_created
 
-;;;;;; VTABLES ;;;;;;
-interactor_methods_vtable:
-    dq interactor_setup
-    dq interactor_create_game
-    dq interactor_start_game
-    dq interactor_replay_game
-    dq interactor_update_player_highscore_in_file
-    dq interactor_destroy
+
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 
@@ -111,10 +118,12 @@ interactor_new:
         mov rbx, rax
 
     .create_dependend_objects:
-        call designer_new
+        lea r10, [rel designer_static_vtable]
+        call [r10 + DESIGNER_STATIC_CONSTRUCTOR_OFFSET]
         mov [rbx + interactor.designer_ptr], rax
 
-        call file_manager_new
+        lea r10, [rel file_manager_static_vtable]
+        call [r10 + FILE_MANAGER_STATIC_CONSTRUCTOR_OFFSET]
         mov [rbx + interactor.file_manager_ptr], rax
 
     .set_up_tables:
@@ -249,7 +258,8 @@ interactor_create_game:
         ; Use the created player and level to set up the options for the game.
         mov rcx, [rbp - 8]
         mov rdx, rax
-        call options_new
+        lea r10, [rel options_static_vtable]
+        call [r10 + OPTIONS_STATIC_CONSTRUCTOR_OFFSET]
         ; * Use first local variable: Options pointer.
         mov [rbp - 8], rax
 
@@ -263,7 +273,8 @@ interactor_create_game:
         mov rdx, [rbp - 8]
         ; And the interactor in R8.
         mov r8, [rel lcl_interactor_ptr]
-        call game_new
+        lea r10, [rel game_static_vtable]
+        call [r10 + GAME_STATIC_CONSTRUCTOR_OFFSET]
 
     .set_up_object:
         ; Move the created game into the preserved memory space.
@@ -733,7 +744,8 @@ _create_new_player:
     .create_player:
         lea rcx, [rel lcl_i_player_name]
         xor rdx, rdx
-        call player_new
+        lea r10, [rel player_static_vtable]
+        call [r10 + PLAYER_STATIC_CONSTRUCTOR_OFFSET]
 
         ; * First local variable: Player pointer.
         mov r12, rax
@@ -822,7 +834,8 @@ _get_player_index:
         sub rsp, 32
 
     .get_digits:
-        call helper_get_digits_of_number
+        lea r10, [rel helper_static_vtable]
+        call [r10 + HELPER_STATIC_DIGITS_OF_NUM_OFFSET]
         mov r12, rax
 
     .get_index_loop:
@@ -874,12 +887,14 @@ _create_player_from_index:
     .parse_highscore:
         lea rcx, [rel player_from_file_struc + 16]
         mov rdx, 4
-        call helper_parse_saved_to_int
+        lea r10, [rel helper_static_vtable]
+        call [r10 + HELPER_STATIC_SAVED_TO_INT_OFFSET]
 
     .create_player:
         lea rcx, [rel player_from_file_struc]
         mov rdx, rax
-        call player_new
+        lea r10, [rel player_static_vtable]
+        call [r10 + PLAYER_STATIC_CONSTRUCTOR_OFFSET]
 
     .complete:
         ; Return created player in RAX.
@@ -1128,7 +1143,8 @@ _handle_options:
         ; Creating new options, based on the new player.
         mov rcx, rax
         mov edx, [rbx + options.lvl]
-        call options_new
+        lea r10, [rel options_static_vtable]
+        call [r10 + OPTIONS_STATIC_CONSTRUCTOR_OFFSET]
         mov r12, rax
 
         ; Destroying the old options object.
@@ -1149,7 +1165,8 @@ _handle_options:
         ; Creating new options, based on the new level.
         mov rcx, [rbx + options.player_ptr]
         mov rdx, rax
-        call options_new
+        lea r10, [rel options_static_vtable]
+        call [r10 + OPTIONS_STATIC_CONSTRUCTOR_OFFSET]
         mov r12, rax
 
         ; Destroying the old options object.
@@ -1175,7 +1192,8 @@ _handle_options:
         ; Create new options, based on new player and new level.
         mov rcx, r12
         mov rdx, rax
-        call options_new
+        lea r10, [rel options_static_vtable]
+        call [r10 + OPTIONS_STATIC_CONSTRUCTOR_OFFSET]
         mov r12, rax
 
         ; Destroy old options object.

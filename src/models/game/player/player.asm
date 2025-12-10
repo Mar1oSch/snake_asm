@@ -4,11 +4,23 @@
 ; The player object. I decided to let the user create a player. The player is getting saved into a file with the highscore.
 ; If the user comes back, he can decide, if he already played and then choose the player he wants to.
 ; The points of a game are stored in the game object. If the actual points are higher than the actual highscore of the player, it is getting updated.
-global player_new
+
+global player_static_vtable
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "player_new", 0
+
+    ;;;;;; VTABLES ;;;;;;
+    player_static_vtable:
+        dq player_new
+
+    player_methods_vtable:
+        dq player_update_highscore
+        dq player_destroy
+
+    player_getter_vtable:
+        dq get_player_name_length
 
 section .bss
     ; Memory space for the created player pointer.
@@ -25,13 +37,7 @@ section .text
 
     extern malloc_failed, object_not_created
 
-;;;;;; VTABLES ;;;;;;
-player_methods_vtable:
-    dq player_update_highscore
-    dq player_destroy
 
-player_getter_vtable:
-    dq get_player_name_length
 
 
 ;;;;;; PUBLIC METHODS ;;;;;;

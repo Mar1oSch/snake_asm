@@ -10,7 +10,7 @@
 section .text
     global main
 
-    extern interactor_new
+    extern interactor_static_vtable
 
 main:
 .set_up:
@@ -28,7 +28,8 @@ main:
     sub rsp, 32
 
 .create_interactor:
-    call interactor_new
+    lea r10, [rel interactor_static_vtable]
+    call [r10 + INTERACTOR_STATIC_CONSTRUCTOR_OFFSET]
 
     ; Save interactor.methods_table into RBX.
     mov rbx, rax

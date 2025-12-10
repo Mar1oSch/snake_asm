@@ -1,39 +1,44 @@
 ; Constants:
 %include "./include/data/food/food_constants.inc"
+%include "./include/data/interface_table_constants.inc"
 %include "./include/data/position_constants.inc"
 
 ; Strucs:
 %include "./include/strucs/food/food_struc.inc"
 %include "./include/strucs/position_struc.inc"
+%include "./include/strucs/interface_table_struc.inc"
 
 ; This is the simple food-object the snake is consuming.
 ; It is purely passive and its usage is getting handled by the board and the game.
 ; That's why it needs to get to know its position when it is constructed.
 
-global food_new
+global food_static_vtable
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "food_new", 0
 
+    ;;;;;; VTABLES ;;;;;;
+    food_static_vtable:
+        dq food_new
+
+    food_methods_vtable:
+        dq food_destroy
+
+    food_drawable_vtable:
+        dq food_get_char_ptr 
+        dq food_get_x_position
+        dq food_get_y_position
+
 section .text
     extern malloc, free
 
-    extern position_new
-    extern interface_table_new, interface_table_destroy
+    extern position_static_vtable
+    extern interface_table_static_vtable
 
     extern malloc_failed
 
 
-
-;;;;;; VTABLES ;;;;;;
-food_methods_vtable:
-    dq food_destroy
-
-food_drawable_vtable:
-    dq food_get_char_ptr 
-    dq food_get_x_position
-    dq food_get_y_position
 
 ;;;;;;PUBLIC METHODS ;;;;;;
 
@@ -56,14 +61,16 @@ food_new:
 
     .create_dependend_objects:
         ; Creating the position object, a food object is pointing to.
-        call position_new
+        lea r10, [rel position_static_vtable]
+        call [r10 + POSITION_STATIC_CONSTRUCTOR_OFFSET]
         ; * First local variable: Position pointer.
         mov [rbp - 8], rax                    
 
         ; Creating an interface table. 
         ; The food object is a drawable. 
         lea rcx, [rel food_drawable_vtable]
-        call interface_table_new
+        lea r10, [rel interface_table_static_vtable]
+        call [r10 + INTERFACE_TABLE_STATIC_CONSTRUCTOR_OFFSET]
         ; * Second local variable: Interface table pointer.
         mov [rbp - 16], rax
 
@@ -126,7 +133,8 @@ food_destroy:
         ; Also free the space of the interface table.
         mov rcx, [rbp + 16]
         mov rcx, [rcx + food.interface_table_ptr]
-        call interface_table_destroy
+        mov r10, [rcx + interface_table.methods_vtable_ptr]
+        call [r10 + INTERFACE_TABLE_METHODS_DESTRUCTOR_OFFSET]
 
     .destroy_object:
         ; Finally free the food object itself.

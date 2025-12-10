@@ -3,6 +3,7 @@
 
 ; Constants:
 %include "./include/data/snake/snake_constants.inc"
+%include "./include/data/organizer/helper_constants.inc"
 %include "./include/data/organizer/console_manager/console_manager_constants.inc"
 %include "./include/data/organizer/designer/designer_constants.inc"
 %include "./include/data/organizer/interactor/interactor_constants.inc"
@@ -27,12 +28,20 @@
 ; It has options, how it handles the player and the level.
 ; And it has points. Each game ,the player reaches some points. At the end, the game compares the highscore of the current player with the points of that round. If this round the player reached more points than the acutal highscore, the points are the new highscore.
 
-global game_new
+global game_static_vtable
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "game_new", 0
     direction_error db "Direction is illegal: %d", 0
+
+    ;;;;;; VTABLES ;;;;;;
+    game_static_vtable:
+        dq game_new
+
+    game_methods_vtable:
+        dq game_start
+        dq game_reset
 
 section .data
     ; Save the current direction of the snakes head.
@@ -56,16 +65,11 @@ section .text
     extern GetAsyncKeyState
     extern printf
 
-    extern board_new
-    extern helper_change_position
+    extern board_static_vtable
+    extern helper_static_vtable
 
     extern malloc_failed, object_not_created
 
-
-;;;;;; VTABLES ;;;;;;
-game_methods_vtable:
-    dq game_start
-    dq game_reset
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 
@@ -98,7 +102,8 @@ game_new:
         ; Moving console manager pointer into RDX.
         mov rdx, [r8 + interactor.designer_ptr]
         mov rdx, [rdx + designer.console_manager_ptr]
-        call board_new
+        lea r10, [rel board_static_vtable]
+        call [r10 + BOARD_STATIC_CONSTRUCTOR_OFFSET]
         ; * First local variable: Board pointer.
         mov [rbp - 8], rax
 
@@ -1035,7 +1040,8 @@ _print_level:
         mov ecx, ebx
         mov rdx, LVL_LENGTH
         xor r8, r8
-        call helper_change_position
+        lea r10, [rel helper_static_vtable]
+        call [r10 + HELPER_STATIC_CHANGE_POS_OFFSET]
 
     .write_lvl:
         mov ecx, eax
@@ -1191,7 +1197,8 @@ _print_highscore:
         mov ecx, r12d
         mov rdx, BEST_LENGTH
         xor r8, r8
-        call helper_change_position
+        lea r10, [rel helper_static_vtable]
+        call [r10 + HELPER_STATIC_CHANGE_POS_OFFSET]
 
     .write_number:
         mov ecx, eax

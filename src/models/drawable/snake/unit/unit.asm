@@ -1,6 +1,7 @@
 ; Constants:
 %include "./include/data/snake/unit/unit_constants.inc"
 %include "./include/data/position_constants.inc"
+%include "./include/data/interface_table_constants.inc"
 
 ; Strucs:
 %include "./include/strucs/interface_table_struc.inc"
@@ -13,29 +14,32 @@
 ; Because it is moving (in difference to food), it needs to know the direction it is moving.
 ; Since it also is a drawable object, it gets told, where on the board it is positioned at the moment.
 
-global unit_new
+global unit_static_vtable
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "unit_new", 0
 
+    ;;;;;; VTABLES ;;;;;;
+    unit_static_vtable:
+        dq unit_new
+
+    unit_methods_vtable:
+        dq unit_destroy 
+
+    unit_drawable_vtable:
+        dq unit_get_char_ptr
+        dq unit_get_x_position
+        dq unit_get_y_position
+
 section .text
     extern malloc, free
 
-    extern position_new
-    extern interface_table_new, interface_table_destroy
+    extern position_static_vtable
+    extern interface_table_static_vtable
 
     extern malloc_failed
 
-
-;;;;;; VTABLES ;;;;;;
-unit_methods_vtable:
-    dq unit_destroy
-
-unit_drawable_vtable:
-    dq unit_get_char_ptr
-    dq unit_get_x_position
-    dq unit_get_y_position
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 
@@ -67,7 +71,8 @@ unit_new:
 
     .create_dependend_objects:
         ; Create the position object, the unit object will later point at.
-        call position_new
+        lea r10, [rel position_static_vtable]
+        call [r10 + POSITION_STATIC_CONSTRUCTOR_OFFSET]
         ; First local variable: 
         ; * Position pointer.
         mov [rbp - 8], rax
@@ -75,7 +80,8 @@ unit_new:
         ; Creating the interface table.
         ; The unit is a drawable.
         lea rcx, [rel unit_drawable_vtable]
-        call interface_table_new
+        lea r10, [rel interface_table_static_vtable]
+        call [r10 + INTERFACE_TABLE_STATIC_CONSTRUCTOR_OFFSET]
         ; Second local variable:
         ; * Interface table pointer.
         mov [rbp - 16], rax
@@ -158,7 +164,8 @@ unit_destroy:
         ; Free memory space of linked interface table object.
         mov rcx, [rbp + 16]
         mov rcx, [rcx + unit.interface_table_ptr]
-        call interface_table_destroy
+        mov r10, [rcx + interface_table.methods_vtable_ptr]
+        call [r10 + INTERFACE_TABLE_METHODS_DESTRUCTOR_OFFSET]
 
     .destroy_object:
         ; Free unit object itself.

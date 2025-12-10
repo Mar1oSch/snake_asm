@@ -1,10 +1,22 @@
-global helper_get_digits_of_number, helper_parse_saved_to_int, helper_is_input_just_numbers, helper_parse_string_to_int, helper_parse_int_to_string, helper_merge_sort_list, helper_change_position
+global helper_static_vtable
 
 ; This is a helper file to solve general problems in the program.
+section .rodata
+    ;;;;;; VTABLES ;;;;;;
+    helper_static_vtable:
+        dq helper_change_position
+        dq helper_get_digits_of_number
+        dq helper_is_input_just_numbers
+        dq helper_parse_int_to_string
+        dq helper_parse_saved_to_int
+        dq helper_parse_string_to_int
+        dq helper_merge_sort_list
 
 section .text
     extern malloc, free
 
+
+;;;;;; PUBLIC METHODS ;;;;;;
 
 helper_change_position:
     ; * Expect position in ECX.
@@ -248,7 +260,6 @@ helper_parse_string_to_int:
 
 ;;;;;; MERGE SORT ;;;;;;
 
-; TODO: Intersting to do here: Find a solution to modify list in place! That should be possible. :)
 helper_merge_sort_list:
     ; * Expect pointer to list in RCX.
     ; * Expect amount of list records in RDX.

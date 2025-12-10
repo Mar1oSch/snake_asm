@@ -18,13 +18,28 @@
 ; Active in case of drawing the content: Drawing food, creating new food and position it inside the board, drawing the snake.
 ; Passive in that way, that it is getting told by the game, when it should draw the snake, when it should create new food, when the old food gets destroyed and so on.
 
-global board_new
+global board_static_vtable
 
 section .rodata
     fence_char db "#"
 
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "board_new", 0
+
+    ;;;;;; VTABLES ;;;;;;
+    board_static_vtable:
+        dq board_new
+
+    board_methods_vtable:
+        dq board_setup
+        dq board_move_snake
+        dq board_create_new_food
+        dq board_draw_food
+        dq board_reset
+
+    board_getter_vtable:
+        dq get_board_x_offset
+        dq get_board_y_offset
 
 section .data
     ; FILETIME structure to capture information from "GetSystemTimeAsFileTime", which collects the system time as nano seconds and saves it into the structure.
@@ -45,22 +60,11 @@ section .text
     extern Sleep
     extern GetSystemTimeAsFileTime
 
-    extern snake_new
-    extern food_new
+    extern snake_static_vtable
+    extern food_static_vtable
 
     extern malloc_failed, object_not_created
 
-;;;;;; VTABLES ;;;;;;
-board_methods_vtable:
-    dq board_setup
-    dq board_move_snake
-    dq board_create_new_food
-    dq board_draw_food
-    dq board_reset
-
-board_getter_vtable:
-    dq get_board_x_offset
-    dq get_board_y_offset
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 
@@ -141,7 +145,8 @@ board_new:
         ; Now CX contains the board.height from above.
         shr cx, 1                           ; Bit shift one to the right: Div CX, 2
         mov dl, STARTING_DIRECTION
-        call snake_new
+        lea r10, [rel snake_static_vtable]
+        call [r10 + SNAKE_STATIC_CONSTRUCTOR_OFFSET]
         ; Make created snake belong to the board.
         mov [rbx + board.snake_ptr], rax
 
@@ -152,7 +157,8 @@ board_new:
         shl ecx, 16
         mov cx, [rbx + board.height]
         shr cx, 2                           ; Bit shift one to the right: Div CX, 2
-        call food_new
+        lea r10, [rel food_static_vtable]
+        call [r10 + FOOD_STATIC_CONSTRUCTOR_OFFSET]
         ; Make created food belong to the board.
         mov [rbx + board.food_ptr], rax
 
@@ -344,7 +350,8 @@ board_create_new_food:
     .create_new_food:
         ; Use the position to create the food object.
         mov ecx, [rbp - 16]
-        call food_new
+        lea r10, [rel food_static_vtable]
+        call [r10 + FOOD_STATIC_CONSTRUCTOR_OFFSET]
 
     .set_up_board:
         ; Make the board own the created food object.

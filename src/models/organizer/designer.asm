@@ -1,4 +1,5 @@
 ; Constants:
+%include "./include/data/organizer/helper_constants.inc"
 %include "./include/data/organizer/console_manager/console_manager_constants.inc"
 
 ; Data:
@@ -12,7 +13,7 @@
 
 ; The object to manage the design of the game. It is responsible for centering the output, for writing the table and for typing sequences (if it is desired).
 
-global designer_new
+global designer_static_vtable
 
 section .rodata
     ;;;;;; TABLE PAGINATION ;;;;;;
@@ -21,6 +22,17 @@ section .rodata
 
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "designer_new", 0
+
+    ;;;;;; VTABLES ;;;;;;
+    designer_static_vtable:
+        dq designer_new
+
+    designer_methods_vtable:
+        dq designer_start_screen
+        dq designer_type_sequence
+        dq designer_write_headline
+        dq designer_write_table
+        dq designer_destroy
 
 section .bss
     ; Memory space for the created designer pointer.
@@ -35,19 +47,11 @@ section .text
     extern malloc, free
     extern Sleep
 
-    extern console_manager_new
-    extern helper_get_digits_of_number, helper_change_position
+    extern console_manager_static_vtable
+    extern helper_static_vtable
 
     extern malloc_failed, object_not_created
 
-
-;;;;;; VTABLES ;;;;;;
-designer_methods_vtable:
-    dq designer_start_screen
-    dq designer_type_sequence
-    dq designer_write_headline
-    dq designer_write_table
-    dq designer_destroy
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 designer_new:
@@ -67,7 +71,8 @@ designer_new:
         sub rsp, 32
 
     .create_dependend_objects:
-        call console_manager_new
+        lea r10, [rel console_manager_static_vtable]
+        call [r10 + CONSOLE_MANAGER_STATIC_CONSTRUCTOR_OFFSET]
         mov [rbp - 8], rax
 
     .create_object:
@@ -89,7 +94,7 @@ designer_new:
         lea rcx, [rel designer_methods_vtable]
         mov [rax + designer.methods_vtable_ptr], rcx
 
-        ; Use the console manager pointer returned by console_manager_new and move it into preserved memory space.
+        ; Use the console manager pointer returned by console_manager constructor and move it into preserved memory space.
         mov rcx, [rbp - 8]
         mov [rax + designer.console_manager_ptr], rcx
 
@@ -552,10 +557,11 @@ _table_pagination:
     ; * Expect count in RDX.
     .set_up:
         ; Set up stack frame:
-        ; * 32 bytes local variables.
+        ; * 40 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
-        sub rsp, 32
+        sub rsp, 48
 
         ; If designer is not created yet, print a debug message.
         cmp qword [rel lcl_designer_ptr], 0
@@ -566,6 +572,7 @@ _table_pagination:
         mov [rbp - 16], r12
         mov [rbp - 24], r13
         mov [rbp - 32], r14
+        mov [rbp - 40], r15
 
         ; Save params into non-volatile regs.
         mov ebx, ecx
@@ -575,6 +582,9 @@ _table_pagination:
         mov r14, [rel lcl_designer_ptr]
         mov r14, [r14 + designer.console_manager_ptr]
         mov r14, [r14 + console_manager.methods_vtable_ptr]
+
+        ; Prepare helper_static_table in R15.
+        lea r15, [rel helper_static_vtable]
 
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
@@ -586,14 +596,14 @@ _table_pagination:
     .write_number:
         ; At first I calculate how many digits the number has to know how many bytes the string needs.
         mov rcx, r12
-        call helper_get_digits_of_number
+        call [r15 + HELPER_STATIC_DIGITS_OF_NUM_OFFSET]
         mov r13, rax
 
         ; Then the cursor gets moved.
         mov ecx, ebx
         mov rdx, 1
         xor r8, r8
-        call helper_change_position
+        call [r15 + HELPER_STATIC_CHANGE_POS_OFFSET]
         mov ebx, eax
 
         ; And the number is written. It needs to know its position, the number itself and the amount of digits.
@@ -606,7 +616,7 @@ _table_pagination:
         mov ecx, ebx
         mov rdx, r13
         xor r8, r8
-        call helper_change_position
+        call [r15 + HELPER_STATIC_CHANGE_POS_OFFSET]
 
         mov ecx, eax
         lea rdx, [rel closed_brace]
@@ -614,6 +624,7 @@ _table_pagination:
 
     .complete:
         ; Restore non-volatile regs.
+        mov r15, [rbp - 40]
         mov r14, [rbp - 32]
         mov r13, [rbp - 24]
         mov r12, [rbp - 16]

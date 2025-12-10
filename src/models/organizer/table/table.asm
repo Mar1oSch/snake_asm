@@ -23,11 +23,15 @@
 ;   - table_struc.inc: Defines the table structure, including row count, column count, content pointer, and column format pointer.
 ;   - column_format_struc.inc: Defines the column format structure, including entry length and entry type.
 
-global table_new
+global table_static_vtable
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "table_new"
+
+    ;;;;;; VTABLES ;;;;;;
+    table_static_vtable:
+        dq table_new
 
 section .data
     list_length_counter dd 0

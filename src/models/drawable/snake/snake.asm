@@ -16,11 +16,19 @@
 ; The snake as whole has no direction, since every unit has it's own direction. I am passing down the direction each update through the units in the list. 
 ; The length of the snake is then used to check, if the player finished the game: If length of snake = board.width * board.height, player gets 100 bonus points.
 
-global snake_new
+global snake_static_vtable
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "snake_new", 0
+
+    ;;;;;; VTABLES ;;;;;;
+    snake_static_vtable:
+        dq snake_new
+
+    snake_methods_vtable:
+        dq snake_reset
+        dq snake_add_unit
 
 section .bss
     ; Memory space for the created snake pointer.
@@ -34,14 +42,10 @@ section .bss
 section .text
     extern malloc, free
 
-    extern unit_new
+    extern unit_static_vtable
 
     extern malloc_failed, object_not_created
 
-;;;;;; VTABLES ;;;;;;
-snake_methods_vtable:
-    dq snake_reset
-    dq snake_add_unit
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 
@@ -78,7 +82,8 @@ snake_new:
         ; DL already contains the direction.
         ; Set R8 to 1, so the unit knows it is the head.
         mov r8, 1
-        call unit_new
+        lea r10, [rel unit_static_vtable]
+        call [r10 + UNIT_STATIC_CONSTRUCTOR_OFFSET]
         ; Second local variable: 
         ; * Unit pointer.
         mov qword [rbp - 16], rax
@@ -269,7 +274,8 @@ snake_add_unit:
         ; DL already containts the direction from above (new unit must have the same direction as old tail had).
         ; R8 is 0, because the new unit is definitely not the head.
         xor r8, r8
-        call unit_new
+        lea r10, [rel unit_static_vtable]
+        call [r10 + UNIT_STATIC_CONSTRUCTOR_OFFSET]
         ; Since I don't need the saved position anymore, I replace the old third local variable with the unit pointer.
         mov [rbp - 32], rax
 

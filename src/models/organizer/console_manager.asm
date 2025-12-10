@@ -1,4 +1,5 @@
 ; Constants:
+%include "./include/data/organizer/helper_constants.inc"
 %include "./include/data/organizer/console_manager/console_manager_constants.inc"
 
 ; Strucs:
@@ -6,14 +7,38 @@
 
 ; This is the console manager, which is responsible for managing the basic communication with the console. Every interaction with it is handled here.
 
-global console_manager_new
+global console_manager_static_vtable
 
 section .rodata
     ;;;;;; ERASER ;;;;;;
     erase_char db " "
 
     ;;;;; DEBUGGING ;;;;;;
-    constructor_name db "console_manager", 13, 10, 0
+    constructor_name db "console_manager_new", 13, 10, 0
+
+    ;;;;;; VTABLES ;;;;;;
+    console_manager_static_vtable:
+        dq console_manager_new
+
+    console_manager_methods_vtable:
+        dq console_manager_write_char
+        dq console_manager_repeat_char
+        dq console_manager_write_word
+        dq console_manager_write_number
+        dq console_manager_recieve_numeral_input
+        dq console_manager_recieve_literal_input
+        dq console_manager_clear_all
+        dq console_manager_clear_sequence
+        dq console_manager_destroy
+
+    console_manager_getter_vtable:
+        dq console_manager_get_center_x_offset
+        dq console_manager_get_center_y_offset
+
+    console_manager_setter_vtable:
+        dq console_manager_set_console_cursor_info
+        dq console_manager_set_cursor
+        dq console_manager_set_buffer_size
 
 section .data
     ; This is the parameter which needs to get passed into "SetConsoleCursorInfo". I am using it to turn of the visibility of the cursor while the game is running. And then turning it one, if a user input is requested.
@@ -49,7 +74,7 @@ section .text
 
     extern malloc_failed, object_not_created
 
-    extern helper_parse_saved_to_int, helper_is_input_just_numbers, helper_parse_string_to_int, helper_parse_int_to_string
+    extern helper_static_vtable
 
     extern GetStdHandle
     extern SetConsoleCursorPosition, SetConsoleCursorInfo
@@ -57,28 +82,6 @@ section .text
     extern GetConsoleScreenBufferInfo, GetNumberOfConsoleInputEvents
     extern SetConsoleScreenBufferSize
     extern FillConsoleOutputCharacterA
-
-
-;;;;;; VTABLES ;;;;;;
-console_manager_methods_vtable:
-    dq console_manager_write_char
-    dq console_manager_repeat_char
-    dq console_manager_write_word
-    dq console_manager_write_number
-    dq console_manager_recieve_numeral_input
-    dq console_manager_recieve_literal_input
-    dq console_manager_clear_all
-    dq console_manager_clear_sequence
-    dq console_manager_destroy
-
-console_manager_getter_vtable:
-    dq console_manager_get_center_x_offset
-    dq console_manager_get_center_y_offset
-
-console_manager_setter_vtable:
-    dq console_manager_set_console_cursor_info
-    dq console_manager_set_cursor
-    dq console_manager_set_buffer_size
 
 
 ;;;;;; PUBLIC METHODS ;;;;;;
@@ -264,8 +267,7 @@ console_manager_write_word:
     ; * Expect length of number in R9, if no number expect 0.
     .set_up:
         ; Set up stack frame:
-        ; * 24 bytes local variables.
-        ; * 8 bytes to keep stack 16-byte aligned.
+        ; * 32 bytes local variables.
         push rbp
         mov rbp, rsp
         sub rsp, 32
@@ -278,6 +280,7 @@ console_manager_write_word:
         mov [rbp - 8], rbx
         mov [rbp - 16], r12
         mov [rbp - 24], r13
+        mov [rbp - 32], r14
 
         ; Save params into regs:
         ; * RBX = pointer to word.
@@ -286,6 +289,9 @@ console_manager_write_word:
         mov rbx, rdx
         mov r12, r8
         mov r13, r9
+
+        ; Set up R14 as helper_static_table.
+        lea r14, [rel helper_static_vtable]
 
         ; Reserve 32 bytes shadow space for called functions. 
         sub rsp, 32
@@ -300,12 +306,12 @@ console_manager_write_word:
     .handle_number:
         mov rcx, rbx
         mov rdx, r13
-        call helper_parse_saved_to_int
+        call [r14 + HELPER_STATIC_SAVED_TO_INT_OFFSET]
         
         mov rcx, rbx
         mov rdx, rax
         mov r8, r13
-        call helper_parse_int_to_string
+        call [r14 + HELPER_STATIC_INT_TO_STR_OFFSET]
         mov rbx, rax
 
     .write:
@@ -315,6 +321,7 @@ console_manager_write_word:
 
     .complete:
         ; Resotre non-volatile regs.
+        mov r14, [rbp - 32]
         mov r13, [rbp - 24]
         mov r12, [rbp - 16]
         mov rbx, [rbp - 8]
@@ -367,7 +374,8 @@ console_manager_write_number:
         mov rcx, rax
         mov rdx, rbx
         mov r8, r12
-        call helper_parse_int_to_string
+        lea r10, [rel helper_static_vtable]
+        call [r10 + HELPER_STATIC_INT_TO_STR_OFFSET]
 
     .write:
         mov rcx, rax
@@ -396,8 +404,7 @@ console_manager_recieve_numeral_input:
     ; * Expect number of chars to read in RCX.
     .set_up:
         ; Set up stack frame:
-        ; * 24 byte local variables.
-        ; * 8 bytes to keep stack 16-byte aligned.
+        ; * 32 byte local variables.
         push rbp
         mov rbp, rsp
         sub rsp, 32
@@ -409,12 +416,16 @@ console_manager_recieve_numeral_input:
         ; Save non-volatile regs.
         mov [rbp - 8], rbx
         mov [rbp - 16], r12
+        mov [rbp - 24], r13
 
         ; Save param into non-volatile regs.
         mov rbx, rcx
 
         ; Load pointer to second local variable into R12.
-        lea r12, [rbp - 24]
+        lea r12, [rbp - 32]
+
+        ; Prepare helper_static_table in R13.
+        lea r13, [rel helper_static_vtable]
 
         ; Reserve 32 bytes shadow space for called functions. 
         sub rsp, 32
@@ -426,18 +437,19 @@ console_manager_recieve_numeral_input:
 
         mov rcx, r12
         mov rdx, rbx
-        call helper_is_input_just_numbers
+        call [r13 + HELPER_STATIC_INPUT_JUST_NUMS_OFFSET]
         test rax, rax
         jz .numeral_input_loop
 
     .turn_input_into_number:
         mov rcx, r12
         mov rdx, rbx
-        call helper_parse_string_to_int
+        call [r13 + HELPER_STATIC_STR_TO_INT_OFFSET]
         ; Number is stored in RAX now.
 
     .complete:
         ; Restore non-volatile regs.
+        mov r13, [rbp - 24]
         mov r12, [rbp - 16]
         mov rbx, [rbp - 8]
 

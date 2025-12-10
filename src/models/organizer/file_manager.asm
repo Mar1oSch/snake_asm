@@ -1,4 +1,5 @@
 ; Constants:
+%include "./include/data/organizer/helper_constants.inc"
 %include "./include/data/organizer/file_manager/file_manager_constants.inc"
 %include "./include/data/organizer/file_manager/table/table_constants.inc"
 
@@ -8,7 +9,7 @@
 
 ; The file manager handles the communication with the leaderboard.bin. It creates and updates players and their entries.
 
-global file_manager_new
+global file_manager_static_vtable
 
 section .rodata
     leaderboard_file_name db "leaderboard.bin", 0  
@@ -16,6 +17,24 @@ section .rodata
     ;;;;;; Debugging ;;;;;;
     constructor_name db "file_manager_new", 0
     format db "%16s", 0
+
+    ;;;;;; VTABLES ;;;;;;
+    file_manager_static_vtable:
+        dq file_manager_new
+
+    ;;;;;; VTABLES ;;;;;;
+    file_manager_methods_vtable:
+        dq file_manager_create_table_from_file
+        dq file_manager_add_leaderboard_record
+        dq file_manager_update_highscore
+        dq file_manager_update_table
+        dq file_manager_destroy_table_from_file
+        dq file_manager_destroy
+
+    file_manager_getter_vtable:
+        dq file_manager_get_name
+        dq file_manager_get_num_of_entries
+        dq file_manager_get_record_by_index
 
 section .bss
     ; Memory space for the created file manager pointer.
@@ -52,24 +71,12 @@ section .text
     extern ReadFile, WriteFile
     extern GetFileSizeEx, SetFilePointerEx
 
-    extern table_new
-    extern helper_merge_sort_list
+    extern table_static_vtable
+    extern helper_static_vtable
 
     extern malloc_failed, object_not_created
 
-;;;;;; VTABLES ;;;;;;
-file_manager_methods_vtable:
-    dq file_manager_create_table_from_file
-    dq file_manager_add_leaderboard_record
-    dq file_manager_update_highscore
-    dq file_manager_update_table
-    dq file_manager_destroy_table_from_file
-    dq file_manager_destroy
 
-file_manager_getter_vtable:
-    dq file_manager_get_name
-    dq file_manager_get_num_of_entries
-    dq file_manager_get_record_by_index
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 file_manager_new:
@@ -212,7 +219,8 @@ file_manager_create_table_from_file:
 
     .create_object:
         mov rcx, rax
-        call table_new
+        lea r10, [rel table_static_vtable]
+        call [r10 + TABLE_STATIC_CONSTRUCTOR_OFFSET]
         ; * Second local variable: Pointer to created table.
         mov rbx, rax
 
@@ -914,7 +922,8 @@ _update_leaderboard_in_file:
         mov r8, FILE_RECORD_SIZE
         mov r9, FILE_HIGHSCORE_OFFSET
         mov qword [rsp + 32], FILE_HIGHSCORE_SIZE
-        call helper_merge_sort_list
+        lea r10, [rel helper_static_vtable]
+        call [r10 + HELPER_STATIC_MERGE_SORT_OFFSET]
 
     .set_position:
         xor rcx, rcx

@@ -8,21 +8,24 @@
 ; It defines the player and the level of the game.
 ; I decided to work with an options object, because it made 
 
-global options_new
+global options_static_vtable
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "object_new", 0
 
+    ;;;;;; VTABLES ;;;;;;
+    options_static_vtable:
+        dq options_new
+
+    options_methods_vtable:
+        dq options_destroy
+
+
 section .text
     extern malloc, free
 
     extern malloc_failed
-
-
-;;;;;; VTABLES ;;;;;;
-options_methods_vtable:
-    dq options_destroy
 
 
 ;;;;;; PUBLIC METHODS ;;;;;;

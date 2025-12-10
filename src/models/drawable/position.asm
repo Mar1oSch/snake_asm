@@ -4,20 +4,24 @@
 ; The position object each drawable holds. 
 ; It defines the X-coordinate and Y-coordinate of the drawable.
 
-global position_new
+global position_static_vtable
 
 section .rodata
     ;;;;;; DEBUGGING ;;;;;;
     constructor_name db "position_new", 0
+
+    ;;;;;; VTABLES ;;;;;;
+    position_static_vtable:
+        dq position_new
+
+    position_methods_vtable:
+        dq position_destroy
 
 section .text
     extern malloc, free
 
     extern malloc_failed
 
-;;;;;; VTABLES ;;;;;;
-position_methods_vtable:
-    dq position_destroy
 
 ;;;;;; PUBLIC METHODS ;;;;;;
 
