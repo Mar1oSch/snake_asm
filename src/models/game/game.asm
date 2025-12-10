@@ -3,12 +3,16 @@
 
 ; Constants:
 %include "./include/data/snake/snake_constants.inc"
+%include "./include/data/organizer/console_manager/console_manager_constants.inc"
+%include "./include/data/organizer/designer/designer_constants.inc"
+%include "./include/data/organizer/interactor/interactor_constants.inc"
 %include "./include/data/game/board/board_constants.inc"
 %include "./include/data/game/player/player_constants.inc"
 
 ; Strucs:
 %include "./include/strucs/organizer/interactor_struc.inc"
 %include "./include/strucs/organizer/designer_struc.inc"
+%include "./include/strucs/organizer/console_manager_struc.inc"
 %include "./include/strucs/game/game_struc.inc"
 %include "./include/strucs/game/board_struc.inc"
 %include "./include/strucs/game/player_struc.inc"
@@ -53,9 +57,6 @@ section .text
     extern printf
 
     extern board_new
-    extern console_manager_write_word, console_manager_write_number
-    extern file_manager_update_highscore, file_manager_get_name
-    extern designer_type_sequence
     extern helper_change_position
 
     extern malloc_failed, object_not_created
@@ -87,6 +88,7 @@ game_new:
 
         ; Save params into shadow space.
         mov [rbp + 16], rdx
+        mov [rbp + 24], r8
 
         ; Reserve 32 bytes shadow space for called functions. 
         sub rsp, 32
@@ -121,6 +123,10 @@ game_new:
         ; Save methods vtable into its preserved memory space.
         lea rcx, [rel game_methods_vtable]
         mov [rax + game.methods_vtable_ptr], rcx
+
+        ; Save interactor pointer into its preserved memory space.
+        mov rcx, [rbp + 24]
+        mov [rax + game.interactor_ptr], rcx
 
         ; Save board pointer into reserved space.
         mov rcx, [rbp - 8]
@@ -189,7 +195,7 @@ game_reset:
         mov r10, [rel lcl_game_ptr]
         mov r10, [r10 + game.board_ptr]
         mov r10, [r10 + board.methods_vtable_ptr]
-        call [r10 + BOARD_METHODS_VTABLE_RESET_OFFSET]
+        call [r10 + BOARD_METHODS_RESET_OFFSET]
         ; Pointer to new board is returned in RAX.
 
     .set_up_game:
@@ -261,7 +267,7 @@ _game_setup:
         mov r10, [rel lcl_game_ptr]
         mov r10, [r10 + game.board_ptr]
         mov r10, [r10 + board.methods_vtable_ptr]
-        call [r10 + BOARD_METHODS_VTABLE_SETUP_OFFSET]
+        call [r10 + BOARD_METHODS_SETUP_OFFSET]
 
         call _build_scoreboard
 
@@ -319,7 +325,7 @@ _game_play:
         mov r10, [rbx + game.board_ptr]
         mov r10, [r10 + board.methods_vtable_ptr]
         mov ecx, eax
-        call [r10 + BOARD_METHODS_VTABLE_MOVE_SNAKE_OFFSET]
+        call [r10 + BOARD_METHODS_MOVE_SNAKE_OFFSET]
 
         ; Check, if the snake collided with something. 
         call _collission_check
@@ -341,12 +347,12 @@ _game_play:
         mov r10, [rbx + game.board_ptr]
         mov r10, [r10 + board.snake_ptr]
         mov r10, [r10 + snake.methods_vtable_ptr]
-        call [r10 + SNAKE_METHODS_VTABLE_ADD_UNIT_OFFSET]
+        call [r10 + SNAKE_METHODS_ADD_UNIT_OFFSET]
 
         ; Create new food.
         mov r10, [rbx + game.board_ptr]
         mov r10, [r10 + board.methods_vtable_ptr]
-        call [r10 + BOARD_METHODS_VTABLE_CREATE_FOOD_OFFSET]
+        call [r10 + BOARD_METHODS_CREATE_FOOD_OFFSET]
 
         jmp .game_loop_handle
 
@@ -397,13 +403,25 @@ _add_points:
 
 _pause:
     .set_up:
-        ; Set up stack frame without local variables.
+        ; Set up stack frame.
+        ; * 8 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
+        sub rsp, 16
 
         ; If game is not created, let the user know.
         cmp qword [rel lcl_game_ptr], 0
         je _g_object_failed
+
+        ; Save non-volatile regs.
+        mov [rbp - 8], rbx
+
+        ; Prepare designer.methods_table in RBX.
+        mov rbx, [rel lcl_game_ptr]
+        mov rbx, [rbx + game.interactor_ptr]
+        mov rbx, [rbx + interactor.designer_ptr]
+        mov rbx, [rbx + designer.methods_vtable_ptr]
 
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
@@ -417,7 +435,7 @@ _pause:
         lea rcx, [rel paused_table]
         mov rdx, paused_table_size
         xor r8, r8
-        call designer_type_sequence
+        call [rbx + DESIGNER_METHODS_TYPE_SEQUENCE_OFFSET]
 
         mov rcx, 500
         call Sleep
@@ -429,7 +447,7 @@ _pause:
         lea rcx, [rel empty_table]
         mov rdx, empty_table_size
         xor r8, r8
-        call designer_type_sequence
+        call [rbx + DESIGNER_METHODS_TYPE_SEQUENCE_OFFSET]
 
         mov rcx, 500
         call Sleep
@@ -444,12 +462,15 @@ _pause:
         lea rcx, [rel empty_table]
         mov rdx, empty_table_size
         xor r8, r8
-        call designer_type_sequence
+        call [rbx + DESIGNER_METHODS_TYPE_SEQUENCE_OFFSET]
 
         mov r10, [rel lcl_game_ptr]
         mov r10, [r10 + game.board_ptr]
         mov r10, [r10 + board.methods_vtable_ptr]
-        call [r10 + BOARD_METHODS_VTABLE_DRAW_FOOD_OFFSET]
+        call [r10 + BOARD_METHODS_DRAW_FOOD_OFFSET]
+
+        ; Restore non-volatile regs.
+        mov rbx, [rbp - 8]
 
         ; Restore old stack frame and return to caller.
         mov rsp, rbp
@@ -880,16 +901,18 @@ _build_scoreboard:
 _print_player:
     .set_up:
         ; Set up stack frame:
-        ; * 32 bytes local variables.
+        ; * 40 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
-        sub rsp, 32
+        sub rsp, 48
 
         ; Save non volatile regs.
         mov [rbp - 8], rbx 
         mov [rbp - 16], r12
         mov [rbp - 24], r13
         mov [rbp - 32], r14
+        mov [rbp - 40], r15
 
         ; Prepare game pointer in RBX.
         mov rbx, [rel lcl_game_ptr]
@@ -900,6 +923,10 @@ _print_player:
         ; Prepare board.getter_table in R14.
         mov r14, [r13 + board.getter_vtable_ptr]
 
+        ; Prepare console_manager.methods_table in R15.
+        mov r15, [r13 + board.console_manager_ptr]
+        mov r15, [r15 + console_manager.methods_vtable_ptr]
+
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
@@ -907,7 +934,7 @@ _print_player:
     ; R12D will hold the X- and the Y-coordinates of the starting point.
     .get_x_offset:
         ; So I get the X-Offset of the board.
-        call [r14 + BOARD_GETTER_VTABLE_X_OFFSET]
+        call [r14 + BOARD_GETTER_X_OFFSET]
         ; Prepare X value in R12W.
         mov r12w, ax
         dec r12w
@@ -915,7 +942,7 @@ _print_player:
 
     .get_y_offset:
         ; Get Y-Offset of the board.
-        call [r14 + BOARD_GETTER_VTABLE_Y_OFFSET]
+        call [r14 + BOARD_GETTER_Y_OFFSET]
         ; Prepare Y value in R12W.
         mov r12w, ax
         add r12w, [r13 + board.height]
@@ -926,7 +953,7 @@ _print_player:
         mov r10, [rbx + game.options_ptr]
         mov r10, [r10 + options.player_ptr]
         mov r10, [r10 + player.getter_vtable_ptr]
-        call [r10 + PLAYER_GETTER_VTABLE_NAME_LENGTH_OFFSET]
+        call [r10 + PLAYER_GETTER_NAME_LENGTH_OFFSET]
         ; Prepare third parameter for write function. (Amount of bytes to write)
         mov r8, rax
 
@@ -936,10 +963,11 @@ _print_player:
         mov rdx, [rdx + options.player_ptr]
         mov rdx, [rdx + player.name]
         xor r9, r9 
-        call console_manager_write_word
+        call [r15 + CONSOLE_MANAGER_METHODS_WRITE_WORD_OFFSET]
 
     .complete:
         ; Restore non-volatile regs.
+        mov r15, [rbp - 40]
         mov r14, [rbp - 32]
         mov r13, [rbp - 24]
         mov r12, [rbp - 16]
@@ -953,50 +981,58 @@ _print_player:
 _print_level:
     .set_up:
         ; Set up stack frame:
-        ; * 16 bytes local variables.
+        ; * 24 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
-        sub rsp, 16
+        sub rsp, 32
 
         ; Save non-volatile regs.
-        mov [rbp - 8], r12
-        mov [rbp - 16], r13
+        mov [rbp - 8], rbx
+        mov [rbp - 16], r12
+        mov [rbp - 24], r13
 
-        ; Prepare the board.getter_table in R13.
-        mov r13, [rel lcl_game_ptr]
-        mov r13, [r13 + game.board_ptr]
-        mov r13, [r13 + board.getter_vtable_ptr]
+        ; Prepare the board pointer in R12.
+        mov r12, [rel lcl_game_ptr]
+        mov r12, [r12 + game.board_ptr]
+
+        ; Prepare the console_manager.methods_table in R13.
+        mov r13, [r12 + board.console_manager_ptr]
+        mov r13, [r13 + console_manager.methods_vtable_ptr]
+
+        ; Prepare the board.getter_table in R12.
+        mov r12, [r12 + board.getter_vtable_ptr]
 
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
     ; I want to place the level on the left top corner above the board.
-    ; R12D will hold the X- and the Y-coordinates of the starting point.
+    ; EBX will hold the X- and the Y-coordinates of the starting point.
     .get_x_offset:
         ; So I get the X-Offset of the board.
-        call [r13 + BOARD_GETTER_VTABLE_X_OFFSET]
+        call [r12 + BOARD_GETTER_X_OFFSET]
 
-        ; Prepare X value in R12W.
-        mov r12w, ax
-        dec r12w
-        shl r12d, 16
+        ; Prepare X value in BX.
+        mov bx, ax
+        dec bx
+        shl ebx, 16
 
     .get_y_offset:
         ; Get Y-Offset of the board.
-        call [r13 + BOARD_GETTER_VTABLE_Y_OFFSET]
-        ; Prepare Y value in R12W.
-        mov r12w, ax
-        sub r12w, 2
+        call [r12 + BOARD_GETTER_Y_OFFSET]
+        ; Prepare Y value in BX.
+        mov bx, ax
+        sub bx, 2
 
     .write_word:
-        mov ecx, r12d
+        mov ecx, ebx
         lea rdx, [rel lvl_format]
         mov r8, LVL_LENGTH
         xor r9, r9
-        call console_manager_write_word
+        call [r13 + CONSOLE_MANAGER_METHODS_WRITE_WORD_OFFSET]
 
     .change_position:
-        mov ecx, r12d
+        mov ecx, ebx
         mov rdx, LVL_LENGTH
         xor r8, r8
         call helper_change_position
@@ -1007,12 +1043,13 @@ _print_level:
         mov rdx, [rdx + game.options_ptr]
         mov edx, [rdx + options.lvl]
         mov r8, 2
-        call console_manager_write_number
+        call [r13 + CONSOLE_MANAGER_METHODS_WRITE_NUMBER_OFFSET]
 
     .complete:
         ; Restore non-volatile regs.
-        mov r13, [rbp - 16]
-        mov r12, [rbp - 8]
+        mov r13, [rbp - 24]
+        mov r12, [rbp - 16]
+        mov rbx, [rbp - 8]
 
         ; Restore old stack frame and return to caller.
         mov rsp, rbp
@@ -1022,7 +1059,8 @@ _print_level:
 _print_points:
     .set_up:
         ; Set up stack frame:
-        ; * 32 bytes local variables.
+        ; * 40 bytes local variables.
+        ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
         sub rsp, 32
@@ -1032,6 +1070,7 @@ _print_points:
         mov [rbp - 16], r12
         mov [rbp - 24], r13
         mov [rbp - 32], r14
+        mov [rbp - 40], r15
 
         ; Prepare game pointer in RBX.
         mov rbx, [rel lcl_game_ptr]
@@ -1042,6 +1081,10 @@ _print_points:
         ; Prepare the board.getter_table in R14.
         mov r14, [r13 + board.getter_vtable_ptr]
 
+        ; Prepare the console_manager.methods_table in R15.
+        mov r15, [r13 + board.console_manager_ptr]
+        mov r15, [r15 + console_manager.methods_vtable_ptr]
+
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
@@ -1049,7 +1092,7 @@ _print_points:
     ; R12D will hold the X- and the Y-coordinates of the starting point.
     .get_x_offset:
         ; So I get the X-Offset of the board.
-        call [r14 + BOARD_GETTER_VTABLE_X_OFFSET]
+        call [r14 + BOARD_GETTER_X_OFFSET]
 
         ; Prepare X value in R12W.
         mov r12w, ax
@@ -1059,7 +1102,7 @@ _print_points:
 
     .get_y_offset:
         ; Get Y-Offset of the board.
-        call [r14 + BOARD_GETTER_VTABLE_Y_OFFSET]
+        call [r14 + BOARD_GETTER_Y_OFFSET]
 
         ; Prepare Y value in R12W.
         mov r12w, ax
@@ -1070,10 +1113,11 @@ _print_points:
         mov ecx, r12d
         mov edx, [rbx + game.points]
         mov r8, 4
-        call console_manager_write_number
+        call [r15 + CONSOLE_MANAGER_METHODS_WRITE_NUMBER_OFFSET]
 
     .complete:
         ; Restore non-volatile regs.
+        mov r15, [rbp - 40]
         mov r14, [rbp - 32]
         mov r13, [rbp - 24]
         mov r12, [rbp - 16]
@@ -1088,7 +1132,7 @@ _print_highscore:
     .set_up:
         .set_up:
         ; Set up stack frame:
-        ; * 24 bytes local variables.
+        ; * 40 bytes local variables.
         ; * 8 bytes to keep stack 16-byte aligned.
         push rbp
         mov rbp, rsp
@@ -1098,6 +1142,8 @@ _print_highscore:
         mov [rbp - 8], rbx 
         mov [rbp - 16], r12
         mov [rbp - 24], r13
+        mov [rbp - 32], r14
+        mov [rbp - 40], r15
 
         ; Prepare game pointer in RBX.
         mov rbx, [rel lcl_game_ptr]
@@ -1108,6 +1154,10 @@ _print_highscore:
         ; Prepare the board.getter_table in R14.
         mov r14, [r13 + board.getter_vtable_ptr]
 
+        ; Prepare the console_manager.methods_table in R15.
+        mov r15, [r13 + board.console_manager_ptr]
+        mov r15, [r15 + console_manager.methods_vtable_ptr]
+
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
@@ -1115,7 +1165,7 @@ _print_highscore:
     ; R12D will hold the X- and the Y-coordinates of the starting point.
     .get_x_offset:
         ; So I get the X-Offset of the board.
-        call [r14 + BOARD_GETTER_VTABLE_X_OFFSET]
+        call [r14 + BOARD_GETTER_X_OFFSET]
 
         ; Prepare X value in R12W.
         mov r12w, ax
@@ -1125,7 +1175,7 @@ _print_highscore:
 
     .get_y_offset:
         ; Get Y-Offset of the board.
-        call [r14 + BOARD_GETTER_VTABLE_Y_OFFSET]
+        call [r14 + BOARD_GETTER_Y_OFFSET]
         ; Prepare Y value in R12W.
         mov r12w, ax
         sub r12w, 2
@@ -1135,7 +1185,7 @@ _print_highscore:
         lea rdx, [rel best_format]
         mov r8, BEST_LENGTH
         xor r9, r9
-        call console_manager_write_word
+        call [r15 + CONSOLE_MANAGER_METHODS_WRITE_WORD_OFFSET]
 
     .change_position:
         mov ecx, r12d
@@ -1149,10 +1199,11 @@ _print_highscore:
         mov rdx, [rdx + options.player_ptr]
         mov edx, [rdx + player.highscore]
         mov r8, 4
-        call console_manager_write_number
+        call [r15 + CONSOLE_MANAGER_METHODS_WRITE_NUMBER_OFFSET]
 
     .complete:
         ; Restore non-volatile regs.
+        mov r14, [rbp - 32]
         mov r13, [rbp - 24]
         mov r12, [rbp - 16]
         mov rbx, [rbp - 8]
@@ -1179,7 +1230,11 @@ _game_over:
         lea rcx, [rel game_over_table]
         mov rdx, game_over_table_size
         xor r8, r8
-        call designer_type_sequence
+        mov r10, [rel lcl_game_ptr]
+        mov r10, [r10 + game.interactor_ptr]
+        mov r10, [r10 + interactor.designer_ptr]
+        mov r10, [r10 + designer.methods_vtable_ptr]
+        call [r10 + DESIGNER_METHODS_TYPE_SEQUENCE_OFFSET]
 
         mov rcx, 2000
         call Sleep
@@ -1197,17 +1252,21 @@ _game_over:
 _update_highscore:
     .set_up:
         ; Set up stack frame:
-        ; * 8 bytes local variables.
-        ; * 8 bytes to keep stack 16 byte aligned.
+        ; * 16 bytes local variables.
         push rbp
         mov rbp, rsp
         sub rsp, 16
 
         ; Save non-volatile regs.
         mov [rbp - 8], rbx
+        mov [rbp - 16], r12
 
         ; Set up game pointer in RBX.
         mov rbx, [rel lcl_game_ptr]
+
+        ; Prepare interactor.methods_vtable in R12.
+        mov r12, [rbx + game.interactor_ptr]
+        mov r12, [r12 + interactor.methods_vtable_ptr]
 
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
@@ -1230,18 +1289,17 @@ _update_highscore:
         jbe .complete
 
     .update_highscore:
+        ; Update highscore of player.
         mov r10, [rbx + player.methods_vtable_ptr]
-        call [r10 + PLAYER_METHODS_VTABLE_UPDATE_HIGHSCORE_OFFSET]
+        call [r10 + PLAYER_METHODS_UPDATE_HIGHSCORE_OFFSET]
 
-        mov rcx, [rbx + player.name]
-        call file_manager_get_name
-
-        mov rdx, rax
-        mov ecx, dword [rbx + player.highscore]
-        call file_manager_update_highscore
+        ; Update highscore in file.
+        mov rcx, rbx
+        call [r12 + INTERACTOR_METHODS_UPDATE_HIGHSCORE_OFFSET]
 
     .complete:
         ; Restore non-volatile regs.
+        mov r12, [rbp - 16]
         mov rbx, [rbp - 8]
 
         ; Restore old stack frame and return to caller.

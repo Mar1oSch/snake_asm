@@ -1,3 +1,6 @@
+; Constants:
+%include "./include/data/game/options/options_constants.inc"
+
 ; Strucs:
 %include "./include/strucs/game/options_struc.inc"
 
@@ -146,31 +149,31 @@ _get_delay:
         dq .nineth_level
 
     .first_level:  
-        mov ax, 270
+        mov ax, LVL_1_DELAY
         jmp .complete
     .second_level: 
-        mov ax, 240
+        mov ax, LVL_2_DELAY
         jmp .complete
     .third_level:  
-        mov ax, 210
+        mov ax, LVL_3_DELAY
         jmp .complete
     .fourth_level: 
-        mov ax, 180
+        mov ax, LVL_4_DELAY
         jmp .complete
     .fifth_level:  
-        mov ax, 150
+        mov ax, LVL_5_DELAY
         jmp .complete
     .sixth_level:  
-        mov ax, 120
+        mov ax, LVL_6_DELAY
         jmp .complete
     .seventh_level:
-        mov ax, 90
+        mov ax, LVL_7_DELAY
         jmp .complete
     .eighth_level: 
-        mov ax, 60
+        mov ax, LVL_8_DELAY
         jmp .complete
     .nineth_level: 
-        mov ax, 30
+        mov ax, LVL_9_DELAY
 
     .complete:
         ; Restore old stack frame and return to caller.

@@ -1,6 +1,6 @@
 ; Constants:
 %include "./include/data/game/board/board_constants.inc"
-%include "./include/data/´organizer/console_manager_constants.inc"
+%include "./include/data/organizer/console_manager/console_manager_constants.inc"
 %include "./include/data/drawable_vtable/drawable_vtable_constants.inc"
 %include "./include/data/snake/snake_constants.inc"
 %include "./include/data/food/food_constants.inc"
@@ -8,6 +8,7 @@
 ; Strucs:
 %include "./include/strucs/interface_table_struc.inc"
 %include "./include/strucs/position_struc.inc"
+%include "./include/strucs/organizer/console_manager_struc.inc"
 %include "./include/strucs/game/board_struc.inc"
 %include "./include/strucs/food/food_struc.inc"
 %include "./include/strucs/snake/snake_struc.inc"
@@ -45,7 +46,6 @@ section .text
     extern GetSystemTimeAsFileTime
 
     extern snake_new
-    extern console_manager_clear_all, console_manager_clear_sequence, console_manager_repeat_char, console_manager_get_center_y_offset, console_manager_get_center_x_offset
     extern food_new
 
     extern malloc_failed, object_not_created
@@ -243,12 +243,12 @@ board_reset:
         ; At first: Get the pointer of the food still existing and destroy it.
         mov rcx, [rbx + board.food_ptr]
         mov r10, [rcx + food.methods_vtable_ptr]
-        call [r10 + FOOD_METHODS_VTABLE_DESTRUCTOR_OFFSET]
+        call [r10 + FOOD_METHODS_DESTRUCTOR_OFFSET]
 
         ; Then: Make the snake destroy all its constituting objects.
         mov r10, [rbx + board.snake_ptr]
         mov r10, [r10 + snake.methods_vtable_ptr]
-        call [r10 + SNAKE_METHODS_VTABLE_RESET_OFFSET]
+        call [r10 + SNAKE_METHODS_RESET_OFFSET]
 
         ; Finally destroy the board itself.
         call _board_destroy
@@ -324,7 +324,7 @@ board_create_new_food:
         ; On the surface, the old food is consumed and erased. But the memory space is still reserved for it. Since the program won't ever use it again, it is now time to set it free. Therefore I load the pointer to the old food object, which is still saved in the board struc, into RCX and let it get set free.
         mov rcx, [rbx + board.food_ptr]
         mov r10, [rcx + food.methods_vtable_ptr]
-        call [r10 + FOOD_METHODS_VTABLE_DESTRUCTOR_OFFSET]
+        call [r10 + FOOD_METHODS_DESTRUCTOR_OFFSET]
 
     .randomize_new_position_loop:
         ; Here a position object with randomized X- and Y-coordinates is created.
@@ -379,15 +379,20 @@ get_board_x_offset:
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
+        ; Prepare console manager getter vtable in R10.
+        mov rbx, [rel lcl_board_ptr]
+
+        mov r10, [rbx + board.console_manager_ptr]
+        mov r10, [r10 + console_manager.getter_vtable_ptr]
+
     .get_half_board_width:
         ; Loading the width of the board into BX and divide it by two.
-        mov rbx, [rel lcl_board_ptr]
         mov bx,  [rbx + board.width]
         shr bx, 1
     
     .get_center_x_of_console:
         ; Get the central X-point of the console window.
-        call console_manager_get_center_x_offset
+        call [r10 + CONSOLE_MANAGER_GETTER_X_OFFSET]
     
     .calculate_final_offset:
         ; To get the starting X value of the board, we need to subtract the half width of the board from the central point. 
@@ -419,15 +424,20 @@ get_board_y_offset:
         ; Reserve 32 bytes shadow space for called functions.
         sub rsp, 32
 
+        ; Prepare console manager methods vtable in R10.
+        mov rbx, [rel lcl_board_ptr]
+
+        mov r10, [rbx + board.console_manager_ptr]
+        mov r10, [r10 + console_manager.getter_vtable_ptr]
+
     .get_half_board_height:
         ; Loading the height of the board into BX and divide it by two.
-        mov rbx, [rel lcl_board_ptr]
         mov bx,  [rbx + board.height]
         shr bx, 1
     
     .get_center_y_of_console:
         ; Get the central Y-point of the console window.
-        call console_manager_get_center_y_offset
+        call [r10 + CONSOLE_MANAGER_GETTER_Y_OFFSET]
     
     .calculate_final_offset:
         ; To get the starting Y value of the board, we need to subtract the half width of the board from the central point. 
@@ -557,7 +567,7 @@ _draw_snake:
         .get_x:
             ; Getting the X-position of the DRAWABLE, add the X-offset and move it into R13W.
             mov rcx, r12                                           
-            call [r15 + DRAWABLE_VTABLE_X_POSITION_OFFSET]
+            call [r15 + DRAWABLE_X_POSITION_OFFSET]
             ror r14d, 16
             add ax, r14w
             mov r13w, ax
@@ -565,7 +575,7 @@ _draw_snake:
         .get_y:
             ; Getting the Y-position of the DRAWABLE, add the Y-offset, and move it into R13W, after R13 has been shifted to the left 16 bits.
             mov rcx, r12                                            ; Move pointer to unit to RCX.
-            call [r15 + DRAWABLE_VTABLE_Y_POSITION_OFFSET]
+            call [r15 + DRAWABLE_Y_POSITION_OFFSET]
             rol r14d, 16
             add ax, r14w
             shl r13d, 16
@@ -574,7 +584,7 @@ _draw_snake:
         .get_char:
             ; Now it's time to get the pointer to the character representing the DRAWABLE on the board. 
             mov rcx, r12                                           
-            call [r15 + DRAWABLE_VTABLE_CHAR_PTR_OFFSET]
+            call [r15 + DRAWABLE_CHAR_PTR_OFFSET]
 
         .draw_char: 
             ; Finally the character is get drawn into the board.
@@ -585,7 +595,7 @@ _draw_snake:
             mov r10, [rel lcl_board_ptr]
             mov r10, [r10 + board.console_manager_ptr]
             mov r10, [r10 + console_manager.methods_vtable_ptr]
-            call [r10 + CONSOLE_MANAGER_METHODS_VTABLE_WRITE_CHAR_OFFSET]
+            call [r10 + CONSOLE_MANAGER_METHODS_WRITE_CHAR_OFFSET]
         
     .draw_loop_handle:
         ; At first it gets checked, if R12 ist the tail now.
@@ -677,7 +687,7 @@ _draw_fence:
         movzx r8d, bx
         add r8d, 3
         rol ebx, 16
-        call [r14 + CONSOLE_MANAGER_METHODS_VTABLE_REPEAT_CHAR_OFFSET]
+        call [r14 + CONSOLE_MANAGER_METHODS_REPEAT_CHAR_OFFSET]
 
     .draw_side_fence_loop:
         ; Preparing coordinates of the left fence piece. 
@@ -695,7 +705,7 @@ _draw_fence:
         ; Finally the pointer to the fence char get's loaded into RDX.
         ; Parameters are set up.
         lea rdx, [rel fence_char] 
-        call [r14 + CONSOLE_MANAGER_METHODS_VTABLE_WRITE_CHAR_OFFSET]
+        call [r14 + CONSOLE_MANAGER_METHODS_WRITE_CHAR_OFFSET]
 
         ; Preparing coordinates of the right fence piece.
         ; The X-coordinate is board.x-offset + board.width + 1
@@ -714,7 +724,7 @@ _draw_fence:
         ; Loading again the pointer to the fence char into RDX.
         ; Parameters are set up.
         lea rdx, [rel fence_char] 
-        call [r14 + CONSOLE_MANAGER_METHODS_VTABLE_WRITE_CHAR_OFFSET]
+        call [r14 + CONSOLE_MANAGER_METHODS_WRITE_CHAR_OFFSET]
 
     .draw_side_fence_loop_handle:
         ; The loop handles sets EBX back into set up [width, height] and increments the height counter.
@@ -745,7 +755,7 @@ _draw_fence:
         ror ebx, 16
         movzx r8d, bx
         add r8d, 3
-        call call [r14 + CONSOLE_MANAGER_METHODS_VTABLE_REPEAT_CHAR_OFFSET]
+        call [r14 + CONSOLE_MANAGER_METHODS_REPEAT_CHAR_OFFSET]
 
     .complete:
         ; Restore non-volatile regs.
@@ -799,7 +809,7 @@ _draw_food:
     .get_x:
         ; Get X-position of DRAWABLE.
         mov rcx, rbx
-        call [r12 + DRAWABLE_VTABLE_X_POSITION_OFFSET]
+        call [r12 + DRAWABLE_X_POSITION_OFFSET]
         mov r13w, ax
 
         ; Add board.x_offset.
@@ -809,7 +819,7 @@ _draw_food:
     .get_y:
         ; Get Y-position of DRAWABLE.
         mov rcx, rbx
-        call [r12 + DRAWABLE_VTABLE_Y_POSITION_OFFSET]
+        call [r12 + DRAWABLE_Y_POSITION_OFFSET]
         shl r13d, 16
         mov r13w, ax
 
@@ -820,7 +830,7 @@ _draw_food:
     .get_char_ptr:
         ; Finally get char pointer of DRAWABLE object.
         mov rcx, rbx
-        call [r12 + DRAWABLE_VTABLE_CHAR_PTR_OFFSET]
+        call [r12 + DRAWABLE_CHAR_PTR_OFFSET]
 
         ; Set up parameter for "console_manager_write_char":
         ; * - ECX contains the position of char.
@@ -832,7 +842,7 @@ _draw_food:
 
         ; * - RDX contains pointer to char.
         mov rdx, rax
-        call [r14 + CONSOLE_MANAGER_METHODS_VTABLE_WRITE_CHAR_OFFSET]
+        call [r14 + CONSOLE_MANAGER_METHODS_WRITE_CHAR_OFFSET]
 
     .complete:
         ; Restore non-volatile regs.
@@ -898,7 +908,11 @@ _erase_snake_unit:
 
         ; Letting the function erase exactly one char.
         mov rdx, 1
-        call console_manager_clear_sequence
+
+        mov r10, [rel lcl_board_ptr]
+        mov r10, [r10 + board.console_manager_ptr]
+        mov r10, [r10 + console_manager.methods_vtable_ptr]
+        call [r10 + CONSOLE_MANAGER_METHODS_CLEAR_SEQUENCE_OFFSET]
 
         ; ! Draw food again, since it is possibly deleted at this point. (Should find a better solution for that.)
         call _draw_food

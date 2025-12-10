@@ -23,11 +23,11 @@ headline_table_end:
 
 HEADLINE_TABLE_SIZE equ (headline_table_end - headline_table) / 16
 
-by:
+author:
 db "by Mario Schanzenbach", 0
-by_end:
+author_end:
 
-BY_LENGTH equ by_end - by
+AUTHOR_LENGTH equ author_end - author
 
 ;;;;;; LEADERBOARD SCREEN ;;;;;;
 leaderboard:

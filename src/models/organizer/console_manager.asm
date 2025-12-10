@@ -1,12 +1,12 @@
 ; Constants:
-%include "./include/data/organizer/console_manager_constants.inc"
+%include "./include/data/organizer/console_manager/console_manager_constants.inc"
 
 ; Strucs:
 %include "./include/strucs/organizer/console_manager_struc.inc"
 
 ; This is the console manager, which is responsible for managing the basic communication with the console. Every interaction with it is handled here.
 
-global console_manager_new, console_manager_destroy, console_manager_clear_all, console_manager_write_char, console_manager_set_cursor, console_manager_clear_sequence, console_manager_write_word, console_manager_get_center_x_offset, console_manager_get_center_y_offset, console_manager_recieve_numeral_input, console_manager_recieve_literal_input, console_manager_set_buffer_size, console_manager_write_number, console_manager_repeat_char, console_manager_set_console_cursor_info
+global console_manager_new
 
 section .rodata
     ;;;;;; ERASER ;;;;;;

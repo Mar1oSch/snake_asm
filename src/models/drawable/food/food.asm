@@ -121,7 +121,7 @@ food_destroy:
         ; Free the space of the position object owned by the food object which is going to be destroyed.
         mov rcx, [rcx + food.position_ptr]
         mov r10, [rcx + position.methods_vtable_ptr]
-        call [r10 + POSITION_METHODS_VTABLE_DESTRUCTOR_OFFSET]
+        call [r10 + POSITION_METHODS_DESTRUCTOR_OFFSET]
 
         ; Also free the space of the interface table.
         mov rcx, [rbp + 16]

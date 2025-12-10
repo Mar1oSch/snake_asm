@@ -153,7 +153,7 @@ unit_destroy:
         ; Free memory space of linked position object.
         mov rcx, [rcx + unit.position_ptr]
         mov r10, [rcx + position.methods_vtable_ptr]
-        call [r10 + POSITION_METHODS_VTABLE_DESTRUCTOR_OFFSET]
+        call [r10 + POSITION_METHODS_DESTRUCTOR_OFFSET]
 
         ; Free memory space of linked interface table object.
         mov rcx, [rbp + 16]

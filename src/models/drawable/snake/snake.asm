@@ -178,7 +178,7 @@ snake_reset:
         mov rcx, rbx
         mov rbx, [rbx + unit.next_unit_ptr]
         mov r10, [rcx + unit.methods_vtable_ptr]
-        call [r10 + UNIT_METHODS_VTABLE_DESTRUCTOR_OFFSET]
+        call [r10 + UNIT_METHODS_DESTRUCTOR_OFFSET]
 
     .loop_handle:
         ; Check if unit is tail. If it is, the process is done.

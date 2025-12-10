@@ -1,14 +1,14 @@
 ; Constants:
-%include "./include/data/organizer/file_manager_constants.inc"
-%include "./include/data/organizer/table/table_constants.inc"
+%include "./include/data/organizer/file_manager/file_manager_constants.inc"
+%include "./include/data/organizer/file_manager/table/table_constants.inc"
 
 ; Strucs:
 %include "./include/strucs/organizer/file_manager_struc.inc"
 %include "./include/strucs/organizer/table/table_struc.inc"
 
 ; The file manager handles the communication with the leaderboard.bin. It creates and updates players and their entries.
-; 
-global file_manager_new, file_manager_add_leaderboard_record, file_manager_destroy, file_manager_get_record_by_index, file_manager_get_name, file_manager_update_highscore, file_manager_get_num_of_entries, file_manager_get_total_bytes, file_manager_create_table_from_file, file_manager_destroy_table_from_file, file_manager_update_table
+
+global file_manager_new
 
 section .rodata
     leaderboard_file_name db "leaderboard.bin", 0  
@@ -57,12 +57,26 @@ section .text
 
     extern malloc_failed, object_not_created
 
+;;;;;; VTABLES ;;;;;;
+file_manager_methods_vtable:
+    dq file_manager_create_table_from_file
+    dq file_manager_add_leaderboard_record
+    dq file_manager_update_highscore
+    dq file_manager_update_table
+    dq file_manager_destroy_table_from_file
+    dq file_manager_destroy
+
+file_manager_getter_vtable:
+    dq file_manager_get_name
+    dq file_manager_get_num_of_entries
+    dq file_manager_get_record_by_index
+
 ;;;;;; PUBLIC METHODS ;;;;;;
 file_manager_new:
     .set_up:
         ; Set up stack frame:
         ; * 24 bytes function params.
-        ; * 8 bytes to keep stack 16-byte aligned.
+        ; * 8 bytes local variables.
         push rbp
         mov rbp, rsp
         sub rsp, 32
@@ -106,8 +120,19 @@ file_manager_new:
 
     .set_up_object:
         mov rcx, [rel lcl_file_manager_ptr]
+
+        ; Save table pointer into preserved memory space.
         mov [rcx + file_manager.table_ptr], rax
 
+        ; Save methods vtable into preserved memory space.
+        lea rax, [rel file_manager_methods_vtable]
+        mov [rcx + file_manager.methods_vtable_ptr], rax
+
+        ; Save getter vtable into preserved memory space.
+        lea rax, [rel file_manager_getter_vtable]
+        mov [rcx + file_manager.getter_vtable_ptr], rax
+
+        ; Save file handle into preserved memory space.
         mov rax, [rbp - 8]
         mov [rcx + file_manager.file_handle], rax
 
@@ -195,18 +220,18 @@ file_manager_create_table_from_file:
         mov ecx, FILE_NAME_SIZE
         xor rdx, rdx
         mov r10, [rbx + table.methods_vtable_ptr]
-        call [r10 + TABLE_METHODS_VTABLE_ADD_COLUMN_OFFSET]
+        call [r10 + TABLE_METHODS_ADD_COLUMN_OFFSET]
 
     .add_second_column:
         mov ecx, FILE_HIGHSCORE_SIZE
         mov edx, 1
         mov r10, [rbx + table.methods_vtable_ptr]
-        call [r10 + TABLE_METHODS_VTABLE_ADD_COLUMN_OFFSET]
+        call [r10 + TABLE_METHODS_ADD_COLUMN_OFFSET]
 
     .add_content:
         mov rcx, r12
         mov r10, [rbx + table.methods_vtable_ptr]
-        call [r10 + TABLE_METHODS_VTABLE_ADD_CONTENT_OFFSET]
+        call [r10 + TABLE_METHODS_ADD_CONTENT_OFFSET]
 
     .complete:
         ; Return pointer to table in RAX.
@@ -239,7 +264,7 @@ file_manager_destroy_table_from_file:
         mov rcx, [rel lcl_file_manager_ptr]
         mov rcx, [rcx + file_manager.table_ptr]
         mov r10, [rcx + table.methods_vtable_ptr]
-        call [r10 + TABLE_METHODS_VTABLE_DESTRUCTOR_OFFSET]
+        call [r10 + TABLE_METHODS_DESTRUCTOR_OFFSET]
 
     .complete:
         ; Restore old stack frame and return to caller.
@@ -364,7 +389,6 @@ file_manager_update_table:
 
     .update_row_count:
         call file_manager_get_num_of_entries
-        mov edx, [rbx + table.row_count]
         mov [rbx + table.row_count], eax
 
     .update_content:
