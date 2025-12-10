@@ -13,7 +13,8 @@ The individual constructor of each class is handled in a static vtable. This tab
 Object bound methods are divided into three tables:
 1.  <b>method vtable</b> 
 2.  <b>getter vtable</b> 
-3.  <b>setter vtable</b>
+3.  <b>setter vtable</b> 
+
 So it could be, that an object reserves memory space for three table pointer.
 I wanted to achieve real object orientation by encapsulating the code and just offer vtables as access points into the methods. 
 
