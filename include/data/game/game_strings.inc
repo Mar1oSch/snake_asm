@@ -17,7 +17,7 @@ game_over_table_end:
 game_over_table_size equ (game_over_table_end - game_over_table) /16
 
 paused:
-    .string1 db " P A U S E D "
+    .string1 db " [P] A U S E D "
 paused_end:
 
 paused_table:
@@ -27,7 +27,7 @@ paused_table_end:
 paused_table_size equ (paused_table_end - paused_table) /16
 
 empty:
-    .string1 db "             "
+    .string1 db "               "
 empty_end:
 
 empty_table:
