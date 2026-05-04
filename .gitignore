@@ -1,3 +1,5 @@
 leaderboard.bin
 *.dmp
+*.obj
+*.exe
 .vs

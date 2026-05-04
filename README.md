@@ -1,6 +1,6 @@
-# ASCII Snake in Assembly
+# 🐍 ASCII Snake in Assembly
 
-## Introduction
+## 📝 Introduction
 After taking my first steps in x86-64 Assembly, I wanted to create at least one larger project in it. That’s why I decided to implement a small Snake game.
 
 Since object-oriented programming is a major part of my apprenticeship, my goal was to structure this project in an object-oriented way. That means:
@@ -24,86 +24,109 @@ I also wanted to create a file system to store players and their highscores. Whe
 
 ---
 
-## Windows ABI
+## 🛠️ Building the Project
+
+To compile and link the project, you need **NASM** and **GCC** (e.g., via MinGW-w64) installed and available in your PATH.
+
+### 🤖 Automated Build (Recommended)
+I have provided a batch script that automates the assembly of all modules and the final linking process. 
+
+To build the project:
+1. Open your terminal in the project root directory.
+2. Run the build script:
+  ```cmd
+    .\build.bat
+  ```
+This will clean up old object files, assemble all source files using NASM, and link them into `snake.exe` using GCC.
+
+---
+
+## 💻 Windows ABI
 This project is written in **NASM** targeting the **Windows x64 ABI**.
 
-### Parameter registers
+### 🗄️ Parameter registers
 1. **RCX**
 2. **RDX**
 3. **R8**
 4. **R9**
 5. Additional parameters on the stack
 
-### Volatile registers
+### ⚡ Volatile registers
 * **RCX, RDX, R8, R9** (parameters)
 * **R10**
 * **R11**
 
-### Non-volatile registers
+### 🔒 Non-volatile registers
 * **RBX**
 * **R12–R15**
 * **RSI / RDI**
 * **RBP / RSP**
 
-### Shadow space
+### 👤 Shadow space
 * Every caller must reserve **32 bytes** of shadow space for the callee.
 * I use this shadow space to store parameters (unless they are moved into non-volatile registers for use across function calls).
 * Local variables are pushed onto stack space reserved at the beginning of the function.
 
 ---
 
-## Classes
+## 🏗️ Classes
 
 I divided the classes into three main groups.
 
 ---
 
-### 1. Drawables
-* **Food:**  
+### 1. 🎨 Drawables
+* **🍎 Food:**  
   Food is consumed by the Snake. It awards points (depending on the level) and adds a snake unit. After consumption, the Board creates a new Food object.
 
-* **Snake:**  
+* **🐍 Snake:**  
   The Snake is implemented as a singly linked list of units. It keeps track of its length, head, and tail.
 
-* **Unit:**  
+* **🟢 Unit:**  
   A basic snake segment. The head is drawn as `(@)`; all other units are drawn as `(O)`. Each unit points to the next one.
 
-* **Position:**  
+* **📍 Position:**  
   Every drawable object has a position consisting of X and Y coordinates inside the Board.
 
-* **Drawable VTable:**  
+* **📋 Drawable VTable:**  
   The interface vtable pointing to the shared functions: `get_x_coordinates`, `get_y_coordinates`, and `get_char`.
 
 ---
 
-### 2. Game
-* **Board:**  
+### 2. 🕹️ Game
+* **🏁 Board:**  
   Manages all objects displayed on the screen.
 
-* **Game:**  
+* **🧠 Game:**  
   Handles all game logic. It updates the Snake and checks for collisions.
 
-* **Options:**  
+* **⚙️ Options:**  
   Manages the current Player, the level, and the delay (which depends on the level).  
   After a game ends, the user can change the player, change the level, or change both — done simply by replacing the Game’s Options object.
 
-* **Player:**  
+* **👤 Player:**  
   Represents a player. The highscore is stored inside the Player object, while the score of the current game is kept inside the Game. If the score exceeds the highscore, the Player’s highscore is updated.
 
 ---
 
-### 3. Organizer
-* **Console Manager:**  
+### 3. 📂 Organizer
+* **⌨️ Console Manager:**  
   Handles console I/O — receiving input, writing characters and strings, etc.
 
-* **Designer:**  
+* **✨ Designer:**  
   Controls the visual style of console output, especially centering dialogue text.
 
-* **File Manager:**  
+* **💾 File Manager:**  
   Responsible for saving players and managing all file system interaction.
 
-* **Helper:**  
+* **🔧 Helper:**  
   Contains utility functions frequently used across the project (integer–string parsing, merge sort, etc.).
 
-* **Interactor:**  
+* **🗣️ Interactor:**  
   Communicates with the user and responds to input.
+
+---
+
+## 🚀 Planned Optimization
+- **O(1) Collision Detection:**  
+  Currently, collisions are detected by traversing the snake's linked list, which results in **O(n)** time complexity. I plan to optimize this by implementing a **Shadow Grid**. By mapping the board's coordinates to a linear bitfield, collision checks will be reduced to a constant time **O(1)** lookup, significantly improving performance for long snake lengths.
